@@ -1,7 +1,1531 @@
-﻿@*
-    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-*@
-@{
+﻿@{
+    ViewData["Title"] = "Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-ABCDEFG
+<div class="dashboard-container">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="header-content">
+            <div class="header-left">
+                <h1 class="page-title">
+                    <i class="fas fa-chart-line"></i>
+                    Dashboard Overview
+                </h1>
+                <p class="page-subtitle">Welcome back! Here's your complete RoomWise analytics.</p>
+            </div>
+            <div class="header-right">
+                <div class="header-time" id="currentDateTime"></div>
+                <button class="btn btn-primary" onclick="refreshDashboard()">
+                    <i class="fas fa-sync-alt"></i>
+                    Refresh Data
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards Row 1 -->
+    <div class="stats-grid">
+        <div class="stat-card stat-primary">
+            <div class="stat-icon">
+                <i class="fas fa-door-open"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalRooms">@Model.TotalRooms</div>
+                <div class="stat-label">Total Rooms</div>
+                <div class="stat-footer">
+                    <span class="stat-detail">@Model.AvailableRooms Available Now</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card stat-success">
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="totalUsers">@Model.TotalUsers</div>
+                <div class="stat-label">Active Users</div>
+                <div class="stat-footer">
+                    <span class="stat-detail">Registered Users</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card stat-info">
+            <div class="stat-icon">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="todayBookings">@Model.TodayBookings</div>
+                <div class="stat-label">Today's Bookings</div>
+                <div class="stat-footer">
+                    <span class="stat-detail">@Model.ActiveBookingsNow Active Now</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stat-card stat-warning">
+            <div class="stat-icon">
+                <i class="fas fa-comment-dots"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value" id="pendingFeedbacks">@Model.PendingFeedbacks</div>
+                <div class="stat-label">Pending Feedbacks</div>
+                <div class="stat-footer">
+                    <span class="stat-detail">Needs Response</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards Row 2 -->
+    <div class="stats-grid secondary-stats">
+        <div class="stat-card-mini stat-purple">
+            <div class="mini-icon"><i class="fas fa-calendar-alt"></i></div>
+            <div class="mini-content">
+                <div class="mini-value">@Model.TotalBookingsThisMonth</div>
+                <div class="mini-label">This Month</div>
+            </div>
+        </div>
+
+        <div class="stat-card-mini stat-orange">
+            <div class="mini-icon"><i class="fas fa-star"></i></div>
+            <div class="mini-content">
+                <div class="mini-value">@Model.AverageRating.ToString("0.0")</div>
+                <div class="mini-label">Avg Rating</div>
+            </div>
+        </div>
+
+        <div class="stat-card-mini stat-teal">
+            <div class="mini-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="mini-content">
+                <div class="mini-value">@Model.AvailableRooms</div>
+                <div class="mini-label">Available</div>
+            </div>
+        </div>
+
+        <div class="stat-card-mini stat-red">
+            <div class="mini-icon"><i class="fas fa-tools"></i></div>
+            <div class="mini-content">
+                <div class="mini-value">@Model.MaintenanceAlerts.Count</div>
+                <div class="mini-label">Alerts</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Charts Row -->
+    <div class="charts-row-main">
+        <div class="chart-card chart-large">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class="fas fa-chart-bar"></i>
+                    Booking Trends (Last 7 Days)
+                </h3>
+                <div class="chart-actions">
+                    <button class="btn-icon" onclick="exportChart('bookingTrends')">
+                        <i class="fas fa-download"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-body">
+                <div id="bookingTrendsChart"></div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class="fas fa-chart-pie"></i>
+                    Room Status
+                </h3>
+            </div>
+            <div class="chart-body">
+                <div id="roomUtilizationChart"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Secondary Charts Row -->
+    <div class="charts-row">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class="fas fa-clock"></i>
+                    Peak Hours Today
+                </h3>
+            </div>
+            <div class="chart-body">
+                <div id="peakHoursChart"></div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class="fas fa-building"></i>
+                    Department Usage
+                </h3>
+            </div>
+            <div class="chart-body">
+                <div id="departmentChart"></div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">
+                    <i class="fas fa-trophy"></i>
+                    Top Rooms
+                </h3>
+            </div>
+            <div class="chart-body">
+                <div id="roomPopularityChart"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Comparison Chart -->
+    <div class="chart-card-full">
+        <div class="chart-header">
+            <h3 class="chart-title">
+                <i class="fas fa-chart-line"></i>
+                Monthly Performance (Last 6 Months)
+            </h3>
+        </div>
+        <div class="chart-body">
+            <div id="monthlyComparisonChart"></div>
+        </div>
+    </div>
+
+    <!-- Tables Section -->
+    <div class="tables-row">
+        <!-- Upcoming Bookings -->
+        <div class="table-card">
+            <div class="table-header">
+                <h3 class="table-title">
+                    <i class="fas fa-calendar-alt"></i>
+                    Upcoming Bookings
+                </h3>
+                <a asp-action="BookingsView" class="view-all-link">
+                    View All <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Room</th>
+                            <th>PIC</th>
+                            <th>Date & Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (dynamic booking in Model.UpcomingBookings)
+                        {
+                            <tr>
+                                <td><strong>@booking.room_name</strong></td>
+                                <td>@booking.user_full_name</td>
+                                <td>
+                                    <div class="datetime-cell">
+                                        <div>@Convert.ToDateTime(booking.booking_date).ToString("dd MMM yyyy")</div>
+                                        <small>@booking.booking_start_time - @booking.booking_end_time</small>
+                                    </div>
+                                </td>
+                                <td><span class="badge badge-@booking.booking_status.ToString().ToLower()">@booking.booking_status</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Feedbacks -->
+        <div class="table-card">
+            <div class="table-header">
+                <h3 class="table-title">
+                    <i class="fas fa-comments"></i>
+                    Recent Feedbacks
+                </h3>
+                <a asp-action="FeedbacksView" class="view-all-link">
+                    View All <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Room</th>
+                            <th>Rating</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (dynamic feedback in Model.RecentFeedbacks)
+                        {
+                            <tr>
+                                <td>@feedback.user_full_name</td>
+                                <td>@feedback.room_name</td>
+                                <td>
+                                    <div class="rating-stars">
+                                        @for (int i = 1; i <= 5; i++)
+                                        {
+                                            <i class="fas fa-star @(i <= (int)feedback.feedback_rating ? "star-filled" : "star-empty")"></i>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    @if ((int)feedback.is_responded == 1)
+                                    {
+                                        <span class="badge badge-success">Responded</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-warning">Pending</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="bottom-row">
+        <!-- Top Users -->
+        <div class="table-card">
+            <div class="table-header">
+                <h3 class="table-title">
+                    <i class="fas fa-medal"></i>
+                    Top Active Users
+                </h3>
+            </div>
+            <div class="leaderboard">
+                @{int rank = 1;}
+                @foreach (dynamic user in Model.TopUsers)
+                {
+                    <div class="leaderboard-item">
+                        <div class="rank-badge rank-@rank">@rank</div>
+                        <div class="user-info">
+                            <div class="user-name">@user.user_full_name</div>
+                            <div class="user-dept">@user.dept_name</div>
+                        </div>
+                        <div class="user-stats">
+                            <div class="stat-item">
+                                <i class="fas fa-calendar"></i> @user.total_bookings
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-clock"></i> @((int)user.total_minutes / 60)h
+                            </div>
+                        </div>
+                    </div>
+                    rank++;
+                }
+            </div>
+        </div>
+
+        <!-- Maintenance Alerts -->
+        <div class="table-card">
+            <div class="table-header">
+                <h3 class="table-title">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Maintenance Alerts
+                </h3>
+            </div>
+            <div class="alerts-list">
+                @foreach (dynamic alert in Model.MaintenanceAlerts)
+                {
+                    <div class="alert-item alert-@(alert.room_operational_status == "Maintenance" ? "warning" : "danger")">
+                        <div class="alert-icon">
+                            <i class="fas fa-tools"></i>
+                        </div>
+                        <div class="alert-content">
+                            <div class="alert-title">@alert.room_name</div>
+                            <div class="alert-desc">
+                                Status: @alert.room_operational_status | 
+                                @alert.issue_count Issue(s) Reported
+                            </div>
+                            <div class="alert-time">
+                                Last: @Convert.ToDateTime(alert.last_issue_date).ToString("dd MMM, HH:mm")
+                            </div>
+                        </div>
+                        <button class="btn-alert-action" onclick="viewAlert(@alert.room_name)">
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                }
+                @if (Model.MaintenanceAlerts.Count == 0)
+                {
+                    <div class="no-alerts">
+                        <i class="fas fa-check-circle"></i>
+                        <p>No maintenance alerts</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions-card">
+            <div class="quick-actions-header">
+                <h3 class="quick-actions-title">
+                    <i class="fas fa-bolt"></i>
+                    Quick Actions
+                </h3>
+            </div>
+            <div class="quick-actions-grid">
+                <a asp-action="UsersView" class="quick-action-item">
+                    <div class="qa-icon">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    <span class="qa-label">Add User</span>
+                </a>
+                <a asp-action="RoomsView" class="quick-action-item">
+                    <div class="qa-icon">
+                        <i class="fas fa-plus-circle"></i>
+                    </div>
+                    <span class="qa-label">Add Room</span>
+                </a>
+                <a asp-action="BookingsView" class="quick-action-item">
+                    <div class="qa-icon">
+                        <i class="fas fa-calendar-plus"></i>
+                    </div>
+                    <span class="qa-label">New Booking</span>
+                </a>
+                <a asp-action="NotificationsView" class="quick-action-item">
+                    <div class="qa-icon">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <span class="qa-label">Send Notification</span>
+                </a>
+                <a asp-action="ReportsView" class="quick-action-item">
+                    <div class="qa-icon">
+                        <i class="fas fa-file-export"></i>
+                    </div>
+                    <span class="qa-label">Export Report</span>
+                </a>
+                <a asp-action="ActivityLogsView" class="quick-action-item">
+                    <div class="qa-icon">
+                        <i class="fas fa-history"></i>
+                    </div>
+                    <span class="qa-label">View Logs</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+<style>
+:root {
+    --primary: #7aa22e;
+    --primary-dark: #5f7f23;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-600: #6b7280;
+    --gray-700: #374151;
+    --gray-900: #111827;
+}
+
+.dashboard-container {
+    padding: 0;
+    animation: fadeIn 0.3s ease;
+}
+
+@@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Page Header */
+.page-header {
+    background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%);
+    padding: 2rem;
+    border-radius: 20px;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(122, 162, 46, 0.2);
+    color: white;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.page-subtitle {
+    color: rgba(255,255,255,0.9);
+    margin: 0;
+}
+
+.header-right {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.header-time {
+    background: rgba(255,255,255,0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+}
+
+/* Statistics Cards */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.secondary-stats {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.stat-card {
+    background: white;
+    border-radius: 20px;
+    padding: 1.75rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+}
+
+.stat-card:hover::before {
+    width: 8px;
+}
+
+.stat-primary::before { background: linear-gradient(180deg, #7aa22e, #5f7f23); }
+.stat-success::before { background: linear-gradient(180deg, #10b981, #059669); }
+.stat-info::before { background: linear-gradient(180deg, #3b82f6, #2563eb); }
+.stat-warning::before { background: linear-gradient(180deg, #f59e0b, #d97706); }
+
+.stat-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-icon::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top right, rgba(255,255,255,0.3), transparent);
+}
+
+.stat-primary .stat-icon {
+    background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%);
+    color: white;
+}
+
+.stat-success .stat-icon {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.stat-info .stat-icon {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+}
+
+.stat-warning .stat-icon {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+}
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-value {
+    font-size: 2.75rem;
+    font-weight: 800;
+    color: var(--gray-900);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-detail {
+    font-size: 0.813rem;
+    color: var(--gray-600);
+}
+
+/* Mini Stats */
+.stat-card-mini {
+    background: white;
+    border-radius: 16px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+}
+
+.stat-card-mini:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.mini-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+}
+
+.stat-purple .mini-icon { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.stat-orange .mini-icon { background: linear-gradient(135deg, #f97316, #ea580c); }
+.stat-teal .mini-icon { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+.stat-red .mini-icon { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+.mini-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    line-height: 1;
+}
+
+.mini-label {
+    font-size: 0.75rem;
+    color: var(--gray-600);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* Charts */
+.charts-row-main {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.charts-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.chart-card, .chart-card-full {
+    background: white;
+    border-radius: 20px;
+    padding: 1.75rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    transition: all 0.3s ease;
+}
+
+.chart-card:hover, .chart-card-full:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.chart-card-full {
+    margin-bottom: 1.5rem;
+}
+
+.chart-large {
+    grid-column: span 1;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--gray-100);
+}
+
+.chart-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    background: var(--gray-100);
+    color: var(--gray-700);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-icon:hover {
+    background: var(--primary);
+    color: white;
+    transform: scale(1.05);
+}
+
+.chart-body {
+    min-height: 320px;
+}
+
+/* Tables */
+.tables-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.table-card {
+    background: white;
+    border-radius: 20px;
+    padding: 1.75rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--gray-100);
+}
+
+.table-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.view-all-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.view-all-link:hover {
+    color: var(--primary-dark);
+    gap: 0.5rem;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table thead {
+    background: var(--gray-50);
+    border-radius: 10px;
+}
+
+.data-table th {
+    padding: 0.875rem;
+    text-align: left;
+    font-size: 0.813rem;
+    font-weight: 700;
+    color: var(--gray-700);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.data-table td {
+    padding: 1rem 0.875rem;
+    border-bottom: 1px solid var(--gray-100);
+    color: var(--gray-700);
+    font-size: 0.875rem;
+}
+
+.data-table tr:last-child td {
+    border-bottom: none;
+}
+
+.data-table tr {
+    transition: all 0.2s ease;
+}
+
+.data-table tbody tr:hover {
+    background: var(--gray-50);
+}
+
+.datetime-cell div {
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.datetime-cell small {
+    color: var(--gray-600);
+    font-size: 0.75rem;
+}
+
+.badge {
+    padding: 0.375rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-confirmed { background: #d1fae5; color: #065f46; }
+.badge-pending { background: #fef3c7; color: #92400e; }
+.badge-cancelled { background: #fee2e2; color: #991b1b; }
+.badge-success { background: #d1fae5; color: #065f46; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+
+.rating-stars {
+    display: flex;
+    gap: 0.125rem;
+}
+
+.star-filled {
+    color: #f59e0b;
+}
+
+.star-empty {
+    color: #d1d5db;
+}
+
+/* Leaderboard */
+.leaderboard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--gray-50);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.leaderboard-item:hover {
+    background: var(--gray-100);
+    transform: translateX(4px);
+}
+
+.rank-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.125rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+.rank-1 { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.rank-2 { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.rank-3 { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.rank-4 { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+.rank-5 { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+
+.user-info {
+    flex: 1;
+}
+
+.user-name {
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: 0.25rem;
+}
+
+.user-dept {
+    font-size: 0.75rem;
+    color: var(--gray-600);
+}
+
+.user-stats {
+    display: flex;
+    gap: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+/* Alerts */
+.alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.alert-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.alert-warning {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+}
+
+.alert-danger {
+    background: #fee2e2;
+    border-left: 4px solid #ef4444;
+}
+
+.alert-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.alert-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.alert-warning .alert-icon {
+    background: #f59e0b;
+    color: white;
+}
+
+.alert-danger .alert-icon {
+    background: #ef4444;
+    color: white;
+}
+
+.alert-content {
+    flex: 1;
+}
+
+.alert-title {
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: 0.25rem;
+}
+
+.alert-desc {
+    font-size: 0.813rem;
+    color: var(--gray-600);
+    margin-bottom: 0.25rem;
+}
+
+.alert-time {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.btn-alert-action {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    background: white;
+    color: var(--gray-700);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-alert-action:hover {
+    background: var(--primary);
+    color: white;
+    transform: scale(1.1);
+}
+
+.no-alerts {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--gray-500);
+}
+
+.no-alerts i {
+    font-size: 3rem;
+    color: #10b981;
+    margin-bottom: 1rem;
+}
+
+/* Bottom Row */
+.bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.5rem;
+}
+
+/* Quick Actions */
+.quick-actions-card {
+    background: white;
+    border-radius: 20px;
+    padding: 1.75rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.quick-actions-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--gray-100);
+}
+
+.quick-actions-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.875rem;
+}
+
+.quick-action-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, var(--gray-50) 0%, white 100%);
+    border-radius: 14px;
+    text-decoration: none;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid var(--gray-100);
+}
+
+.quick-action-item:hover {
+    background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(122, 162, 46, 0.3);
+    border-color: var(--primary);
+}
+
+.qa-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quick-action-item:hover .qa-icon {
+    background: white;
+    color: var(--primary);
+    transform: scale(1.15) rotate(5deg);
+}
+
+.qa-label {
+    color: var(--gray-700);
+    font-weight: 700;
+    font-size: 0.813rem;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.quick-action-item:hover .qa-label {
+    color: white;
+}
+
+/* Responsive */
+@@media (max-width: 1200px) {
+    .bottom-row {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .charts-row-main {
+        grid-template-columns: 1fr;
+    }
+}
+
+@@media (max-width: 768px) {
+    .bottom-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .charts-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .tables-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .quick-actions-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+}
+
+@section Scripts {
+<script>
+// Update clock
+function updateClock() {
+    const now = new Date();
+    const options = { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    };
+    document.getElementById('currentDateTime').textContent = now.toLocaleDateString('en-US', options);
+}
+
+$(document).ready(function() {
+    updateClock();
+    setInterval(updateClock, 60000);
+    
+    loadAllCharts();
+    
+    // Auto-refresh every 5 minutes
+    setInterval(function() {
+        refreshDashboard();
+    }, 300000);
+});
+
+function loadAllCharts() {
+    loadBookingTrendsChart();
+    loadRoomUtilizationChart();
+    loadPeakHoursChart();
+    loadDepartmentChart();
+    loadRoomPopularityChart();
+    loadMonthlyComparisonChart();
+}
+
+function loadBookingTrendsChart() {
+    const data = @Html.Raw(Json.Serialize(Model.BookingTrendsData));
+    
+    Highcharts.chart('bookingTrendsChart', {
+        chart: {
+            type: 'area',
+            backgroundColor: 'transparent',
+            height: 320
+        },
+        title: { text: null },
+        xAxis: {
+            categories: data.map(d => d.day),
+            gridLineWidth: 1,
+            gridLineColor: '#f3f4f6'
+        },
+        yAxis: {
+            title: { text: 'Bookings' },
+            gridLineColor: '#f3f4f6'
+        },
+        plotOptions: {
+            area: {
+                fillColor: {
+                    linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                    stops: [
+                        [0, 'rgba(122, 162, 46, 0.3)'],
+                        [1, 'rgba(122, 162, 46, 0.05)']
+                    ]
+                },
+                marker: {
+                    radius: 5,
+                    fillColor: '#7aa22e',
+                    lineWidth: 2,
+                    lineColor: 'white'
+                },
+                lineWidth: 3,
+                lineColor: '#7aa22e',
+                states: {
+                    hover: {
+                        lineWidth: 4
+                    }
+                }
+            }
+        },
+        series: [{
+            name: 'Bookings',
+            data: data.map(d => d.count),
+            color: '#7aa22e'
+        }],
+        credits: { enabled: false },
+        legend: { enabled: false },
+        tooltip: {
+            backgroundColor: 'white',
+            borderColor: '#7aa22e',
+            borderRadius: 10,
+            style: {
+                fontSize: '14px'
+            }
+        }
+    });
+}
+
+function loadRoomUtilizationChart() {
+    const data = @Html.Raw(Json.Serialize(Model.RoomUtilizationData));
+    
+    const colors = {
+        'Available': '#10b981',
+        'Occupied': '#7aa22e',
+        'Maintenance': '#f59e0b',
+        'Out of Service': '#ef4444'
+    };
+    
+    const chartData = data.map(d => ({
+        name: d.status,
+        y: d.count,
+        color: colors[d.status]
+    }));
+    
+    Highcharts.chart('roomUtilizationChart', {
+        chart: {
+            type: 'pie',
+            backgroundColor: 'transparent',
+            height: 320
+        },
+        title: { text: null },
+        plotOptions: {
+            pie: {
+                innerSize: '60%',
+                depth: 45,
+                dataLabels: {
+                    enabled: true,
+                    format: '<b>{point.name}</b><br>{point.y} rooms',
+                    style: {
+                        fontSize: '13px',
+                        fontWeight: '600'
+                    }
+                },
+                showInLegend: true
+            }
+        },
+        series: [{
+            name: 'Rooms',
+            data: chartData
+        }],
+        credits: { enabled: false },
+        legend: {
+            align: 'center',
+            verticalAlign: 'bottom',
+            layout: 'horizontal'
+        }
+    });
+}
+
+function loadPeakHoursChart() {
+    const data = @Html.Raw(Json.Serialize(Model.PeakHoursData));
+    
+    const hours = Array.from({length: 24}, (_, i) => i);
+    const bookingsByHour = hours.map(h => {
+        const found = data.find(d => d.hour === h);
+        return found ? found.bookings : 0;
+    });
+    
+    Highcharts.chart('peakHoursChart', {
+        chart: {
+            type: 'column',
+            backgroundColor: 'transparent',
+            height: 300
+        },
+        title: { text: null },
+        xAxis: {
+            categories: hours.map(h => `${h}:00`),
+            labels: {
+                rotation: -45
+            }
+        },
+        yAxis: {
+            title: { text: 'Bookings' },
+            gridLineColor: '#f3f4f6'
+        },
+        plotOptions: {
+            column: {
+                borderRadius: 6,
+                colorByPoint: false,
+                color: {
+                    linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+                    stops: [
+                        [0, '#7aa22e'],
+                        [1, '#5f7f23']
+                    ]
+                }
+            }
+        },
+        series: [{
+            name: 'Bookings',
+            data: bookingsByHour
+        }],
+        credits: { enabled: false },
+        legend: { enabled: false }
+    });
+}
+
+function loadDepartmentChart() {
+    const data = @Html.Raw(Json.Serialize(Model.DepartmentUsageData));
+    
+    Highcharts.chart('departmentChart', {
+        chart: {
+            type: 'bar',
+            backgroundColor: 'transparent',
+            height: 300
+        },
+        title: { text: null },
+        xAxis: {
+            categories: data.map(d => d.department),
+            gridLineWidth: 0
+        },
+        yAxis: {
+            title: { text: 'Bookings' },
+            gridLineColor: '#f3f4f6'
+        },
+        plotOptions: {
+            bar: {
+                borderRadius: 6,
+                dataLabels: {
+                    enabled: true,
+                    style: {
+                        fontWeight: '700'
+                    }
+                },
+                colorByPoint: true,
+                colors: ['#7aa22e', '#8b5cf6', '#3b82f6', '#f59e0b', '#ef4444']
+            }
+        },
+        series: [{
+            name: 'Bookings',
+            data: data.map(d => d.bookings)
+        }],
+        credits: { enabled: false },
+        legend: { enabled: false }
+    });
+}
+
+function loadRoomPopularityChart() {
+    const data = @Html.Raw(Json.Serialize(Model.RoomPopularityData));
+    
+    Highcharts.chart('roomPopularityChart', {
+        chart: {
+            type: 'column',
+            backgroundColor: 'transparent',
+            height: 300
+        },
+        title: { text: null },
+        xAxis: {
+            categories: data.map(d => d.room_name),
+            labels: {
+                rotation: -45
+            }
+        },
+        yAxis: [{
+            title: { text: 'Bookings' },
+            gridLineColor: '#f3f4f6'
+        }, {
+            title: { text: 'Rating' },
+            opposite: true,
+            max: 5,
+            min: 0
+        }],
+        plotOptions: {
+            column: {
+                borderRadius: 6
+            }
+        },
+        series: [{
+            name: 'Bookings',
+            data: data.map(d => d.total_bookings),
+            color: '#7aa22e'
+        }, {
+            name: 'Avg Rating',
+            type: 'line',
+            yAxis: 1,
+            data: data.map(d => d.avg_rating ? parseFloat(d.avg_rating.toFixed(1)) : 0),
+            color: '#f59e0b',
+            marker: {
+                lineWidth: 2,
+                lineColor: '#f59e0b',
+                fillColor: 'white',
+                radius: 5
+            }
+        }],
+        credits: { enabled: false }
+    });
+}
+
+function loadMonthlyComparisonChart() {
+    const data = @Html.Raw(Json.Serialize(Model.MonthlyComparisonData));
+    
+    Highcharts.chart('monthlyComparisonChart', {
+        chart: {
+            type: 'line',
+            backgroundColor: 'transparent',
+            height: 350
+        },
+        title: { text: null },
+        xAxis: {
+            categories: data.map(d => d.month),
+            gridLineWidth: 1,
+            gridLineColor: '#f3f4f6'
+        },
+        yAxis: [{
+            title: { text: 'Bookings' },
+            gridLineColor: '#f3f4f6'
+        }, {
+            title: { text: 'Rating' },
+            opposite: true,
+            max: 5,
+            min: 0
+        }],
+        plotOptions: {
+            line: {
+                lineWidth: 3,
+                marker: {
+                    radius: 6,
+                    lineWidth: 2,
+                    lineColor: 'white'
+                }
+            }
+        },
+        series: [{
+            name: 'Total Bookings',
+            data: data.map(d => d.bookings),
+            color: '#7aa22e'
+        }, {
+            name: 'Avg Rating',
+            yAxis: 1,
+            data: data.map(d => d.avg_rating ? parseFloat(d.avg_rating.toFixed(1)) : 0),
+            color: '#f59e0b'
+        }],
+        credits: { enabled: false }
+    });
+}
+
+function refreshDashboard() {
+    Swal.fire({
+        title: 'Refreshing...',
+        text: 'Loading latest data',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    setTimeout(function() {
+        location.reload();
+    }, 1000);
+}
+
+function exportChart(chartId) {
+    Swal.fire({
+        icon: 'info',
+        title: 'Export Chart',
+        text: 'Use the menu button in the chart to export',
+        confirmButtonColor: '#7aa22e'
+    });
+}
+
+function viewAlert(roomName) {
+    Swal.fire({
+        icon: 'warning',
+        title: 'Maintenance Alert',
+        html: `<strong>${roomName}</strong> requires attention.<br>Would you like to view details?`,
+        showCancelButton: true,
+        confirmButtonColor: '#7aa22e',
+        confirmButtonText: 'View Details'
+    });
+}
+</script>
+}

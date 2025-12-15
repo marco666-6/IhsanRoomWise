@@ -73,29 +73,10 @@ namespace RoomWise.Controllers
             
             var dashboardData = new
             {
-                // Basic Stats
                 TotalRooms = 0,
                 TotalUsers = 0,
                 TodayBookings = 0,
-                PendingFeedbacks = 0,
-                ActiveBookingsNow = 0,
-                AvailableRooms = 0,
-                TotalBookingsThisMonth = 0,
-                AverageRating = 0m,
-                
-                // Trend Data
-                BookingTrendsData = new List<object>(),
-                RoomUtilizationData = new List<object>(),
-                PeakHoursData = new List<object>(),
-                DepartmentUsageData = new List<object>(),
-                MonthlyComparisonData = new List<object>(),
-                RoomPopularityData = new List<object>(),
-                
-                // Tables Data
-                UpcomingBookings = new List<object>(),
-                RecentFeedbacks = new List<object>(),
-                TopUsers = new List<object>(),
-                MaintenanceAlerts = new List<object>()
+                PendingFeedbacks = 0
             };
             
             try
@@ -104,243 +85,65 @@ namespace RoomWise.Controllers
                 {
                     conn.Open();
                     
-                    // 1. BASIC STATISTICS
-                    dashboardData = new
+                    // Get total active rooms
+                    string roomsQuery = "SELECT COUNT(*) FROM rooms WHERE room_is_active = 1";
+                    using (SqlCommand cmd = new SqlCommand(roomsQuery, conn))
                     {
-                        TotalRooms = GetScalarInt(conn, "SELECT COUNT(*) FROM rooms WHERE room_is_active = 1"),
-                        TotalUsers = GetScalarInt(conn, "SELECT COUNT(*) FROM users WHERE user_is_active = 1"),
-                        TodayBookings = GetScalarInt(conn, "SELECT COUNT(*) FROM bookings WHERE booking_date = CAST(GETDATE() AS DATE)"),
-                        PendingFeedbacks = GetScalarInt(conn, "SELECT COUNT(*) FROM feedbacks WHERE feedback_admin_response IS NULL"),
-                        ActiveBookingsNow = GetScalarInt(conn, @"
-                            SELECT COUNT(*) FROM bookings 
-                            WHERE booking_date = CAST(GETDATE() AS DATE) 
-                            AND CAST(GETDATE() AS TIME) BETWEEN booking_start_time AND booking_end_time
-                            AND booking_status = 'Confirmed'"),
-                        AvailableRooms = GetScalarInt(conn, @"
-                            SELECT COUNT(*) FROM rooms r
-                            WHERE r.room_is_active = 1 
-                            AND r.room_operational_status = 'Available'
-                            AND NOT EXISTS (
-                                SELECT 1 FROM bookings b
-                                WHERE b.booking_room_id = r.room_id
-                                AND b.booking_date = CAST(GETDATE() AS DATE)
-                                AND CAST(GETDATE() AS TIME) BETWEEN b.booking_start_time AND b.booking_end_time
-                                AND b.booking_status = 'Confirmed'
-                            )"),
-                        TotalBookingsThisMonth = GetScalarInt(conn, @"
-                            SELECT COUNT(*) FROM bookings 
-                            WHERE MONTH(booking_date) = MONTH(GETDATE()) 
-                            AND YEAR(booking_date) = YEAR(GETDATE())"),
-                        AverageRating = GetScalarDecimal(conn, "SELECT ISNULL(AVG(CAST(feedback_rating AS FLOAT)), 0) FROM feedbacks"),
-                        
-                        // 2. BOOKING TRENDS (Last 7 Days)
-                        BookingTrendsData = GetListData(conn, @"
-                            SELECT TOP 7
-                                CONVERT(VARCHAR, DATEADD(DAY, -number, GETDATE()), 107) as date,
-                                DATENAME(WEEKDAY, DATEADD(DAY, -number, GETDATE())) as day,
-                                COUNT(b.booking_id) as count
-                            FROM master.dbo.spt_values
-                            LEFT JOIN bookings b ON CAST(b.booking_date AS DATE) = CAST(DATEADD(DAY, -number, GETDATE()) AS DATE)
-                            WHERE type = 'P' AND number BETWEEN 0 AND 6
-                            GROUP BY DATEADD(DAY, -number, GETDATE()), number
-                            ORDER BY number DESC"),
-                        
-                        // 3. ROOM UTILIZATION STATUS
-                        RoomUtilizationData = GetListData(conn, @"
-                            SELECT 
-                                CASE
-                                    WHEN r.room_operational_status = 'Maintenance' THEN 'Maintenance'
-                                    WHEN r.room_operational_status != 'Available' THEN 'Out of Service'
-                                    WHEN b.booking_id IS NOT NULL THEN 'Occupied'
-                                    ELSE 'Available'
-                                END AS status,
-                                COUNT(*) AS count
-                            FROM rooms r
-                            LEFT JOIN bookings b
-                                ON b.booking_room_id = r.room_id
-                                AND b.booking_date = CAST(GETDATE() AS DATE)
-                                AND CAST(GETDATE() AS TIME) BETWEEN b.booking_start_time AND b.booking_end_time
-                                AND b.booking_status = 'Confirmed'
-                            WHERE r.room_is_active = 1
-                            GROUP BY
-                                CASE
-                                    WHEN r.room_operational_status = 'Maintenance' THEN 'Maintenance'
-                                    WHEN r.room_operational_status != 'Available' THEN 'Out of Service'
-                                    WHEN b.booking_id IS NOT NULL THEN 'Occupied'
-                                    ELSE 'Available'
-                                END"),
-                        
-                        // 4. PEAK HOURS (Today's bookings by hour)
-                        PeakHoursData = GetListData(conn, @"
-                            SELECT 
-                                DATEPART(HOUR, booking_start_time) as hour,
-                                COUNT(*) as bookings
-                            FROM bookings
-                            WHERE booking_date = CAST(GETDATE() AS DATE)
-                            GROUP BY DATEPART(HOUR, booking_start_time)
-                            ORDER BY hour"),
-                        
-                        // 5. DEPARTMENT USAGE (This Month)
-                        DepartmentUsageData = GetListData(conn, @"
-                            SELECT TOP 5
-                                d.dept_name as department,
-                                COUNT(b.booking_id) as bookings
-                            FROM bookings b
-                            INNER JOIN users u ON b.booking_user_id = u.user_id
-                            INNER JOIN departments d ON u.user_dept_id = d.dept_id
-                            WHERE MONTH(b.booking_date) = MONTH(GETDATE())
-                            AND YEAR(b.booking_date) = YEAR(GETDATE())
-                            GROUP BY d.dept_name
-                            ORDER BY COUNT(b.booking_id) DESC"),
-                        
-                        // 6. MONTHLY COMPARISON (Last 6 Months)
-                        MonthlyComparisonData = GetListData(conn, @"
-                            SELECT TOP 6
-                                FORMAT(DATEADD(MONTH, -number, GETDATE()), 'MMM yyyy') as month,
-                                COUNT(b.booking_id) as bookings,
-                                AVG(CAST(f.feedback_rating AS FLOAT)) as avg_rating
-                            FROM master.dbo.spt_values
-                            LEFT JOIN bookings b ON 
-                                MONTH(b.booking_date) = MONTH(DATEADD(MONTH, -number, GETDATE()))
-                                AND YEAR(b.booking_date) = YEAR(DATEADD(MONTH, -number, GETDATE()))
-                            LEFT JOIN feedbacks f ON b.booking_id = f.feedback_booking_id
-                            WHERE type = 'P' AND number BETWEEN 0 AND 5
-                            GROUP BY DATEADD(MONTH, -number, GETDATE()), number
-                            ORDER BY number DESC"),
-                        
-                        // 7. ROOM POPULARITY
-                        RoomPopularityData = GetListData(conn, @"
-                            SELECT TOP 5
-                                r.room_name,
-                                COUNT(b.booking_id) as total_bookings,
-                                AVG(CAST(f.feedback_rating AS FLOAT)) as avg_rating,
-                                SUM(DATEDIFF(MINUTE, b.booking_start_time, b.booking_end_time)) as total_minutes
-                            FROM rooms r
-                            LEFT JOIN bookings b ON r.room_id = b.booking_room_id
-                                AND b.booking_status = 'Confirmed'
-                                AND b.booking_date >= DATEADD(MONTH, -1, GETDATE())
-                            LEFT JOIN feedbacks f ON b.booking_id = f.feedback_booking_id
-                            WHERE r.room_is_active = 1
-                            GROUP BY r.room_name
-                            ORDER BY COUNT(b.booking_id) DESC"),
-                        
-                        // 8. UPCOMING BOOKINGS (Next 5)
-                        UpcomingBookings = GetListData(conn, @"
-                            SELECT TOP 5
-                                b.booking_id,
-                                r.room_name,
-                                u.user_full_name,
-                                b.booking_meeting_title,
-                                b.booking_date,
-                                b.booking_start_time,
-                                b.booking_end_time,
-                                b.booking_status
-                            FROM bookings b
-                            INNER JOIN rooms r ON b.booking_room_id = r.room_id
-                            INNER JOIN users u ON b.booking_user_id = u.user_id
-                            WHERE b.booking_date >= CAST(GETDATE() AS DATE)
-                            AND b.booking_status != 'Cancelled'
-                            ORDER BY b.booking_date, b.booking_start_time"),
-                        
-                        // 9. RECENT FEEDBACKS (Last 5)
-                        RecentFeedbacks = GetListData(conn, @"
-                            SELECT TOP 5
-                                f.feedback_id,
-                                u.user_full_name,
-                                r.room_name,
-                                f.feedback_rating,
-                                f.feedback_issues_reported,
-                                f.feedback_created_at,
-                                CASE WHEN f.feedback_admin_response IS NULL THEN 0 ELSE 1 END as is_responded
-                            FROM feedbacks f
-                            INNER JOIN users u ON f.feedback_user_id = u.user_id
-                            INNER JOIN rooms r ON f.feedback_room_id = r.room_id
-                            ORDER BY f.feedback_created_at DESC"),
-                        
-                        // 10. TOP USERS (Most Active This Month)
-                        TopUsers = GetListData(conn, @"
-                            SELECT TOP 5
-                                u.user_full_name,
-                                d.dept_name,
-                                COUNT(b.booking_id) as total_bookings,
-                                SUM(DATEDIFF(MINUTE, b.booking_start_time, b.booking_end_time)) as total_minutes
-                            FROM users u
-                            INNER JOIN departments d ON u.user_dept_id = d.dept_id
-                            LEFT JOIN bookings b ON u.user_id = b.booking_user_id
-                                AND MONTH(b.booking_date) = MONTH(GETDATE())
-                                AND YEAR(b.booking_date) = YEAR(GETDATE())
-                            WHERE u.user_is_active = 1
-                            GROUP BY u.user_full_name, d.dept_name
-                            HAVING COUNT(b.booking_id) > 0
-                            ORDER BY COUNT(b.booking_id) DESC"),
-                        
-                        // 11. MAINTENANCE ALERTS
-                        MaintenanceAlerts = GetListData(conn, @"
-                            SELECT 
-                                r.room_name,
-                                r.room_operational_status,
-                                COUNT(f.feedback_id) as issue_count,
-                                MAX(f.feedback_created_at) as last_issue_date
-                            FROM rooms r
-                            LEFT JOIN feedbacks f ON r.room_id = f.feedback_room_id
-                                AND f.feedback_rating <= 2
-                                AND f.feedback_created_at >= DATEADD(DAY, -7, GETDATE())
-                            WHERE r.room_operational_status != 'Available' 
-                                OR EXISTS (
-                                    SELECT 1 FROM feedbacks f2
-                                    WHERE f2.feedback_room_id = r.room_id
-                                    AND f2.feedback_rating <= 2
-                                    AND f2.feedback_created_at >= DATEADD(DAY, -7, GETDATE())
-                                )
-                            GROUP BY r.room_name, r.room_operational_status
-                            HAVING COUNT(f.feedback_id) > 0 OR r.room_operational_status != 'Available'")
-                    };
+                        dashboardData = new
+                        {
+                            TotalRooms = Convert.ToInt32(cmd.ExecuteScalar()),
+                            TotalUsers = 0,
+                            TodayBookings = 0,
+                            PendingFeedbacks = 0
+                        };
+                    }
+                    
+                    // Get total active users
+                    string usersQuery = "SELECT COUNT(*) FROM users WHERE user_is_active = 1";
+                    using (SqlCommand cmd = new SqlCommand(usersQuery, conn))
+                    {
+                        int totalUsers = Convert.ToInt32(cmd.ExecuteScalar());
+                        dashboardData = new
+                        {
+                            dashboardData.TotalRooms,
+                            TotalUsers = totalUsers,
+                            dashboardData.TodayBookings,
+                            dashboardData.PendingFeedbacks
+                        };
+                    }
+                    
+                    // Get today's bookings
+                    string bookingsQuery = "SELECT COUNT(*) FROM bookings WHERE booking_date = CAST(GETDATE() AS DATE)";
+                    using (SqlCommand cmd = new SqlCommand(bookingsQuery, conn))
+                    {
+                        int todayBookings = Convert.ToInt32(cmd.ExecuteScalar());
+                        dashboardData = new
+                        {
+                            dashboardData.TotalRooms,
+                            dashboardData.TotalUsers,
+                            TodayBookings = todayBookings,
+                            dashboardData.PendingFeedbacks
+                        };
+                    }
+                    
+                    // Get pending feedbacks
+                    string feedbacksQuery = "SELECT COUNT(*) FROM feedbacks WHERE feedback_admin_response IS NULL";
+                    using (SqlCommand cmd = new SqlCommand(feedbacksQuery, conn))
+                    {
+                        int pendingFeedbacks = Convert.ToInt32(cmd.ExecuteScalar());
+                        dashboardData = new
+                        {
+                            dashboardData.TotalRooms,
+                            dashboardData.TotalUsers,
+                            dashboardData.TodayBookings,
+                            PendingFeedbacks = pendingFeedbacks
+                        };
+                    }
                 }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Dashboard Error: {ex.Message}");
-            }
+            catch { }
             
             return View(dashboardData);
-        }
-
-        // Helper Methods
-        private int GetScalarInt(SqlConnection conn, string query)
-        {
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            {
-                var result = cmd.ExecuteScalar();
-                return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
-            }
-        }
-
-        private decimal GetScalarDecimal(SqlConnection conn, string query)
-        {
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            {
-                var result = cmd.ExecuteScalar();
-                return result != null && result != DBNull.Value ? Convert.ToDecimal(result) : 0;
-            }
-        }
-
-        private List<object> GetListData(SqlConnection conn, string query)
-        {
-            var list = new List<object>();
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            using (SqlDataReader reader = cmd.ExecuteReader())
-            {
-                while (reader.Read())
-                {
-                    var item = new Dictionary<string, object>();
-                    for (int i = 0; i < reader.FieldCount; i++)
-                    {
-                        item[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
-                    }
-                    list.Add(item);
-                }
-            }
-            return list;
         }
 
         // ==================== USERS MANAGEMENT ====================
