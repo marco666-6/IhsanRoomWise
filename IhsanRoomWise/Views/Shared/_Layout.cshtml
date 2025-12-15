@@ -1,0 +1,288 @@
+﻿@using IhsanRoomWise.Function;
+@using Microsoft.AspNetCore.Http;
+@inject IHttpContextAccessor HttpContextAccessor;
+
+@{
+    var session = HttpContextAccessor.HttpContext?.Session;
+
+    var userRole = session?.GetString("UserRole");
+    var username = session?.GetString("UserFullName");
+    var role = session?.GetString("UserRole");
+    var profilePicture = session?.GetString("UserProfilePhoto");
+}
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - RoomWise</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap CSS (MUST USE) -->
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+
+    <!-- DataTables CSS (MUST USE) -->
+    <link rel="stylesheet" href="~/lib/datatables/media/css/jquery.dataTables.min.css" />
+
+    <!-- Select2 CSS (MUST USE) -->
+    <link rel="stylesheet" href="~/lib/select2/dist/css/select2.min.css" />
+    <link rel="stylesheet" href="~/lib/select2/dist/css/select2-bootstrap-5-theme.min.css" />
+
+    <!-- SweetAlert2 CSS (VERY VERY MUST USE) -->
+    <link rel="stylesheet" href="~/lib/sweetalert2/dist/sweetalert2.min.css" />
+    
+    <!-- Highcharts CSS (MUST USE FOR CHARTS) -->
+    <link rel="stylesheet" href="~/lib/highcharts/css/highcharts.css" />
+
+    <!-- FontAwesome CSS (MUST UUUSSSEEE) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <img src="~/images/assets/logo.png" alt="RoomWise" class="logo-img" />
+            </div>
+            <div class="brand">RoomWise</div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            @{  
+                if (userRole == "Admin")
+                {
+                    <!-- Admin Navigation -->
+                    <div class="nav-section">
+                        <div class="nav-section-title">Main</div>
+                        <div class="nav-item">
+                            <a asp-controller="Admin" asp-action="DashboardView" class="nav-link @TagHelperFunction.IsActive(Html, "Admin", "DashboardView")">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="nav-section">
+                        <div class="nav-section-title">Management</div>
+                        <div class="nav-item">
+                            <a asp-controller="Admin" asp-action="UsersView" class="nav-link @TagHelperFunction.IsActive(Html, "Admin", "UsersView")">
+                                <i class="fas fa-users"></i>
+                                <span>Users</span>
+                            </a>
+                        </div>
+                        <div class="nav-item">
+                            <a asp-controller="Admin" asp-action="RoomsView" class="nav-link @TagHelperFunction.IsActive(Html, "Admin", "RoomsView")">
+                                <i class="fas fa-door-open"></i>
+                                <span>Rooms</span>
+                            </a>
+                        </div>
+                        <div class="nav-item">
+                            <a asp-controller="Admin" asp-action="BookingsView" class="nav-link @TagHelperFunction.IsActive(Html, "Admin", "BookingsView")">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span>Bookings</span>
+                            </a>
+                        </div>
+                        <div class="nav-item">
+                            <a asp-controller="Admin" asp-action="FeedbacksView" class="nav-link @TagHelperFunction.IsActive(Html, "Admin", "FeedbacksView")">
+                                <i class="fas fa-comment-dots"></i>
+                                <span>Feedbacks</span>
+                            </a>
+                        </div>
+                        <div class="nav-item">
+                            <a asp-controller="Admin" asp-action="NotificationsView" class="nav-link @TagHelperFunction.IsActive(Html, "Admin", "NotificationsView")">
+                                <i class="fas fa-bell"></i>
+                                <span>Notifications</span>
+                            </a>
+                        </div>
+                        <div class="nav-item">
+                            <a asp-controller="Admin" asp-action="ActivityLogsView" class="nav-link @TagHelperFunction.IsActive(Html, "Admin", "ActivityLogsView")">
+                                <i class="fas fa-history"></i>
+                                <span>Activity Logs</span>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="nav-section">
+                        <div class="nav-section-title">Account</div>
+                        <div class="nav-item">
+                            <a asp-controller="Admin" asp-action="ProfileView" class="nav-link @TagHelperFunction.IsActive(Html, "Admin", "ProfileView")">
+                                <i class="fas fa-user-circle"></i>
+                                <span>My Profile</span>
+                            </a>
+                        </div>
+                        <div class="nav-item">
+                            <a href="#" class="nav-link" id="logoutLink">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span>Logout</span>
+                            </a>
+                        </div>
+                    </div>
+                }
+                else if (userRole == "Employee")
+                {
+                    <!-- Employee Navigation -->
+                    <div class="nav-section">
+                        <div class="nav-section-title">Main</div>
+                        <div class="nav-item">
+                            <a asp-controller="Employee" asp-action="DashboardView" class="nav-link @TagHelperFunction.IsActive(Html, "Employee", "DashboardView")">
+                                <i class="fas fa-home"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="nav-section">
+                        <div class="nav-section-title">Booking</div>
+                        <div class="nav-item">
+                            <a asp-controller="Employee" asp-action="FindRoomView" class="nav-link @TagHelperFunction.IsActive(Html, "Employee", "FindRoomView")">
+                                <i class="fas fa-search"></i>
+                                <span>Find a Room</span>
+                            </a>
+                        </div>
+                        <div class="nav-item">
+                            <a asp-controller="Employee" asp-action="MyBookingsView" class="nav-link @TagHelperFunction.IsActive(Html, "Employee", "MyBookingsView")">
+                                <i class="fas fa-calendar-check"></i>
+                                <span>My Bookings</span>
+                            </a>
+                        </div>
+                        <div class="nav-item">
+                            <a asp-controller="Employee" asp-action="MyFeedbacksView" class="nav-link @TagHelperFunction.IsActive(Html, "Employee", "MyFeedbacksView")">
+                                <i class="fas fa-star"></i>
+                                <span>My Feedbacks</span>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="nav-section">
+                        <div class="nav-section-title">Information</div>
+                        <div class="nav-item">
+                            <a asp-controller="Employee" asp-action="NotificationsView" class="nav-link @TagHelperFunction.IsActive(Html, "Employee", "NotificationsView")">
+                                <i class="fas fa-bell"></i>
+                                <span>Notifications</span>
+                            </a>
+                        </div>
+                        <div class="nav-item">
+                            <a asp-controller="Employee" asp-action="MyActivityLogsView" class="nav-link @TagHelperFunction.IsActive(Html, "Employee", "MyActivityLogsView")">
+                                <i class="fas fa-clipboard-list"></i>
+                                <span>My Activity Logs</span>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="nav-section">
+                        <div class="nav-section-title">Account</div>
+                        <div class="nav-item">
+                            <a asp-controller="Employee" asp-action="ProfileView" class="nav-link @TagHelperFunction.IsActive(Html, "Employee", "ProfileView")">
+                                <i class="fas fa-user-circle"></i>
+                                <span>My Profile</span>
+                            </a>
+                        </div>
+                        <div class="nav-item">
+                            <a href="#" class="nav-link" id="logoutLink">
+                                <i class="fas fa-sign-out-alt"></i>
+                                <span>Logout</span>
+                            </a>
+                        </div>
+                    </div>
+                }
+            }
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Navigation -->
+        <div class="top-nav">
+            <div class="nav-left">
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                
+                <div class="page-info">
+                    <span class="current-time" id="currentTime"></span>
+                </div>
+            </div>
+            
+            <div class="nav-right">
+                <div class="user-profile-dropdown">
+                    <button class="user-profile-btn" id="userProfileBtn">
+                        <div class="user-avatar">
+                            @if (!string.IsNullOrEmpty(profilePicture))
+                            {
+                                <img src="~/images/profiles/@System.IO.Path.GetFileName(profilePicture)" 
+                                     alt="Profile" class="avatar-img" 
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                <span class="avatar-letter" style="display: none;">@(username?[0])</span>
+                            }
+                            else
+                            {
+                                <span class="avatar-letter">@(username?[0])</span>
+                            }
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name">@username</div>
+                            <div class="user-role">@role</div>
+                        </div>
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </button>
+
+                    <div class="user-dropdown-menu" id="userDropdownMenu">
+                        <a asp-controller="@role" asp-action="ProfileView" class="dropdown-item">
+                            <i class="fas fa-user-circle"></i>
+                            <span>My Profile</span>
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" class="dropdown-item" id="logoutLinkDropdown">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page Content -->
+        <div class="page-content">
+            @RenderBody()
+        </div>
+    </div>
+
+    <!-- Bootstrap and jQuery Scripts MUST USE AND IS USED -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- DataTables JS (MUST USE) -->
+    <script src="~/lib/datatables/media/js/jquery.dataTables.min.js"></script>
+    
+    <!-- Highcharts JS (MUST USE FOR CHARTS) -->
+    <script src="~/lib/highcharts/highcharts.js"></script>
+    <script src="~/lib/highcharts/highcharts-more.js"></script>
+    <script src="~/lib/highcharts/modules/exporting.js"></script>
+    <script src="~/lib/highcharts/modules/export-data.js"></script>
+    <script src="~/lib/highcharts/modules/accessibility.js"></script>
+    
+    <!-- Select2 JS (MUST USE) -->
+    <script src="~/lib/select2/dist/js/select2.min.js"></script>
+
+    <!-- SweetAlert2 JS (VERY VERY MUST USE) -->
+    <script src="~/lib/sweetalert2/dist/sweetalert2.all.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

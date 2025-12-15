@@ -1,0 +1,162 @@
+// Models/DepartmentModel.cs
+namespace IhsanRoomWise.Models
+{
+    public class DepartmentModel
+    {
+        public int dept_id { get; set; }
+        public string dept_code { get; set; } = string.Empty;
+        public string dept_name { get; set; } = string.Empty;
+        public string? dept_description { get; set; }
+        public bool dept_is_active { get; set; } = true;
+        public DateTime dept_created_at { get; set; }
+        public DateTime? dept_updated_at { get; set; }
+    }
+}
+
+// Models/LocationModel.cs
+namespace IhsanRoomWise.Models
+{
+    public class LocationModel
+    {
+        public int location_id { get; set; }
+        public string location_code { get; set; } = string.Empty;
+        public string location_plant_name { get; set; } = string.Empty;
+        public byte location_block { get; set; }
+        public byte location_floor { get; set; }
+        public string? location_description { get; set; }
+        public bool location_is_active { get; set; } = true;
+        public DateTime location_created_at { get; set; }
+        public DateTime? location_updated_at { get; set; }
+    }
+}
+
+// Models/UserModel.cs
+namespace IhsanRoomWise.Models
+{
+    public class UserModel
+    {
+        public int user_id { get; set; }
+        public string user_employee_id { get; set; } = string.Empty;
+        public string user_email { get; set; } = string.Empty;
+        public string user_password { get; set; } = string.Empty;
+        public string user_full_name { get; set; } = string.Empty;
+        public string? user_phone { get; set; }
+        public string user_role { get; set; } = string.Empty;
+        public int user_dept_id { get; set; }
+        public string? user_profile_photo { get; set; }
+        public bool user_is_active { get; set; } = true;
+        public DateTime? user_last_login { get; set; }
+        public string? user_reset_token { get; set; }
+        public DateTime? user_reset_token_expiry { get; set; }
+        public DateTime user_created_at { get; set; }
+        public DateTime? user_updated_at { get; set; }
+    }
+}
+
+// Models/RoomModel.cs
+namespace IhsanRoomWise.Models
+{
+    public class RoomModel
+    {
+        public int room_id { get; set; }
+        public string room_code { get; set; } = string.Empty;
+        public string room_name { get; set; } = string.Empty;
+        public int room_location_id { get; set; }
+        public int room_capacity { get; set; }
+        public string? room_description { get; set; }
+        public string? room_photo { get; set; }
+        public bool room_has_projector { get; set; }
+        public bool room_has_smart_screen { get; set; }
+        public bool room_has_screenbeam { get; set; }
+        public bool room_has_cisco_bar { get; set; }
+        public string? room_other_facilities { get; set; }
+        public string room_operational_status { get; set; } = "Available";
+        public bool room_is_active { get; set; } = true;
+        public DateTime room_created_at { get; set; }
+        public DateTime? room_updated_at { get; set; }
+    }
+}
+
+// Models/BookingModel.cs
+namespace IhsanRoomWise.Models
+{
+    public class BookingModel
+    {
+        public int booking_id { get; set; }
+        public string booking_code { get; set; } = string.Empty;
+        public int booking_user_id { get; set; }
+        public int booking_room_id { get; set; }
+        public string booking_meeting_title { get; set; } = string.Empty;
+        public string? booking_meeting_description { get; set; }
+        public DateTime booking_date { get; set; }
+        public TimeSpan booking_start_time { get; set; }
+        public TimeSpan booking_end_time { get; set; }
+        public string booking_status { get; set; } = "Pending";
+        public string? booking_cancellation_reason { get; set; }
+        public DateTime? booking_cancelled_at { get; set; }
+        public int? booking_cancelled_by { get; set; }
+        public DateTime? booking_actual_end_time { get; set; }
+        public DateTime booking_created_at { get; set; }
+        public DateTime? booking_updated_at { get; set; }
+    }
+}
+
+// Models/FeedbackModel.cs
+namespace IhsanRoomWise.Models
+{
+    public class FeedbackModel
+    {
+        public int feedback_id { get; set; }
+        public int feedback_booking_id { get; set; }
+        public int feedback_user_id { get; set; }
+        public int feedback_room_id { get; set; }
+        public byte feedback_rating { get; set; }
+        public string? feedback_room_condition { get; set; }
+        public string? feedback_facility_condition { get; set; }
+        public string? feedback_issues_reported { get; set; }
+        public string? feedback_photo { get; set; }
+        public string? feedback_admin_response { get; set; }
+        public int? feedback_admin_responded_by { get; set; }
+        public DateTime? feedback_admin_responded_at { get; set; }
+        public DateTime feedback_created_at { get; set; }
+        public DateTime? feedback_updated_at { get; set; }
+    }
+}
+
+// Models/NotificationModel.cs
+namespace IhsanRoomWise.Models
+{
+    public class NotificationModel
+    {
+        public int notification_id { get; set; }
+        public string notification_type { get; set; } = string.Empty;
+        public string notification_title { get; set; } = string.Empty;
+        public string notification_message { get; set; } = string.Empty;
+        public int? notification_target_user_id { get; set; }
+        public string? notification_target_role { get; set; }
+        public int? notification_related_booking_id { get; set; }
+        public int? notification_related_feedback_id { get; set; }
+        public bool notification_is_read { get; set; }
+        public DateTime? notification_read_at { get; set; }
+        public string notification_priority { get; set; } = "Normal";
+        public int notification_created_by { get; set; }
+        public DateTime notification_created_at { get; set; }
+    }
+}
+
+// Models/ActivityLogModel.cs
+namespace IhsanRoomWise.Models
+{
+    public class ActivityLogModel
+    {
+        public long log_id { get; set; }
+        public int log_user_id { get; set; }
+        public string log_action_type { get; set; } = string.Empty;
+        public string? log_entity_type { get; set; }
+        public int? log_entity_id { get; set; }
+        public string log_description { get; set; } = string.Empty;
+        public string? log_old_values { get; set; }
+        public string? log_new_values { get; set; }
+        public DateTime log_created_at { get; set; }
+    }
+}

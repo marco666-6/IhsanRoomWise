@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="Controllers\" />
+    <Folder Include="Functions\" />
+    <Folder Include="Views\Admin\" />
+    <Folder Include="Views\Auth\" />
+    <Folder Include="wwwroot\images\" />
+    <Folder Include="wwwroot\images\assets\" />
+    <Folder Include="wwwroot\images\profiles\" />
+    <Folder Include="wwwroot\images\rooms\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.4" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+</Project>

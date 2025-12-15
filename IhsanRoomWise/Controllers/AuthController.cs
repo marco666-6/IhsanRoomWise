@@ -1,0 +1,137 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using IhsanRoomWise.Functions;
+using IhsanRoomWise.Models;
+
+namespace RoomWise.Controllers
+{
+    public class AuthController : Controller
+    {
+        private readonly string _connectionString;
+
+        public AuthController()
+        {
+            _connectionString = new DbAccessFunction().GetConnectionString();
+        }
+
+        [HttpGet]
+        public IActionResult LoginView()
+        {
+            if (HttpContext.Session.GetInt32("UserId") != null)
+            {
+                string? role = HttpContext.Session.GetString("UserRole");
+                return RedirectToAction("DashboardView", role);
+            }
+            return View();
+        }
+
+        [HttpPost]
+        public IActionResult LoginPost(string email, string password)
+        {
+            try
+            {
+                string hashedPassword = SecHelperFunction.HashPasswordMD5(password);
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = @"SELECT user_id, user_employee_id, user_email, user_full_name, 
+                                    user_role, user_dept_id, user_profile_photo, user_is_active 
+                                    FROM users 
+                                    WHERE user_email = @Email AND user_password = @Password";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Email", email);
+                        cmd.Parameters.AddWithValue("@Password", hashedPassword);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                if (!reader.GetBoolean(reader.GetOrdinal("user_is_active")))
+                                {
+                                    TempData["Error"] = "Your account has been deactivated. Please contact administrator.";
+                                    return RedirectToAction("LoginView");
+                                }
+
+                                int userId = reader.GetInt32(0);
+                                string role = reader.GetString(4);
+
+                                HttpContext.Session.SetInt32("UserId", userId);
+                                HttpContext.Session.SetString("UserEmployeeId", reader.GetString(1));
+                                HttpContext.Session.SetString("UserEmail", reader.GetString(2));
+                                HttpContext.Session.SetString("UserFullName", reader.GetString(3));
+                                HttpContext.Session.SetString("UserRole", role);
+                                HttpContext.Session.SetInt32("UserDeptId", reader.GetInt32(5));
+                                HttpContext.Session.SetString("UserProfilePhoto", reader.IsDBNull(6) ? "" : reader.GetString(6));
+
+                                // Update last login
+                                reader.Close();
+                                string updateQuery = "UPDATE users SET user_last_login = GETDATE() WHERE user_id = @UserId";
+                                using (SqlCommand updateCmd = new SqlCommand(updateQuery, conn))
+                                {
+                                    updateCmd.Parameters.AddWithValue("@UserId", userId);
+                                    updateCmd.ExecuteNonQuery();
+                                }
+
+                                // Log activity
+                                LogActivity(userId, "User Login", null, null, $"{reader.GetString(3)} logged in successfully");
+
+                                return RedirectToAction("DashboardView", role);
+                            }
+                        }
+                    }
+                }
+
+                TempData["Error"] = "Invalid email or password.";
+                return RedirectToAction("LoginView");
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "An error occurred during login: " + ex.Message;
+                return RedirectToAction("LoginView");
+            }
+        }
+
+        [HttpGet]
+        public IActionResult LogoutGet()
+        {
+            int? userId = HttpContext.Session.GetInt32("UserId");
+            string? userName = HttpContext.Session.GetString("UserFullName");
+
+            if (userId.HasValue)
+            {
+                LogActivity(userId.Value, "User Logout", null, null, $"{userName} logged out");
+            }
+
+            HttpContext.Session.Clear();
+            return RedirectToAction("LoginView");
+        }
+
+        private void LogActivity(int userId, string actionType, string? entityType, int? entityId, string description)
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = @"INSERT INTO activity_logs (log_user_id, log_action_type, log_entity_type, 
+                                    log_entity_id, log_description, log_created_at) 
+                                    VALUES (@UserId, @ActionType, @EntityType, @EntityId, @Description, GETDATE())";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.Parameters.AddWithValue("@ActionType", actionType);
+                        cmd.Parameters.AddWithValue("@EntityType", (object?)entityType ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@EntityId", (object?)entityId ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Description", description);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch { }
+        }
+    }
+}
