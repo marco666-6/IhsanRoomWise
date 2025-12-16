@@ -755,6 +755,218 @@ namespace RoomWise.Controllers
             }
         }
 
+        // Updated ExportRooms method - CORRECTED for actual RoomModel naming [file:1]
+
+        // ✅ FINAL FIXED ExportRooms - No more errors!
+
+        [HttpGet]
+        public IActionResult ExportRooms(string? searchTerm = null, string? filterStatus = null, int? locationId = null,
+            int? minCapacity = null, int? maxCapacity = null, bool? hasProjector = null,
+            bool? hasSmartScreen = null, bool? hasScreenbeam = null, bool? hasCiscoBar = null)
+        {
+            if (!CheckAuth())
+                return RedirectToAction("RoomsView");
+
+            try
+            {
+                using SqlConnection conn = new SqlConnection(_connectionString);
+                conn.Open();
+
+                StringBuilder query = new StringBuilder(@"
+            SELECT 
+                r.room_code AS [Room Code],
+                r.room_name AS [Room Name], 
+                r.room_capacity AS [Capacity],
+                l.locationplantname + ' - B' + CAST(l.locationblock AS VARCHAR) + ' F' + CAST(l.locationfloor AS VARCHAR) AS [Location],
+                r.room_operational_status AS [Status],
+                CASE WHEN r.room_has_projector = 1 THEN '📽️ ' ELSE '' END +
+                CASE WHEN r.room_has_smart_screen = 1 THEN '🖥️ ' ELSE '' END +
+                CASE WHEN r.room_has_screenbeam = 1 THEN '📡 ' ELSE '' END +
+                CASE WHEN r.room_has_cisco_bar = 1 THEN '🎤 ' ELSE '' END AS [Facilities],
+                ISNULL(r.room_description, '') AS [Description],
+                ISNULL(r.room_other_facilities, '') AS [Other Facilities],
+                ISNULL(r.room_photo, '') AS [Photo URL],
+                FORMAT(r.room_created_at, 'dd/MM/yyyy HH:mm') AS [Created Date],
+                CASE WHEN r.room_updated_at IS NOT NULL THEN FORMAT(r.room_updated_at, 'dd/MM/yyyy HH:mm') ELSE 'N/A' END AS [Updated Date],
+                CASE WHEN r.room_is_active = 1 THEN 'Active' ELSE 'Inactive' END AS [Active Status]
+            FROM rooms r 
+            INNER JOIN locations l ON r.room_location_id = l.locationid 
+            WHERE r.room_is_active = 1");
+
+                List<SqlParameter> parameters = new List<SqlParameter>();
+
+                if (!string.IsNullOrEmpty(searchTerm))
+                {
+                    query.Append(" AND (r.room_name LIKE @Search OR r.room_code LIKE @Search OR r.room_description LIKE @Search)");
+                    parameters.Add(new SqlParameter("@Search", $"%{searchTerm}%"));
+                }
+
+                if (!string.IsNullOrEmpty(filterStatus))
+                {
+                    query.Append(" AND r.room_operational_status = @FilterStatus");
+                    parameters.Add(new SqlParameter("@FilterStatus", filterStatus));
+                }
+
+                if (locationId.HasValue)
+                {
+                    query.Append(" AND r.room_location_id = @LocationId");
+                    parameters.Add(new SqlParameter("@LocationId", locationId.Value));
+                }
+
+                if (minCapacity.HasValue)
+                {
+                    query.Append(" AND r.room_capacity >= @MinCapacity");
+                    parameters.Add(new SqlParameter("@MinCapacity", minCapacity.Value));
+                }
+
+                if (maxCapacity.HasValue)
+                {
+                    query.Append(" AND r.room_capacity <= @MaxCapacity");
+                    parameters.Add(new SqlParameter("@MaxCapacity", maxCapacity.Value));
+                }
+
+                if (hasProjector.HasValue)
+                {
+                    query.Append(" AND r.room_has_projector = @HasProjector");
+                    parameters.Add(new SqlParameter("@HasProjector", hasProjector.Value ? 1 : 0));
+                }
+
+                query.Append(" ORDER BY r.room_name");
+
+                using SqlCommand cmd = new SqlCommand(query.ToString(), conn);
+                cmd.Parameters.AddRange(parameters.ToArray());
+
+                DataTable dt = new DataTable();
+                using (SqlDataAdapter da = new SqlDataAdapter(cmd))
+                    da.Fill(dt);
+
+                using var workbook = new XLWorkbook();
+                var worksheet = workbook.Worksheets.Add("🏢 RoomWise Rooms");
+
+                // ===== TITLE =====
+                var titleCell = worksheet.Cell(1, 1);
+                titleCell.Value = "🏢 RoomWise - Executive Rooms Report";
+                titleCell.Style.Font.Bold = true;
+                titleCell.Style.Font.FontSize = 22;
+                titleCell.Style.Font.FontColor = XLColor.FromHtml("#1f2937");
+                worksheet.Range(1, 1, 1, 12).Merge();
+                titleCell.Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+
+                // ===== FILTER INFO =====
+                var filterCell = worksheet.Cell(3, 1);
+                string filterInfo = $"📅 Generated: {DateTime.Now:dd/MM/yyyy HH:mm:ss}";
+                if (!string.IsNullOrEmpty(searchTerm)) filterInfo += $" | 🔍 '{searchTerm}'";
+                if (!string.IsNullOrEmpty(filterStatus)) filterInfo += $" | 📋 {filterStatus}";
+                filterCell.Value = filterInfo;
+                worksheet.Range(3, 1, 3, 12).Merge();
+                filterCell.Style.Font.Italic = true;
+                filterCell.Style.Font.FontSize = 12;
+                filterCell.Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+
+                // ===== METRICS =====
+                int totalRooms = dt.Rows.Count;
+                int availableRooms = dt.Select("Status = 'Available'").Length;
+                decimal avgCapacity = dt.Rows.Count > 0 ?
+                    dt.AsEnumerable().Average(row => Convert.ToDecimal(row["Capacity"] ?? 0)) : 0;
+
+                worksheet.Cell(5, 1).Value = "📊 KEY METRICS";
+                worksheet.Cell(5, 1).Style.Font.Bold = true;
+                worksheet.Cell(5, 1).Style.Font.FontSize = 16;
+                worksheet.Cell(5, 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#7aa22e");
+                worksheet.Cell(5, 1).Style.Font.FontColor = XLColor.White;
+                worksheet.Range(5, 1, 5, 4).Merge();
+
+                worksheet.Cell(6, 1).Value = $"Total Rooms: {totalRooms:N0}";
+                worksheet.Cell(6, 2).Value = $"Available: {availableRooms:N0}";
+                worksheet.Cell(6, 3).Value = $"Avg Capacity: {avgCapacity:N0}";
+                worksheet.Cell(6, 4).Value = $"{(totalRooms > 0 ? Math.Round((double)availableRooms / totalRooms * 100, 1) : 0):F1}%";
+
+                var metricsRange = worksheet.Range(6, 1, 6, 4);
+                metricsRange.Style.Font.Bold = true;
+                metricsRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#f8faf5");
+                metricsRange.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
+
+                // ===== HEADERS (Row 9) =====
+                int headerRow = 9;
+                string[] headers = { "Room Code", "Room Name", "Capacity", "Location", "Status", "Facilities",
+                           "Description", "Other Facilities", "Photo URL", "Created Date", "Updated Date", "Active Status" };
+
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    var headerCell = worksheet.Cell(headerRow, i + 1);
+                    headerCell.Value = headers[i];
+                    headerCell.Style.Font.Bold = true;
+                    headerCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#2d3e1f");
+                    headerCell.Style.Font.FontColor = XLColor.White;
+                    headerCell.Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+                    worksheet.Column(i + 1).Width = 18;
+                }
+
+                // ===== DATA ROWS =====
+                for (int row = 0; row < dt.Rows.Count; row++)
+                {
+                    for (int col = 0; col < dt.Columns.Count && col < headers.Length; col++)
+                    {
+                        var cellValue = dt.Rows[row][col];
+                        var cell = worksheet.Cell(row + headerRow + 1, col + 1);
+
+                        // ✅ FIXED: Simple string handling
+                        cell.Value = cellValue?.ToString() ?? "";
+                        cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+                        // Status column coloring (column 5)
+                        if (col == 4) // Status column
+                        {
+                            string statusValue = cellValue?.ToString() ?? "";
+                            if (statusValue.Contains("Available"))
+                                cell.Style.Fill.BackgroundColor = XLColor.LightGreen;
+                            else if (statusValue.Contains("Occupied"))
+                                cell.Style.Fill.BackgroundColor = XLColor.LightBlue;
+                            else if (statusValue.Contains("Maintenance"))
+                                cell.Style.Fill.BackgroundColor = XLColor.Orange;
+                            else
+                                cell.Style.Fill.BackgroundColor = XLColor.LightCoral;
+                            cell.Style.Font.Bold = true;
+                        }
+                    }
+
+                    // Zebra striping
+                    if (row % 2 == 0)
+                    {
+                        var dataRowRange = worksheet.Range(row + headerRow + 1, 1, row + headerRow + 1, 12);
+                        dataRowRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#f9fafb");
+                    }
+                }
+
+                // ===== FOOTER =====
+                int lastRow = headerRow + 1 + dt.Rows.Count;
+                var footerCell = worksheet.Cell(lastRow + 2, 1);
+                footerCell.Value = $"✨ RoomWise Executive Report | {totalRooms} rooms | {DateTime.Now:dd/MM/yyyy HH:mm:ss}";
+                worksheet.Range(lastRow + 2, 1, lastRow + 2, 12).Merge();
+                footerCell.Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+                footerCell.Style.Font.Italic = true;
+                footerCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#f3f4f6");
+
+                // Final polish
+                worksheet.Columns().AdjustToContents();
+                worksheet.SheetView.FreezeRows(headerRow);
+
+                using var stream = new MemoryStream();
+                workbook.SaveAs(stream);
+                var content = stream.ToArray();
+
+                LogActivity("Export Data", "Room", null, $"Exported {totalRooms} rooms to Excel");
+                string fileName = $"RoomWise_RoomsReport_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+                return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Failed to export rooms: " + ex.Message;
+                return RedirectToAction("RoomsView");
+            }
+        }
+
         // ==================== DEPARTMENTS MANAGEMENT ====================
         [HttpGet]
         public IActionResult GetDepartments()
@@ -833,76 +1045,121 @@ namespace RoomWise.Controllers
             }
         }
 
-        // Update Department
         [HttpPost]
-        public IActionResult UpdateDepartment(int deptId, string deptCode, string deptName, string? deptDescription)
+        public IActionResult UpdateDepartment([FromBody] DepartmentModel department)
         {
-            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
-            
-            if (string.IsNullOrWhiteSpace(deptCode) || string.IsNullOrWhiteSpace(deptName))
+            if (!CheckAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            if (department == null)
+                return Json(new { success = false, message = "Invalid request data" });
+
+            if (string.IsNullOrWhiteSpace(department.dept_code) ||
+                string.IsNullOrWhiteSpace(department.dept_name))
             {
-                return Json(new { success = false, message = "Department code and name are required" });
+                return Json(new
+                {
+                    success = false,
+                    message = "Department code and name are required"
+                });
             }
-            
+
             try
             {
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
                     conn.Open();
-                    
-                    // Check if department exists
-                    string checkQuery = "SELECT dept_code, dept_name, dept_description FROM departments WHERE dept_id = @DeptId";
+
+                    // ================== CHECK EXIST ==================
+                    string checkQuery = @"
+                SELECT dept_code, dept_name, dept_description
+                FROM departments
+                WHERE dept_id = @DeptId";
+
                     string oldValues = "";
-                    
+
                     using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
                     {
-                        checkCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        checkCmd.Parameters.AddWithValue("@DeptId", department.dept_id);
+
                         using (SqlDataReader reader = checkCmd.ExecuteReader())
                         {
                             if (!reader.Read())
                             {
-                                return Json(new { success = false, message = "Department not found" });
+                                return Json(new
+                                {
+                                    success = false,
+                                    message = "Department not found"
+                                });
                             }
-                            oldValues = $"Code: {reader["dept_code"]}, Name: {reader["dept_name"]}, Description: {reader["dept_description"]}";
+
+                            oldValues = $"Code: {reader["dept_code"]}, " +
+                                        $"Name: {reader["dept_name"]}, " +
+                                        $"Description: {reader["dept_description"]}";
                         }
                     }
-                    
-                    // Check if new code already exists for different department
-                    string duplicateQuery = "SELECT COUNT(*) FROM departments WHERE dept_code = @DeptCode AND dept_id != @DeptId";
-                    using (SqlCommand duplicateCmd = new SqlCommand(duplicateQuery, conn))
+
+                    // ================== DUPLICATE CODE CHECK ==================
+                    string duplicateQuery = @"
+                SELECT COUNT(*) 
+                FROM departments
+                WHERE dept_code = @Code
+                  AND dept_id != @DeptId";
+
+                    using (SqlCommand dupCmd = new SqlCommand(duplicateQuery, conn))
                     {
-                        duplicateCmd.Parameters.AddWithValue("@DeptCode", deptCode);
-                        duplicateCmd.Parameters.AddWithValue("@DeptId", deptId);
-                        int count = (int)duplicateCmd.ExecuteScalar();
+                        dupCmd.Parameters.AddWithValue("@Code", department.dept_code);
+                        dupCmd.Parameters.AddWithValue("@DeptId", department.dept_id);
+
+                        int count = (int)dupCmd.ExecuteScalar();
                         if (count > 0)
                         {
-                            return Json(new { success = false, message = "Department code already exists" });
+                            return Json(new
+                            {
+                                success = false,
+                                message = "Department code already exists"
+                            });
                         }
                     }
-                    
-                    // Update department
+
+                    // ================== UPDATE ==================
                     string updateQuery = @"
-                        UPDATE departments 
-                        SET dept_code = @DeptCode,
-                            dept_name = @DeptName,
-                            dept_description = @DeptDescription,
-                            dept_updated_at = GETDATE()
-                        WHERE dept_id = @DeptId";
-                    
+                UPDATE departments
+                SET dept_code = @Code,
+                    dept_name = @Name,
+                    dept_description = @Description,
+                    dept_updated_at = GETDATE()
+                WHERE dept_id = @DeptId";
+
                     using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
                     {
-                        cmd.Parameters.AddWithValue("@DeptId", deptId);
-                        cmd.Parameters.AddWithValue("@DeptCode", deptCode);
-                        cmd.Parameters.AddWithValue("@DeptName", deptName);
-                        cmd.Parameters.AddWithValue("@DeptDescription", (object?)deptDescription ?? DBNull.Value);
-                        
+                        cmd.Parameters.AddWithValue("@DeptId", department.dept_id);
+                        cmd.Parameters.AddWithValue("@Code", department.dept_code);
+                        cmd.Parameters.AddWithValue("@Name", department.dept_name);
+                        cmd.Parameters.AddWithValue("@Description",
+                            (object?)department.dept_description ?? DBNull.Value);
+
                         cmd.ExecuteNonQuery();
-                        
-                        string newValues = $"Code: {deptCode}, Name: {deptName}, Description: {deptDescription}";
-                        LogActivity("Update", "Department", deptId, $"Updated department: {deptName}", oldValues, newValues);
-                        
-                        return Json(new { success = true, message = "Department updated successfully" });
                     }
+
+                    string newValues = $"Code: {department.dept_code}, " +
+                                       $"Name: {department.dept_name}, " +
+                                       $"Description: {department.dept_description}";
+
+                    LogActivity(
+                        "Update",
+                        "Department",
+                        department.dept_id,
+                        $"Updated department {department.dept_name}",
+                        oldValues,
+                        newValues
+                    );
+
+                    return Json(new
+                    {
+                        success = true,
+                        message = "Department updated successfully"
+                    });
                 }
             }
             catch (Exception ex)
@@ -1080,7 +1337,7 @@ namespace RoomWise.Controllers
                 {
                     conn.Open();
                     StringBuilder query = new StringBuilder(@"
-                        SELECT r.*, l.location_code, l.location_plant_name, l.location_block, l.location_floor
+                        SELECT r.*, l.location_code, l.location_plant_name, l.location_block, l.location_floor, l.location_id
                         FROM rooms r
                         INNER JOIN locations l ON r.room_location_id = l.location_id
                         WHERE r.room_is_active = 1");
@@ -1169,6 +1426,7 @@ namespace RoomWise.Controllers
                                 room_has_screenbeam = row["room_has_screenbeam"],
                                 room_has_cisco_bar = row["room_has_cisco_bar"],
                                 room_other_facilities = row["room_other_facilities"],
+                                location_id = row["location_id"],
                                 location_code = row["location_code"],
                                 location_plant_name = row["location_plant_name"],
                                 location_block = row["location_block"],
@@ -1186,6 +1444,139 @@ namespace RoomWise.Controllers
                         return Json(new { success = true, data = rooms });
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // Add this method to AdminController.cs after the existing CreateRoomFromBody method
+        [HttpPost]
+        public IActionResult UpdateRoom([FromBody] RoomModel room)
+        {
+            if (!CheckAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            if (room == null)
+                return Json(new { success = false, message = "Invalid request data" });
+
+            if (string.IsNullOrWhiteSpace(room.room_name))
+                return Json(new { success = false, message = "Room name is required" });
+
+            try
+            {
+                using SqlConnection conn = new SqlConnection(_connectionString);
+                conn.Open();
+
+                // 1. CHECK EXISTING ROOM
+                string checkQuery = @"
+                    SELECT room_code, room_name, room_location_id, room_capacity, room_description, 
+                        room_has_projector, room_has_smart_screen, room_has_screenbeam, room_has_cisco_bar,
+                        room_other_facilities, room_operational_status 
+                    FROM rooms WHERE room_id = @RoomId";
+                
+                string oldValues = "";
+                using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                {
+                    checkCmd.Parameters.AddWithValue("@RoomId", room.room_id);
+                    using SqlDataReader reader = checkCmd.ExecuteReader();
+                    if (!reader.Read())
+                        return Json(new { success = false, message = "Room not found" });
+
+                    oldValues = Newtonsoft.Json.JsonConvert.SerializeObject(new
+                    {
+                        Code = reader["room_code"],
+                        Name = reader["room_name"],
+                        LocationId = reader["room_location_id"],
+                        Capacity = reader["room_capacity"],
+                        Description = reader["room_description"],
+                        HasProjector = reader["room_has_projector"],
+                        HasSmartScreen = reader["room_has_smart_screen"],
+                        HasScreenbeam = reader["room_has_screenbeam"],
+                        HasCiscoBar = reader["room_has_cisco_bar"],
+                        OtherFacilities = reader["room_other_facilities"],
+                        Status = reader["room_operational_status"]
+                    });
+                }
+
+                // 2. CHECK DUPLICATE ROOM CODE (if changed)
+                string duplicateQuery = @"
+                    SELECT COUNT(*) FROM rooms 
+                    WHERE room_code = @RoomCode AND room_id != @RoomId";
+                
+                using (SqlCommand dupCmd = new SqlCommand(duplicateQuery, conn))
+                {
+                    dupCmd.Parameters.AddWithValue("@RoomCode", room.room_code ?? (object)DBNull.Value);
+                    dupCmd.Parameters.AddWithValue("@RoomId", room.room_id);
+                    int count = (int)dupCmd.ExecuteScalar();
+                    
+                    if (count > 0)
+                        return Json(new { success = false, message = "Room code already exists" });
+                }
+
+                // 3. UPDATE ROOM
+                string updateQuery = @"
+                    UPDATE rooms SET 
+                        room_name = @Name,
+                        room_code = @Code,
+                        room_location_id = @LocationId,
+                        room_capacity = @Capacity,
+                        room_description = @Description,
+                        room_has_projector = @HasProjector,
+                        room_has_smart_screen = @HasSmartScreen,
+                        room_has_screenbeam = @HasScreenbeam,
+                        room_has_cisco_bar = @HasCiscoBar,
+                        room_other_facilities = @OtherFacilities,
+                        room_operational_status = @Status,
+                        room_updated_at = GETDATE()
+                    WHERE room_id = @RoomId";
+
+                using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
+                {
+                    cmd.Parameters.AddWithValue("@RoomId", room.room_id);
+                    cmd.Parameters.AddWithValue("@Name", room.room_name);
+                    cmd.Parameters.AddWithValue("@Code", room.room_code ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@LocationId", room.room_location_id);
+                    cmd.Parameters.AddWithValue("@Capacity", room.room_capacity);
+                    cmd.Parameters.AddWithValue("@Description", room.room_description ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@HasProjector", room.room_has_projector);
+                    cmd.Parameters.AddWithValue("@HasSmartScreen", room.room_has_smart_screen);
+                    cmd.Parameters.AddWithValue("@HasScreenbeam", room.room_has_screenbeam);
+                    cmd.Parameters.AddWithValue("@HasCiscoBar", room.room_has_cisco_bar);
+                    cmd.Parameters.AddWithValue("@OtherFacilities", room.room_other_facilities ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("@Status", room.room_operational_status);
+
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    
+                    if (rowsAffected == 0)
+                        return Json(new { success = false, message = "No room updated" });
+                }
+
+                // 4. LOG ACTIVITY
+                string newValues = Newtonsoft.Json.JsonConvert.SerializeObject(new
+                {
+                    Code = room.room_code,
+                    Name = room.room_name,
+                    LocationId = room.room_location_id,
+                    Capacity = room.room_capacity,
+                    Description = room.room_description,
+                    HasProjector = room.room_has_projector,
+                    HasSmartScreen = room.room_has_smart_screen,
+                    HasScreenbeam = room.room_has_screenbeam,
+                    HasCiscoBar = room.room_has_cisco_bar,
+                    OtherFacilities = room.room_other_facilities,
+                    Status = room.room_operational_status
+                });
+
+                LogActivity("Update", "Room", room.room_id, 
+                    $"Updated room '{room.room_name}' ({room.room_code})", oldValues, newValues);
+
+                return Json(new { 
+                    success = true, 
+                    message = "Room updated successfully",
+                    room_Id = room.room_id 
+                });
             }
             catch (Exception ex)
             {
@@ -1383,89 +1774,114 @@ namespace RoomWise.Controllers
             }
         }
 
-        // Update Location
         [HttpPost]
-        public IActionResult UpdateLocation(int locationId, string locationCode, string locationPlantName, 
-            byte locationBlock, byte locationFloor, string? locationDescription)
+        public IActionResult UpdateLocation([FromBody] LocationModel location)
         {
-            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
-            
-            if (string.IsNullOrWhiteSpace(locationCode) || string.IsNullOrWhiteSpace(locationPlantName))
+            if (!CheckAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            if (location == null)
+                return Json(new { success = false, message = "Invalid request data" });
+
+            if (string.IsNullOrWhiteSpace(location.location_code) ||
+                string.IsNullOrWhiteSpace(location.location_plant_name))
             {
                 return Json(new { success = false, message = "Location code and plant name are required" });
             }
-            
+
             try
             {
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
                     conn.Open();
-                    
-                    // Check if location exists
+
+                    // ================== CHECK EXISTING LOCATION ==================
                     string checkQuery = @"
-                        SELECT location_code, location_plant_name, location_block, 
-                               location_floor, location_description 
-                        FROM locations 
-                        WHERE location_id = @LocationId";
+                SELECT location_code, location_plant_name, location_block, 
+                       location_floor, location_description
+                FROM locations
+                WHERE location_id = @LocationId";
+
                     string oldValues = "";
-                    
+
                     using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
                     {
-                        checkCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        checkCmd.Parameters.AddWithValue("@LocationId", location.location_id);
+
                         using (SqlDataReader reader = checkCmd.ExecuteReader())
                         {
                             if (!reader.Read())
                             {
                                 return Json(new { success = false, message = "Location not found" });
                             }
-                            oldValues = $"Code: {reader["location_code"]}, Plant: {reader["location_plant_name"]}, " +
-                                      $"Block: {reader["location_block"]}, Floor: {reader["location_floor"]}, " +
-                                      $"Description: {reader["location_description"]}";
+
+                            oldValues = $"Code: {reader["location_code"]}, " +
+                                        $"Plant: {reader["location_plant_name"]}, " +
+                                        $"Block: {reader["location_block"]}, " +
+                                        $"Floor: {reader["location_floor"]}, " +
+                                        $"Description: {reader["location_description"]}";
                         }
                     }
-                    
-                    // Check if new code already exists for different location
-                    string duplicateQuery = "SELECT COUNT(*) FROM locations WHERE location_code = @LocationCode AND location_id != @LocationId";
+
+                    // ================== CHECK DUPLICATE CODE ==================
+                    string duplicateQuery = @"
+                SELECT COUNT(*) 
+                FROM locations 
+                WHERE location_code = @LocationCode 
+                  AND location_id != @LocationId";
+
                     using (SqlCommand duplicateCmd = new SqlCommand(duplicateQuery, conn))
                     {
-                        duplicateCmd.Parameters.AddWithValue("@LocationCode", locationCode);
-                        duplicateCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        duplicateCmd.Parameters.AddWithValue("@LocationCode", location.location_code);
+                        duplicateCmd.Parameters.AddWithValue("@LocationId", location.location_id);
+
                         int count = (int)duplicateCmd.ExecuteScalar();
                         if (count > 0)
                         {
                             return Json(new { success = false, message = "Location code already exists" });
                         }
                     }
-                    
-                    // Update location
+
+                    // ================== UPDATE ==================
                     string updateQuery = @"
-                        UPDATE locations 
-                        SET location_code = @LocationCode,
-                            location_plant_name = @LocationPlantName,
-                            location_block = @LocationBlock,
-                            location_floor = @LocationFloor,
-                            location_description = @LocationDescription,
-                            location_updated_at = GETDATE()
-                        WHERE location_id = @LocationId";
-                    
+                UPDATE locations
+                SET location_code = @LocationCode,
+                    location_plant_name = @LocationPlantName,
+                    location_block = @LocationBlock,
+                    location_floor = @LocationFloor,
+                    location_description = @LocationDescription,
+                    location_updated_at = GETDATE()
+                WHERE location_id = @LocationId";
+
                     using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
                     {
-                        cmd.Parameters.AddWithValue("@LocationId", locationId);
-                        cmd.Parameters.AddWithValue("@LocationCode", locationCode);
-                        cmd.Parameters.AddWithValue("@LocationPlantName", locationPlantName);
-                        cmd.Parameters.AddWithValue("@LocationBlock", locationBlock);
-                        cmd.Parameters.AddWithValue("@LocationFloor", locationFloor);
-                        cmd.Parameters.AddWithValue("@LocationDescription", (object?)locationDescription ?? DBNull.Value);
-                        
+                        cmd.Parameters.AddWithValue("@LocationId", location.location_id);
+                        cmd.Parameters.AddWithValue("@LocationCode", location.location_code);
+                        cmd.Parameters.AddWithValue("@LocationPlantName", location.location_plant_name);
+                        cmd.Parameters.AddWithValue("@LocationBlock", location.location_block);
+                        cmd.Parameters.AddWithValue("@LocationFloor", location.location_floor);
+                        cmd.Parameters.AddWithValue("@LocationDescription",
+                            (object?)location.location_description ?? DBNull.Value);
+
                         cmd.ExecuteNonQuery();
-                        
-                        string newValues = $"Code: {locationCode}, Plant: {locationPlantName}, " +
-                                         $"Block: {locationBlock}, Floor: {locationFloor}, " +
-                                         $"Description: {locationDescription}";
-                        LogActivity("Update", "Location", locationId, $"Updated location: {locationPlantName} - Block {locationBlock} - Floor {locationFloor}", oldValues, newValues);
-                        
-                        return Json(new { success = true, message = "Location updated successfully" });
                     }
+
+                    string newValues = $"Code: {location.location_code}, " +
+                                       $"Plant: {location.location_plant_name}, " +
+                                       $"Block: {location.location_block}, " +
+                                       $"Floor: {location.location_floor}, " +
+                                       $"Description: {location.location_description}";
+
+                    LogActivity(
+                        "Update",
+                        "Location",
+                        location.location_id,
+                        $"Updated location {location.location_code}",
+                        oldValues,
+                        newValues
+                    );
+
+                    return Json(new { success = true, message = "Location updated successfully" });
                 }
             }
             catch (Exception ex)
@@ -1754,8 +2170,8 @@ namespace RoomWise.Controllers
                         cmd.CommandType = CommandType.StoredProcedure;
                         cmd.Parameters.AddWithValue("@room_id", booking.booking_room_id);
                         cmd.Parameters.AddWithValue("@booking_date", booking.booking_date);
-                        cmd.Parameters.AddWithValue("@start_time", booking.booking_start_time);
-                        cmd.Parameters.AddWithValue("@end_time", booking.booking_end_time);
+                        cmd.Parameters.Add("@start_time", SqlDbType.Time).Value = TimeSpan.Parse(booking.booking_start_time);
+                        cmd.Parameters.Add("@end_time", SqlDbType.Time).Value = TimeSpan.Parse(booking.booking_end_time);
                         cmd.Parameters.AddWithValue("@exclude_booking_id", DBNull.Value);
                         
                         int conflictCount = Convert.ToInt32(cmd.ExecuteScalar());
@@ -1797,8 +2213,8 @@ namespace RoomWise.Controllers
                         cmd.Parameters.AddWithValue("@Title", booking.booking_meeting_title);
                         cmd.Parameters.AddWithValue("@Description", (object?)booking.booking_meeting_description ?? DBNull.Value);
                         cmd.Parameters.AddWithValue("@Date", booking.booking_date);
-                        cmd.Parameters.AddWithValue("@StartTime", booking.booking_start_time);
-                        cmd.Parameters.AddWithValue("@EndTime", booking.booking_end_time);
+                        cmd.Parameters.Add("@StartTime", SqlDbType.Time).Value = TimeSpan.Parse(booking.booking_start_time);
+                        cmd.Parameters.Add("@EndTime", SqlDbType.Time).Value = TimeSpan.Parse(booking.booking_end_time);
                         cmd.Parameters.AddWithValue("@Status", "Confirmed"); // Admin bookings auto-confirm
                         
                         int bookingId = Convert.ToInt32(cmd.ExecuteScalar());

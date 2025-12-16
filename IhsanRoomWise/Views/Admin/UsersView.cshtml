@@ -56,13 +56,14 @@
         gap: 1rem;
         flex-wrap: wrap;
         flex: 1;
+        width: 100%;
     }
 
     .search-box {
         position: relative;
         min-width: 300px;
         flex: 1;
-        max-width: 400px;
+        max-width: 610px;
     }
 
     .search-box input {
@@ -96,7 +97,7 @@
     }
 
     .filter-select {
-        min-width: 160px;
+        min-width: 300px;
         padding: 0.75rem 1rem;
         border: 2px solid #e5e7eb;
         border-radius: 10px;
@@ -430,6 +431,14 @@
         margin: 0;
     }
 
+    .search-and-filters {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem; /* spacing between search & filters */
+        width: 100%;
+
+    }
+
     .stat-content p {
         font-size: 0.875rem;
         color: #6b7280;
@@ -501,24 +510,26 @@
 <div class="toolbar">
     <div class="toolbar-row">
         <div class="toolbar-left">
-            <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" id="searchInput" placeholder="Search by name, email, or employee ID...">
-            </div>
-            <div class="filter-group">
-                <select id="roleFilter" class="filter-select">
-                    <option value="">All Roles</option>
-                    <option value="Admin">Admin</option>
-                    <option value="Employee">Employee</option>
-                </select>
-                <select id="deptFilter" class="filter-select">
-                    <option value="">All Departments</option>
-                </select>
-                <select id="statusFilter" class="filter-select">
-                    <option value="">All Status</option>
-                    <option value="true">Active</option>
-                    <option value="false">Inactive</option>
-                </select>
+            <div class="search-and-filters">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search by name, email, or employee ID..." style="width: 100%; min-width: 400px;">
+                </div>
+                <div class="filter-group">
+                    <select id="roleFilter" class="filter-select">
+                        <option value="">All Roles</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Employee">Employee</option>
+                    </select>
+                    <select id="deptFilter" class="filter-select">
+                        <option value="">All Departments</option>
+                    </select>
+                    <select id="statusFilter" class="filter-select">
+                        <option value="">All Status</option>
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                </div>
             </div>
         </div>
         <div class="toolbar-right">
@@ -1089,6 +1100,8 @@
         };
 
         const url = deptId ? '/Admin/UpdateDepartment' : '/Admin/CreateDepartment';
+
+        console.log(deptData, url);
 
         $.ajax({
             url: url,

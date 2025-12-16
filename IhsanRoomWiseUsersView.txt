@@ -880,7 +880,6 @@
             data: { search, role, deptId, isActive },
             success: function(response) {
                 if (response.success) {
-                    console.log(response.data);
                     usersTable.clear();
                     usersTable.rows.add(response.data);
                     usersTable.draw();

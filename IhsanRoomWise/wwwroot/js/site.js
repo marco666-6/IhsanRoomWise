@@ -418,6 +418,12 @@ window.RoomWise = {
     throttle
 };
 
+$('select').not('.no-select2').select2({
+    theme: 'bootstrap-5',
+    placeholder: 'Select an option',
+    allowClear: true
+});
+
 // ============================================
 // CONSOLE BRANDING
 // ============================================

@@ -222,19 +222,26 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (dynamic booking in Model.UpcomingBookings)
+                        @foreach (var booking in Model.UpcomingBookings)
                         {
                             <tr>
-                                <td><strong>@booking.room_name</strong></td>
-                                <td>@booking.user_full_name</td>
+                                <td><strong>@((string)booking["room_name"])</strong></td>
+                                <td>@((string)booking["user_full_name"])</td>
                                 <td>
                                     <div class="datetime-cell">
-                                        <div>@Convert.ToDateTime(booking.booking_date).ToString("dd MMM yyyy")</div>
-                                        <small>@booking.booking_start_time - @booking.booking_end_time</small>
+                                        <div>@Convert.ToDateTime(booking["booking_date"]).ToString("dd MMM yyyy")</div>
+                                        <small>@booking["booking_start_time"] - @booking["booking_end_time"]</small>
                                     </div>
                                 </td>
-                                <td><span class="badge badge-@booking.booking_status.ToString().ToLower()">@booking.booking_status</span></td>
+                                <td><span class="badge badge-@((string)booking["booking_status"])">@((string)booking["booking_status"])</span></td>
                             </tr>
+                        }
+                        @if (Model.UpcomingBookings.Count == 0)
+                        {
+                            <div class="no-alerts">
+                                <i class="fas fa-calendar"></i>
+                                <p>No Upcoming alerts</p>
+                            </div>
                         }
                     </tbody>
                 </table>
@@ -263,21 +270,21 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (dynamic feedback in Model.RecentFeedbacks)
+                        @foreach (var feedback in Model.RecentFeedbacks)
                         {
                             <tr>
-                                <td>@feedback.user_full_name</td>
-                                <td>@feedback.room_name</td>
+                                <td>@((string)feedback["user_full_name"])</td>
+                                <td>@((string)feedback["room_name"])</td>
                                 <td>
                                     <div class="rating-stars">
                                         @for (int i = 1; i <= 5; i++)
                                         {
-                                            <i class="fas fa-star @(i <= (int)feedback.feedback_rating ? "star-filled" : "star-empty")"></i>
+                                            <i class="fas fa-star @(i <= (int)feedback["feedback_rating"] ? "star-filled" : "star-empty")"></i>
                                         }
                                     </div>
                                 </td>
                                 <td>
-                                    @if ((int)feedback.is_responded == 1)
+                                    @if ((int)feedback["is_responded"] == 1)
                                     {
                                         <span class="badge badge-success">Responded</span>
                                     }
@@ -287,6 +294,13 @@
                                     }
                                 </td>
                             </tr>
+                        }
+                        @if (Model.RecentFeedbacks.Count == 0)
+                        {
+                            <div class="no-alerts">
+                                <i class="fas fa-comment"></i>
+                                <p>No Feedback alerts</p>
+                            </div>
                         }
                     </tbody>
                 </table>
@@ -306,24 +320,31 @@
             </div>
             <div class="leaderboard">
                 @{int rank = 1;}
-                @foreach (dynamic user in Model.TopUsers)
+                @foreach (var user in Model.TopUsers)
                 {
                     <div class="leaderboard-item">
                         <div class="rank-badge rank-@rank">@rank</div>
                         <div class="user-info">
-                            <div class="user-name">@user.user_full_name</div>
-                            <div class="user-dept">@user.dept_name</div>
+                            <div class="user-name">@((string)user["user_full_name"])</div>
+                            <div class="user-dept">@((string)user["dept_name"])</div>
                         </div>
                         <div class="user-stats">
                             <div class="stat-item">
-                                <i class="fas fa-calendar"></i> @user.total_bookings
+                                <i class="fas fa-calendar"></i> @((int)user["total_bookings"])
                             </div>
                             <div class="stat-item">
-                                <i class="fas fa-clock"></i> @((int)user.total_minutes / 60)h
+                                <i class="fas fa-clock"></i> @((int)user["total_minutes"] / 60)h
                             </div>
                         </div>
                     </div>
                     rank++;
+                }
+                @if (Model.TopUsers.Count == 0)
+                {
+                    <div class="no-alerts">
+                        <i class="fas fa-users"></i>
+                        <p>No User alerts</p>
+                    </div>
                 }
             </div>
         </div>
@@ -337,23 +358,23 @@
                 </h3>
             </div>
             <div class="alerts-list">
-                @foreach (dynamic alert in Model.MaintenanceAlerts)
+                @foreach (var alert in Model.MaintenanceAlerts)
                 {
-                    <div class="alert-item alert-@(alert.room_operational_status == "Maintenance" ? "warning" : "danger")">
+                    <div class="alert-item alert-@(alert["room_operational_status"].ToString() == "Maintenance" ? "warning" : "danger")">
                         <div class="alert-icon">
                             <i class="fas fa-tools"></i>
                         </div>
                         <div class="alert-content">
-                            <div class="alert-title">@alert.room_name</div>
+                            <div class="alert-title">@((string)alert["room_name"])</div>
                             <div class="alert-desc">
-                                Status: @alert.room_operational_status | 
-                                @alert.issue_count Issue(s) Reported
+                                Status: @alert["room_operational_status"] | 
+                                @((int)alert["issue_count"]) Issue(s) Reported
                             </div>
                             <div class="alert-time">
-                                Last: @Convert.ToDateTime(alert.last_issue_date).ToString("dd MMM, HH:mm")
+                                Last: @Convert.ToDateTime(alert["last_issue_date"]).ToString("dd MMM, HH:mm")
                             </div>
                         </div>
-                        <button class="btn-alert-action" onclick="viewAlert(@alert.room_name)">
+                        <button class="btn-alert-action" onclick="viewAlert('@((string)alert["room_name"])')">
                             <i class="fas fa-arrow-right"></i>
                         </button>
                     </div>
@@ -837,9 +858,14 @@
 }
 
 .badge-confirmed { background: #d1fae5; color: #065f46; }
+.badge-Confirmed { background: #d1fae5; color: #065f46; }
 .badge-pending { background: #fef3c7; color: #92400e; }
+.badge-Pending { background: #fef3c7; color: #92400e; }
 .badge-cancelled { background: #fee2e2; color: #991b1b; }
+.badge-Cancelled { background: #fee2e2; color: #991b1b; }
 .badge-success { background: #d1fae5; color: #065f46; }
+.badge-Success { background: #d1fae5; color: #065f46; }
+.badge-Warning { background: #fef3c7; color: #92400e; }
 .badge-warning { background: #fef3c7; color: #92400e; }
 
 .rating-stars {

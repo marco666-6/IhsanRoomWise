@@ -10,8 +10,8 @@ namespace IhsanRoomWise.Models
         public string booking_meeting_title { get; set; } = string.Empty;
         public string? booking_meeting_description { get; set; }
         public DateTime booking_date { get; set; }
-        public TimeSpan booking_start_time { get; set; }
-        public TimeSpan booking_end_time { get; set; }
+        public string booking_start_time { get; set; }
+        public string booking_end_time { get; set; }
         public string booking_status { get; set; } = "Pending";
         public string? booking_cancellation_reason { get; set; }
         public DateTime? booking_cancelled_at { get; set; }

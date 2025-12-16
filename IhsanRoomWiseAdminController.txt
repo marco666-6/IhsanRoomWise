@@ -414,8 +414,10 @@ namespace RoomWise.Controllers
                                 user_employee_id = row["user_employee_id"],
                                 user_email = row["user_email"],
                                 user_full_name = row["user_full_name"],
+                                user_phone = row["user_phone"],
                                 user_role = row["user_role"],
                                 dept_name = row["dept_name"],
+                                user_dept_id = row["user_dept_id"],
                                 user_is_active = row["user_is_active"],
                                 user_last_login = row["user_last_login"],
                                 user_created_at = row["user_created_at"]
@@ -831,76 +833,121 @@ namespace RoomWise.Controllers
             }
         }
 
-        // Update Department
         [HttpPost]
-        public IActionResult UpdateDepartment(int deptId, string deptCode, string deptName, string? deptDescription)
+        public IActionResult UpdateDepartment([FromBody] DepartmentModel department)
         {
-            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
-            
-            if (string.IsNullOrWhiteSpace(deptCode) || string.IsNullOrWhiteSpace(deptName))
+            if (!CheckAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            if (department == null)
+                return Json(new { success = false, message = "Invalid request data" });
+
+            if (string.IsNullOrWhiteSpace(department.dept_code) ||
+                string.IsNullOrWhiteSpace(department.dept_name))
             {
-                return Json(new { success = false, message = "Department code and name are required" });
+                return Json(new
+                {
+                    success = false,
+                    message = "Department code and name are required"
+                });
             }
-            
+
             try
             {
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
                     conn.Open();
-                    
-                    // Check if department exists
-                    string checkQuery = "SELECT dept_code, dept_name, dept_description FROM departments WHERE dept_id = @DeptId";
+
+                    // ================== CHECK EXIST ==================
+                    string checkQuery = @"
+                SELECT dept_code, dept_name, dept_description
+                FROM departments
+                WHERE dept_id = @DeptId";
+
                     string oldValues = "";
-                    
+
                     using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
                     {
-                        checkCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        checkCmd.Parameters.AddWithValue("@DeptId", department.dept_id);
+
                         using (SqlDataReader reader = checkCmd.ExecuteReader())
                         {
                             if (!reader.Read())
                             {
-                                return Json(new { success = false, message = "Department not found" });
+                                return Json(new
+                                {
+                                    success = false,
+                                    message = "Department not found"
+                                });
                             }
-                            oldValues = $"Code: {reader["dept_code"]}, Name: {reader["dept_name"]}, Description: {reader["dept_description"]}";
+
+                            oldValues = $"Code: {reader["dept_code"]}, " +
+                                        $"Name: {reader["dept_name"]}, " +
+                                        $"Description: {reader["dept_description"]}";
                         }
                     }
-                    
-                    // Check if new code already exists for different department
-                    string duplicateQuery = "SELECT COUNT(*) FROM departments WHERE dept_code = @DeptCode AND dept_id != @DeptId";
-                    using (SqlCommand duplicateCmd = new SqlCommand(duplicateQuery, conn))
+
+                    // ================== DUPLICATE CODE CHECK ==================
+                    string duplicateQuery = @"
+                SELECT COUNT(*) 
+                FROM departments
+                WHERE dept_code = @Code
+                  AND dept_id != @DeptId";
+
+                    using (SqlCommand dupCmd = new SqlCommand(duplicateQuery, conn))
                     {
-                        duplicateCmd.Parameters.AddWithValue("@DeptCode", deptCode);
-                        duplicateCmd.Parameters.AddWithValue("@DeptId", deptId);
-                        int count = (int)duplicateCmd.ExecuteScalar();
+                        dupCmd.Parameters.AddWithValue("@Code", department.dept_code);
+                        dupCmd.Parameters.AddWithValue("@DeptId", department.dept_id);
+
+                        int count = (int)dupCmd.ExecuteScalar();
                         if (count > 0)
                         {
-                            return Json(new { success = false, message = "Department code already exists" });
+                            return Json(new
+                            {
+                                success = false,
+                                message = "Department code already exists"
+                            });
                         }
                     }
-                    
-                    // Update department
+
+                    // ================== UPDATE ==================
                     string updateQuery = @"
-                        UPDATE departments 
-                        SET dept_code = @DeptCode,
-                            dept_name = @DeptName,
-                            dept_description = @DeptDescription,
-                            dept_updated_at = GETDATE()
-                        WHERE dept_id = @DeptId";
-                    
+                UPDATE departments
+                SET dept_code = @Code,
+                    dept_name = @Name,
+                    dept_description = @Description,
+                    dept_updated_at = GETDATE()
+                WHERE dept_id = @DeptId";
+
                     using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
                     {
-                        cmd.Parameters.AddWithValue("@DeptId", deptId);
-                        cmd.Parameters.AddWithValue("@DeptCode", deptCode);
-                        cmd.Parameters.AddWithValue("@DeptName", deptName);
-                        cmd.Parameters.AddWithValue("@DeptDescription", (object?)deptDescription ?? DBNull.Value);
-                        
+                        cmd.Parameters.AddWithValue("@DeptId", department.dept_id);
+                        cmd.Parameters.AddWithValue("@Code", department.dept_code);
+                        cmd.Parameters.AddWithValue("@Name", department.dept_name);
+                        cmd.Parameters.AddWithValue("@Description",
+                            (object?)department.dept_description ?? DBNull.Value);
+
                         cmd.ExecuteNonQuery();
-                        
-                        string newValues = $"Code: {deptCode}, Name: {deptName}, Description: {deptDescription}";
-                        LogActivity("Update", "Department", deptId, $"Updated department: {deptName}", oldValues, newValues);
-                        
-                        return Json(new { success = true, message = "Department updated successfully" });
                     }
+
+                    string newValues = $"Code: {department.dept_code}, " +
+                                       $"Name: {department.dept_name}, " +
+                                       $"Description: {department.dept_description}";
+
+                    LogActivity(
+                        "Update",
+                        "Department",
+                        department.dept_id,
+                        $"Updated department {department.dept_name}",
+                        oldValues,
+                        newValues
+                    );
+
+                    return Json(new
+                    {
+                        success = true,
+                        message = "Department updated successfully"
+                    });
                 }
             }
             catch (Exception ex)
@@ -1381,89 +1428,114 @@ namespace RoomWise.Controllers
             }
         }
 
-        // Update Location
         [HttpPost]
-        public IActionResult UpdateLocation(int locationId, string locationCode, string locationPlantName, 
-            byte locationBlock, byte locationFloor, string? locationDescription)
+        public IActionResult UpdateLocation([FromBody] LocationModel location)
         {
-            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
-            
-            if (string.IsNullOrWhiteSpace(locationCode) || string.IsNullOrWhiteSpace(locationPlantName))
+            if (!CheckAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            if (location == null)
+                return Json(new { success = false, message = "Invalid request data" });
+
+            if (string.IsNullOrWhiteSpace(location.location_code) ||
+                string.IsNullOrWhiteSpace(location.location_plant_name))
             {
                 return Json(new { success = false, message = "Location code and plant name are required" });
             }
-            
+
             try
             {
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
                     conn.Open();
-                    
-                    // Check if location exists
+
+                    // ================== CHECK EXISTING LOCATION ==================
                     string checkQuery = @"
-                        SELECT location_code, location_plant_name, location_block, 
-                               location_floor, location_description 
-                        FROM locations 
-                        WHERE location_id = @LocationId";
+                SELECT location_code, location_plant_name, location_block, 
+                       location_floor, location_description
+                FROM locations
+                WHERE location_id = @LocationId";
+
                     string oldValues = "";
-                    
+
                     using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
                     {
-                        checkCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        checkCmd.Parameters.AddWithValue("@LocationId", location.location_id);
+
                         using (SqlDataReader reader = checkCmd.ExecuteReader())
                         {
                             if (!reader.Read())
                             {
                                 return Json(new { success = false, message = "Location not found" });
                             }
-                            oldValues = $"Code: {reader["location_code"]}, Plant: {reader["location_plant_name"]}, " +
-                                      $"Block: {reader["location_block"]}, Floor: {reader["location_floor"]}, " +
-                                      $"Description: {reader["location_description"]}";
+
+                            oldValues = $"Code: {reader["location_code"]}, " +
+                                        $"Plant: {reader["location_plant_name"]}, " +
+                                        $"Block: {reader["location_block"]}, " +
+                                        $"Floor: {reader["location_floor"]}, " +
+                                        $"Description: {reader["location_description"]}";
                         }
                     }
-                    
-                    // Check if new code already exists for different location
-                    string duplicateQuery = "SELECT COUNT(*) FROM locations WHERE location_code = @LocationCode AND location_id != @LocationId";
+
+                    // ================== CHECK DUPLICATE CODE ==================
+                    string duplicateQuery = @"
+                SELECT COUNT(*) 
+                FROM locations 
+                WHERE location_code = @LocationCode 
+                  AND location_id != @LocationId";
+
                     using (SqlCommand duplicateCmd = new SqlCommand(duplicateQuery, conn))
                     {
-                        duplicateCmd.Parameters.AddWithValue("@LocationCode", locationCode);
-                        duplicateCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        duplicateCmd.Parameters.AddWithValue("@LocationCode", location.location_code);
+                        duplicateCmd.Parameters.AddWithValue("@LocationId", location.location_id);
+
                         int count = (int)duplicateCmd.ExecuteScalar();
                         if (count > 0)
                         {
                             return Json(new { success = false, message = "Location code already exists" });
                         }
                     }
-                    
-                    // Update location
+
+                    // ================== UPDATE ==================
                     string updateQuery = @"
-                        UPDATE locations 
-                        SET location_code = @LocationCode,
-                            location_plant_name = @LocationPlantName,
-                            location_block = @LocationBlock,
-                            location_floor = @LocationFloor,
-                            location_description = @LocationDescription,
-                            location_updated_at = GETDATE()
-                        WHERE location_id = @LocationId";
-                    
+                UPDATE locations
+                SET location_code = @LocationCode,
+                    location_plant_name = @LocationPlantName,
+                    location_block = @LocationBlock,
+                    location_floor = @LocationFloor,
+                    location_description = @LocationDescription,
+                    location_updated_at = GETDATE()
+                WHERE location_id = @LocationId";
+
                     using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
                     {
-                        cmd.Parameters.AddWithValue("@LocationId", locationId);
-                        cmd.Parameters.AddWithValue("@LocationCode", locationCode);
-                        cmd.Parameters.AddWithValue("@LocationPlantName", locationPlantName);
-                        cmd.Parameters.AddWithValue("@LocationBlock", locationBlock);
-                        cmd.Parameters.AddWithValue("@LocationFloor", locationFloor);
-                        cmd.Parameters.AddWithValue("@LocationDescription", (object?)locationDescription ?? DBNull.Value);
-                        
+                        cmd.Parameters.AddWithValue("@LocationId", location.location_id);
+                        cmd.Parameters.AddWithValue("@LocationCode", location.location_code);
+                        cmd.Parameters.AddWithValue("@LocationPlantName", location.location_plant_name);
+                        cmd.Parameters.AddWithValue("@LocationBlock", location.location_block);
+                        cmd.Parameters.AddWithValue("@LocationFloor", location.location_floor);
+                        cmd.Parameters.AddWithValue("@LocationDescription",
+                            (object?)location.location_description ?? DBNull.Value);
+
                         cmd.ExecuteNonQuery();
-                        
-                        string newValues = $"Code: {locationCode}, Plant: {locationPlantName}, " +
-                                         $"Block: {locationBlock}, Floor: {locationFloor}, " +
-                                         $"Description: {locationDescription}";
-                        LogActivity("Update", "Location", locationId, $"Updated location: {locationPlantName} - Block {locationBlock} - Floor {locationFloor}", oldValues, newValues);
-                        
-                        return Json(new { success = true, message = "Location updated successfully" });
                     }
+
+                    string newValues = $"Code: {location.location_code}, " +
+                                       $"Plant: {location.location_plant_name}, " +
+                                       $"Block: {location.location_block}, " +
+                                       $"Floor: {location.location_floor}, " +
+                                       $"Description: {location.location_description}";
+
+                    LogActivity(
+                        "Update",
+                        "Location",
+                        location.location_id,
+                        $"Updated location {location.location_code}",
+                        oldValues,
+                        newValues
+                    );
+
+                    return Json(new { success = true, message = "Location updated successfully" });
                 }
             }
             catch (Exception ex)

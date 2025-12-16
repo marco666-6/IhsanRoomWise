@@ -3,12 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{DAA4C965-353C-4721-8D75-DAAF68645CF9}|IhsanRoomWise\\IhsanRoomWise.csproj|c:\\users\\marco\\downloads\\nonwork-code\\ihsan\\ihsanroomwise\\views\\admin\\usersview.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
-      "RelativeMoniker": "D:0:0:{DAA4C965-353C-4721-8D75-DAAF68645CF9}|IhsanRoomWise\\IhsanRoomWise.csproj|solutionrelative:ihsanroomwise\\views\\admin\\usersview.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{DAA4C965-353C-4721-8D75-DAAF68645CF9}|IhsanRoomWise\\IhsanRoomWise.csproj|c:\\users\\marco\\downloads\\nonwork-code\\ihsan\\ihsanroomwise\\controllers\\admincontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{DAA4C965-353C-4721-8D75-DAAF68645CF9}|IhsanRoomWise\\IhsanRoomWise.csproj|solutionrelative:ihsanroomwise\\controllers\\admincontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DAA4C965-353C-4721-8D75-DAAF68645CF9}|IhsanRoomWise\\IhsanRoomWise.csproj|c:\\users\\marco\\downloads\\nonwork-code\\ihsan\\ihsanroomwise\\views\\admin\\bookingsview.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{DAA4C965-353C-4721-8D75-DAAF68645CF9}|IhsanRoomWise\\IhsanRoomWise.csproj|solutionrelative:ihsanroomwise\\views\\admin\\bookingsview.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{DAA4C965-353C-4721-8D75-DAAF68645CF9}|IhsanRoomWise\\IhsanRoomWise.csproj|c:\\users\\marco\\downloads\\nonwork-code\\ihsan\\ihsanroomwise\\views\\admin\\roomsview.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{DAA4C965-353C-4721-8D75-DAAF68645CF9}|IhsanRoomWise\\IhsanRoomWise.csproj|solutionrelative:ihsanroomwise\\views\\admin\\roomsview.cshtml||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     }
   ],
   "DocumentGroupContainers": [
@@ -17,8 +21,8 @@
       "VerticalTabListWidth": 256,
       "DocumentGroups": [
         {
-          "DockedHeight": 226,
-          "SelectedChildIndex": 2,
+          "DockedHeight": 238,
+          "SelectedChildIndex": 3,
           "Children": [
             {
               "$type": "Bookmark",
@@ -27,35 +31,52 @@
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "AdminController.cs",
-              "DocumentMoniker": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\IhsanRoomWise\\Controllers\\AdminController.cs",
-              "RelativeDocumentMoniker": "IhsanRoomWise\\Controllers\\AdminController.cs",
-              "ToolTip": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\IhsanRoomWise\\Controllers\\AdminController.cs",
-              "RelativeToolTip": "IhsanRoomWise\\Controllers\\AdminController.cs",
-              "ViewState": "AgIAACUBAAAAAAAAAAAjwC0BAAAXAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-16T03:48:37.007Z",
+              "Title": "BookingsView.cshtml",
+              "DocumentMoniker": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\IhsanRoomWise\\Views\\Admin\\BookingsView.cshtml",
+              "RelativeDocumentMoniker": "IhsanRoomWise\\Views\\Admin\\BookingsView.cshtml",
+              "ToolTip": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\IhsanRoomWise\\Views\\Admin\\BookingsView.cshtml",
+              "RelativeToolTip": "IhsanRoomWise\\Views\\Admin\\BookingsView.cshtml",
+              "ViewState": "AgIAAB8EAAAAAAAAAAAAAC4EAABbAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-12-16T07:54:41.516Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "RoomsView.cshtml",
+              "DocumentMoniker": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\IhsanRoomWise\\Views\\Admin\\RoomsView.cshtml",
+              "RelativeDocumentMoniker": "IhsanRoomWise\\Views\\Admin\\RoomsView.cshtml",
+              "ToolTip": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\IhsanRoomWise\\Views\\Admin\\RoomsView.cshtml",
+              "RelativeToolTip": "IhsanRoomWise\\Views\\Admin\\RoomsView.cshtml",
+              "ViewState": "AgIAALcDAAAAAAAAAAAmwMsDAAAyAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-12-16T05:26:24.247Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "UsersView.cshtml",
-              "DocumentMoniker": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\IhsanRoomWise\\Views\\Admin\\UsersView.cshtml",
-              "RelativeDocumentMoniker": "IhsanRoomWise\\Views\\Admin\\UsersView.cshtml",
-              "ToolTip": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\IhsanRoomWise\\Views\\Admin\\UsersView.cshtml",
-              "RelativeToolTip": "IhsanRoomWise\\Views\\Admin\\UsersView.cshtml",
-              "ViewState": "AgIAAMQDAAAAAAAAAAAjwMsDAAAvAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-12-16T03:48:26.163Z",
+              "Title": "AdminController.cs",
+              "DocumentMoniker": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\IhsanRoomWise\\Controllers\\AdminController.cs",
+              "RelativeDocumentMoniker": "IhsanRoomWise\\Controllers\\AdminController.cs",
+              "ToolTip": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\IhsanRoomWise\\Controllers\\AdminController.cs",
+              "RelativeToolTip": "IhsanRoomWise\\Controllers\\AdminController.cs",
+              "ViewState": "AgIAAPMCAAAAAAAAAAAIwAMDAAA+AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-12-16T05:15:09.336Z",
               "EditorCaption": ""
             }
           ]
         },
         {
-          "DockedHeight": 75,
+          "DockedHeight": 63,
           "SelectedChildIndex": -1,
           "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{d78612c7-9962-4b83-95d9-268046dad23a}"
+            },
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"

@@ -1,153 +1,12 @@
+@* Views/Admin/RoomsView.cshtml *@
+@model dynamic
 @{
     ViewData["Title"] = "Room Management";
-    Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
 <style>
-    .view-toggle {
-        display: flex;
-        gap: 0.5rem;
-        background: white;
-        padding: 0.5rem;
-        border-radius: 10px;
-        border: 2px solid #e5e7eb;
-    }
-
-    .view-toggle button {
-        padding: 0.5rem 1rem;
-        border: none;
-        background: transparent;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-        color: #6b7280;
-        font-weight: 600;
-    }
-
-    .view-toggle button.active {
-        background: #7aa22e;
-        color: white;
-    }
-
-    .room-card {
-        background: white;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        border: 1px solid #e5e7eb;
-        transition: all 0.2s;
-        height: 100%;
-    }
-
-    .room-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 4px 12px rgba(122, 162, 46, 0.15);
-    }
-
-    .room-card-image {
-        width: 100%;
-        height: 200px;
-        object-fit: cover;
-        background: linear-gradient(135deg, #f8faf5 0%, #e8f0e0 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 4rem;
-        color: #7aa22e;
-    }
-
-    .room-card-body {
-        padding: 1.5rem;
-    }
-
-    .room-card-title {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: #2d3e1f;
-        margin-bottom: 0.5rem;
-    }
-
-    .room-card-code {
-        font-size: 0.875rem;
-        color: #6b7280;
-        font-family: monospace;
-        margin-bottom: 1rem;
-    }
-
-    .room-facilities {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin: 1rem 0;
-    }
-
-    .facility-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.375rem;
-        padding: 0.375rem 0.75rem;
-        background: #f0f9ff;
-        color: #0369a1;
-        border-radius: 6px;
-        font-size: 0.8125rem;
-        font-weight: 600;
-    }
-
-    .room-info-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
-        font-size: 0.9375rem;
-        color: #4b5563;
-    }
-
-    .room-info-item i {
-        color: #7aa22e;
-        width: 20px;
-    }
-
-    .status-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.375rem;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.875rem;
-    }
-
-    .status-available {
-        background: #d1fae5;
-        color: #065f46;
-    }
-
-    .status-maintenance {
-        background: #fed7aa;
-        color: #92400e;
-    }
-
-    .status-unavailable {
-        background: #fee2e2;
-        color: #991b1b;
-    }
-
-    .cards-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 1.5rem;
-        margin-top: 1.5rem;
-    }
-
-    #tableView {
-        display: block;
-    }
-
-    #cardsView {
-        display: none;
-    }
-
-    .page-header {
+/* Reuse all CSS from UsersView - no need to repeat */
+.page-header {
         background: linear-gradient(135deg, #ffffff 0%, #f5f9f0 100%);
         border-radius: 16px;
         padding: 2rem;
@@ -598,44 +457,53 @@
             flex: 1;
         }
     }
+/* Additional Room-specific styles */
+.room-facilities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.facility-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.facility-projector { background: #dbeafe; color: #1e40af; }
+.facility-smartscreen { background: #d1fae5; color: #065f46; }
+.facility-screenbeam { background: #fed7aa; color: #92400e; }
+.facility-ciscobar { background: #f3e8ff; color: #7c3aed; }
 </style>
 
 <!-- Page Header -->
 <div class="page-header">
-    <h1>
-        <i class="fas fa-door-open"></i>
-        Room Management
-    </h1>
-    <p>Manage meeting rooms, facilities, and availability</p>
+    <h1><i class="fas fa-door-open"></i> Room Management</h1>
+    <p>Manage meeting rooms, facilities, and operational status</p>
 </div>
 
 <!-- Statistics -->
 <div class="stats-row">
     <div class="stat-card">
-        <div class="stat-icon success">
-            <i class="fas fa-door-open"></i>
-        </div>
+        <div class="stat-icon primary"><i class="fas fa-door-open"></i></div>
         <div class="stat-content">
             <h3 id="totalRooms">0</h3>
             <p>Total Rooms</p>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon primary">
-            <i class="fas fa-check-circle"></i>
-        </div>
+        <div class="stat-icon success"><i class="fas fa-check-circle"></i></div>
         <div class="stat-content">
             <h3 id="availableRooms">0</h3>
-            <p>Available</p>
+            <p>Available Rooms</p>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon warning">
-            <i class="fas fa-tools"></i>
-        </div>
+        <div class="stat-icon warning"><i class="fas fa-users"></i></div>
         <div class="stat-content">
-            <h3 id="maintenanceRooms">0</h3>
-            <p>Maintenance</p>
+            <h3 id="avgCapacity">0</h3>
+            <p>Avg Capacity</p>
         </div>
     </div>
 </div>
@@ -646,61 +514,52 @@
         <div class="toolbar-left">
             <div class="search-box">
                 <i class="fas fa-search"></i>
-                <input type="text" id="searchInput" placeholder="Search rooms by name or code...">
+                <input type="text" id="searchInput" placeholder="Search by room name, code, or description...">
             </div>
             <div class="filter-group">
                 <select id="statusFilter" class="filter-select">
                     <option value="">All Status</option>
                     <option value="Available">Available</option>
+                    <option value="Occupied">Occupied</option>
                     <option value="Maintenance">Maintenance</option>
-                    <option value="Unavailable">Unavailable</option>
+                    <option value="Out of Service">Out of Service</option>
                 </select>
                 <select id="locationFilter" class="filter-select">
                     <option value="">All Locations</option>
                 </select>
                 <select id="capacityFilter" class="filter-select">
                     <option value="">All Capacities</option>
-                    <option value="0-5">1-5 people</option>
-                    <option value="6-10">6-10 people</option>
-                    <option value="11-20">11-20 people</option>
-                    <option value="21-999">20+ people</option>
+                    <option value="small">Small (&lt;10)</option>
+                    <option value="medium">Medium (10-20)</option>
+                    <option value="large">Large (&gt;20)</option>
                 </select>
             </div>
         </div>
         <div class="toolbar-right">
-            <div class="view-toggle">
-                <button id="tableViewBtn" class="active">
-                    <i class="fas fa-table"></i> Table
-                </button>
-                <button id="cardsViewBtn">
-                    <i class="fas fa-th-large"></i> Cards
-                </button>
-            </div>
             <button class="btn btn-secondary" id="exportBtn">
-                <i class="fas fa-file-excel"></i>
-                Export
+                <i class="fas fa-file-excel"></i> Export
             </button>
             <button class="btn btn-primary" id="addRoomBtn">
-                <i class="fas fa-plus"></i>
-                Add Room
+                <i class="fas fa-plus"></i> Add Room
             </button>
         </div>
     </div>
 </div>
 
-<!-- Table View -->
-<div class="card" id="tableView">
+<!-- Rooms Table -->
+<div class="card">
     <div class="card-body">
-        <div class="table-responsive" style="overflow-x:hidden;">
+        <div class="table-container">
             <table id="roomsTable" class="table table-hover text-center align-middle" style="width:100%; white-space: nowrap;">
                 <thead style="text-align:center;">
                     <tr>
                         <th>Room Code</th>
                         <th>Room Name</th>
-                        <th>Location</th>
                         <th>Capacity</th>
-                        <th>Facilities</th>
+                        <th>Location</th>
                         <th>Status</th>
+                        <th>Facilities</th>
+                        <th>Description</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -710,12 +569,8 @@
     </div>
 </div>
 
-<!-- Cards View -->
-<div id="cardsView">
-    <div class="cards-container" id="cardsContainer"></div>
-</div>
-
 @section Modals {
+<!-- Modals -->
 <!-- Add/Edit Room Modal -->
 <div class="modal fade" id="roomModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -729,17 +584,19 @@
             </div>
             <div class="modal-body">
                 <form id="roomForm">
-                    <input type="hidden" id="roomId">
-                    <div class="form-group">
-                        <label class="form-label">Room Name *</label>
-                        <input type="text" class="form-control" id="roomName" required>
-                    </div>
+                    <input type="hidden" id="roomId" />
                     <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Room Name *</label>
+                                <input type="text" class="form-control" id="roomName" required />
+                            </div>
+                        </div>
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">Location *</label>
                                 <div style="display: flex; gap: 0.5rem;">
-                                    <select class="form-control" id="roomLocation" required style="flex: 1;">
+                                    <select class="form-control" id="locationSelect" style="flex: 1;" required>
                                         <option value="">Select Location</option>
                                     </select>
                                     <button type="button" class="btn btn-secondary" id="manageLocationBtn" title="Manage Locations">
@@ -748,61 +605,86 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
                             <div class="form-group">
                                 <label class="form-label">Capacity *</label>
-                                <input type="number" class="form-control" id="roomCapacity" min="1" required>
+                                <input type="number" class="form-control" id="roomCapacity" min="1" required />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">Status *</label>
+                                <select class="form-control" id="roomStatus" required>
+                                    <option value="Available">Available</option>
+                                    <option value="Occupied">Occupied</option>
+                                    <option value="Maintenance">Maintenance</option>
+                                    <option value="Out of Service">Out of Service</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">Code</label>
+                                <input type="text" class="form-control" id="roomCode" readonly />
                             </div>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" id="roomDescription" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Facilities</label>
-                        <div class="row">
-                            <div class="col-md-6">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Projector</label>
                                 <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="hasProjector">
-                                    <label class="form-check-label" for="hasProjector">Projector</label>
-                                </div>
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="hasSmartScreen">
-                                    <label class="form-check-label" for="hasSmartScreen">Smart Screen/TV</label>
+                                    <input type="checkbox" class="form-check-input" id="hasProjector" />
+                                    <label class="form-check-label" for="hasProjector">Available</label>
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Smart Screen</label>
                                 <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="hasScreenbeam">
-                                    <label class="form-check-label" for="hasScreenbeam">ScreenBeam</label>
+                                    <input type="checkbox" class="form-check-input" id="hasSmartScreen" />
+                                    <label class="form-check-label" for="hasSmartScreen">Available</label>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Screenbeam</label>
                                 <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="hasCiscoBar">
-                                    <label class="form-check-label" for="hasCiscoBar">CiscoBar</label>
+                                    <input type="checkbox" class="form-check-input" id="hasScreenbeam" />
+                                    <label class="form-check-label" for="hasScreenbeam">Available</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Cisco Bar</label>
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="hasCiscoBar" />
+                                    <label class="form-check-label" for="hasCiscoBar">Available</label>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Other Facilities</label>
-                        <input type="text" class="form-control" id="otherFacilities" placeholder="e.g., Whiteboard, Conference Phone">
+                        <textarea class="form-control" id="otherFacilities" rows="2"></textarea>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Operational Status *</label>
-                        <select class="form-control" id="operationalStatus" required>
-                            <option value="Available">Available</option>
-                            <option value="Maintenance">Maintenance</option>
-                            <option value="Unavailable">Unavailable</option>
-                        </select>
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="roomDescription" rows="3"></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="saveRoomBtn">
-                    <i class="fas fa-save"></i>
-                    Save Room
+                    <i class="fas fa-save"></i> Save Room
                 </button>
             </div>
         </div>
@@ -815,16 +697,14 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-map-marker-alt"></i>
-                    Manage Locations
+                    <i class="fas fa-map-marker-alt"></i> Manage Locations
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div style="margin-bottom: 1rem;">
                     <button class="btn btn-primary btn-sm" id="addLocationBtn">
-                        <i class="fas fa-plus"></i>
-                        Add Location
+                        <i class="fas fa-plus"></i> Add Location
                     </button>
                 </div>
                 <div class="table-container">
@@ -835,6 +715,7 @@
                                 <th>Plant</th>
                                 <th>Block</th>
                                 <th>Floor</th>
+                                <th>Description</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -859,36 +740,36 @@
             </div>
             <div class="modal-body">
                 <form id="locationForm">
-                    <input type="hidden" id="locationId">
+                    <input type="hidden" id="locationId" />
+                    <input type="hidden" class="form-control" id="locationCode" required readonly />
                     <div class="form-group">
                         <label class="form-label">Plant Name *</label>
-                        <input type="text" class="form-control" id="plantName" required placeholder="e.g., Plant 1">
+                        <input type="text" class="form-control" id="locationPlantName" required />
                     </div>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">Block *</label>
-                                <input type="number" class="form-control" id="block" min="1" required>
+                                <input type="number" class="form-control" id="locationBlock" min="0" required />
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">Floor *</label>
-                                <input type="number" class="form-control" id="floor" min="1" required>
+                                <input type="number" class="form-control" id="locationFloor" min="0" required />
                             </div>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Description</label>
-                        <textarea class="form-control" id="locationDescription" rows="2"></textarea>
+                        <textarea class="form-control" id="locationDescription" rows="3"></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="saveLocationBtn">
-                    <i class="fas fa-save"></i>
-                    Save
+                    <i class="fas fa-save"></i> Save
                 </button>
             </div>
         </div>
@@ -897,479 +778,413 @@
 }
 
 @section Scripts {
-<script>
-    let roomsTable;
-    let lastOpenedModal = null;
-    let locations = [];
-    let currentView = 'table';
+    <script>
+        let roomsTable;
+        let returnModal = null;
+        let isSwitchingModal = false;
+        let locations = [];
 
-    $(document).ready(function() {
-        initializeDataTable();
-        loadLocations();
-        loadRooms();
-        bindEvents();
-    });
-
-    function initializeDataTable() {
-        roomsTable = $('#roomsTable').DataTable({
-            responsive: false,
-            scrollX: true,
-            pageLength: 25,
-            order: [[1, 'asc']],
-            language: {
-                search: "",
-                searchPlaceholder: "🔍 Search rooms...",
-                lengthMenu: "Show _MENU_ rooms",
-                emptyTable: "No rooms found"
-            },
-            columns: [
-                { data: 'room_code', className: "text-center" },
-                { data: 'room_name', className: "text-center" },
-                { 
-                    data: null,
-                    className: "text-center",
-                    render: function(data) {
-                        return `${data.location_plant_name} - B${data.location_block} - F${data.location_floor}`;
-                    }
-                },
-                { 
-                    data: 'room_capacity',
-                    className: "text-center",
-                    render: function(data) {
-                        return `<i class="fas fa-users"></i> ${data}`;
-                    }
-                },
-                { 
-                    data: 'facilities',
-                    className: "text-center",
-                    render: function(data) {
-                        let facilities = [];
-                        if (data.projector) facilities.push('<i class="fas fa-video" title="Projector"></i>');
-                        if (data.smart_screen) facilities.push('<i class="fas fa-tv" title="Smart Screen"></i>');
-                        if (data.screenbeam) facilities.push('<i class="fas fa-wifi" title="ScreenBeam"></i>');
-                        if (data.cisco_bar) facilities.push('<i class="fas fa-phone" title="CiscoBar"></i>');
-                        return facilities.join(' ') || '-';
-                    }
-                },
-                { 
-                    data: 'room_operational_status',
-                    className: "text-center",
-                    render: function(data) {
-                        const statusMap = {
-                            'Available': 'bg-success',
-                            'Maintenance': 'bg-warning',
-                            'Unavailable': 'bg-danger'
-                        };
-                        return `<span class="badge ${statusMap[data]}">${data}</span>`;
-                    }
-                },
-                { 
-                    data: null,
-                    orderable: false,
-                    className: "text-center",
-                    render: function(data, type, row) {
-                        return `
-                            <div style="display:flex; gap:6px; justify-content:center;">
-                                <button class="btn btn-sm btn-outline-primary" onclick="editRoom(${row.room_id})" title="Edit">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-success" onclick="changeStatus(${row.room_id}, '${row.room_operational_status}')" title="Change Status">
-                                    <i class="fas fa-exchange-alt"></i>
-                                </button>
-                            </div>
-                        `;
-                    }
-                }
-            ]
-        });
-    }
-
-    function bindEvents() {
-        $('#searchInput').on('keyup', function() {
+        $(document).ready(function() {
+            initializeDataTable();
+            loadLocations();
             loadRooms();
+            bindEvents();
         });
 
-        $('#statusFilter, #locationFilter, #capacityFilter').on('change', function() {
-            loadRooms();
-        });
-
-        $('#tableViewBtn').click(function() {
-            currentView = 'table';
-            $('#tableView').show();
-            $('#cardsView').hide();
-            $(this).addClass('active');
-            $('#cardsViewBtn').removeClass('active');
-        });
-
-        $('#cardsViewBtn').click(function() {
-            currentView = 'cards';
-            $('#tableView').hide();
-            $('#cardsView').show();
-            $(this).addClass('active');
-            $('#tableViewBtn').removeClass('active');
-            renderCards();
-        });
-
-        $('#addRoomBtn').click(function() {
-            $('#roomForm')[0].reset();
-            $('#roomId').val('');
-            $('#modalTitle').text('Add New Room');
-            $('#roomModal').modal('show');
-        });
-
-        $('#saveRoomBtn').click(saveRoom);
-        $('#exportBtn').click(exportRooms);
-
-        $('#manageLocationBtn').click(function() {
-            lastOpenedModal = '#roomModal';
-            $('#roomModal').modal('hide');
-            $('#roomModal').one('hidden.bs.modal', function() {
-                loadLocationsTable();
-                $('#locationModal').modal('show');
-            });
-        });
-
-        $('#addLocationBtn').click(function() {
-            lastOpenedModal = '#locationModal';
-            $('#locationModal').modal('hide');
-            $('#locationModal').one('hidden.bs.modal', function() {
-                $('#locationForm')[0].reset();
-                $('#locationId').val('');
-                $('#locationModalTitle').text('Add Location');
-                $('#locationFormModal').modal('show');
-            });
-        });
-
-        $('#saveLocationBtn').click(saveLocation);
-    }
-
-    function loadRooms() {
-        const search = $('#searchInput').val();
-        const status = $('#statusFilter').val();
-        const locationId = $('#locationFilter').val();
-        const capacity = $('#capacityFilter').val();
-        
-        let minCapacity = null, maxCapacity = null;
-        if (capacity) {
-            const range = capacity.split('-');
-            minCapacity = parseInt(range[0]);
-            maxCapacity = parseInt(range[1]);
-        }
-
-        $.ajax({
-            url: '/Admin/GetRooms',
-            method: 'GET',
-            data: { search, status, locationId, minCapacity, maxCapacity },
-            success: function(response) {
-                if (response.success) {
-                    roomsTable.clear();
-                    roomsTable.rows.add(response.data);
-                    roomsTable.draw();
-                    updateStats(response.data);
-                    if (currentView === 'cards') {
-                        renderCards();
-                    }
-                }
-            }
-        });
-    }
-
-    function updateStats(rooms) {
-        $('#totalRooms').text(rooms.length);
-        $('#availableRooms').text(rooms.filter(r => r.room_operational_status === 'Available').length);
-        $('#maintenanceRooms').text(rooms.filter(r => r.room_operational_status === 'Maintenance').length);
-    }
-
-    function renderCards() {
-        const container = $('#cardsContainer');
-        container.empty();
-        
-        roomsTable.rows().every(function() {
-            const room = this.data();
-            const statusClass = {
-                'Available': 'status-available',
-                'Maintenance': 'status-maintenance',
-                'Unavailable': 'status-unavailable'
-            }[room.room_operational_status];
-
-            const facilities = [];
-            if (room.facilities.projector) facilities.push('<span class="facility-badge"><i class="fas fa-video"></i> Projector</span>');
-            if (room.facilities.smart_screen) facilities.push('<span class="facility-badge"><i class="fas fa-tv"></i> Smart Screen</span>');
-            if (room.facilities.screenbeam) facilities.push('<span class="facility-badge"><i class="fas fa-wifi"></i> ScreenBeam</span>');
-            if (room.facilities.cisco_bar) facilities.push('<span class="facility-badge"><i class="fas fa-phone"></i> CiscoBar</span>');
-
-            container.append(`
-                <div class="room-card">
-                    <div class="room-card-image">
-                        <i class="fas fa-door-open"></i>
-                    </div>
-                    <div class="room-card-body">
-                        <div class="room-card-title">${room.room_name}</div>
-                        <div class="room-card-code">${room.room_code}</div>
-                        <div class="room-info-item">
-                            <i class="fas fa-map-marker-alt"></i>
-                            ${room.location_plant_name} - Block ${room.location_block} - Floor ${room.location_floor}
-                        </div>
-                        <div class="room-info-item">
-                            <i class="fas fa-users"></i>
-                            Capacity: ${room.room_capacity} people
-                        </div>
-                        <div class="room-facilities">
-                            ${facilities.join('')}
-                        </div>
-                        <div style="margin-top: 1rem;">
-                            <span class="status-badge ${statusClass}">
-                                <i class="fas fa-circle" style="font-size: 0.5rem;"></i>
-                                ${room.room_operational_status}
-                            </span>
-                        </div>
-                        <div class="action-buttons" style="margin-top: 1rem;">
-                            <button class="btn btn-sm btn-primary" onclick="editRoom(${room.room_id})" style="flex: 1;">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                            <button class="btn btn-sm btn-secondary" onclick="changeStatus(${room.room_id}, '${room.room_operational_status}')" style="flex: 1;">
-                                <i class="fas fa-exchange-alt"></i> Status
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `);
-        });
-    }
-
-    function loadLocations() {
-        $.ajax({
-            url: '/Admin/GetLocations',
-            method: 'GET',
-            success: function(response) {
-                if (response.success) {
-                    locations = response.data;
-                    const locationSelect = $('#roomLocation, #locationFilter');
-                    locationSelect.find('option:not(:first)').remove();
-                    response.data.forEach(loc => {
-                        $('#roomLocation').append(`<option value="${loc.location_id}">${loc.display_name}</option>`);
-                        $('#locationFilter').append(`<option value="${loc.location_id}">${loc.display_name}</option>`);
-                    });
-                }
-            }
-        });
-    }
-
-    function saveRoom() {
-        if (!$('#roomForm')[0].checkValidity()) {
-            $('#roomForm')[0].reportValidity();
-            return;
-        }
-
-        const roomId = $('#roomId').val();
-        const roomData = {
-            room_id: roomId ? parseInt(roomId) : 0,
-            room_name: $('#roomName').val(),
-            room_location_id: parseInt($('#roomLocation').val()),
-            room_capacity: parseInt($('#roomCapacity').val()),
-            room_description: $('#roomDescription').val() || null,
-            room_has_projector: $('#hasProjector').is(':checked'),
-            room_has_smart_screen: $('#hasSmartScreen').is(':checked'),
-            room_has_screenbeam: $('#hasScreenbeam').is(':checked'),
-            room_has_cisco_bar: $('#hasCiscoBar').is(':checked'),
-            room_other_facilities: $('#otherFacilities').val() || null,
-            room_operational_status: $('#operationalStatus').val()
-        };
-
-        $.ajax({
-            url: '/Admin/CreateRoom',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(roomData),
-            success: function(response) {
-                if (response.success) {
-                    Swal.fire('Success', response.message, 'success');
-                    $('#roomModal').modal('hide');
-                    loadRooms();
-                } else {
-                    Swal.fire('Error', response.message, 'error');
-                }
-            }
-        });
-    }
-
-    function editRoom(roomId) {
-        roomsTable.rows().every(function() {
-            const data = this.data();
-            if (data.room_id === roomId) {
-                $('#roomId').val(data.room_id);
-                $('#roomName').val(data.room_name);
-                $('#roomLocation').val(data.room_location_id);
-                $('#roomCapacity').val(data.room_capacity);
-                $('#roomDescription').val(data.room_description || '');
-                $('#hasProjector').prop('checked', data.room_has_projector);
-                $('#hasSmartScreen').prop('checked', data.room_has_smart_screen);
-                $('#hasScreenbeam').prop('checked', data.room_has_screenbeam);
-                $('#hasCiscoBar').prop('checked', data.room_has_cisco_bar);
-                $('#otherFacilities').val(data.room_other_facilities || '');
-                $('#operationalStatus').val(data.room_operational_status);
-                $('#modalTitle').text('Edit Room');
-                $('#roomModal').modal('show');
-                return false;
-            }
-        });
-    }
-
-    function changeStatus(roomId, currentStatus) {
-        Swal.fire({
-            title: 'Change Room Status',
-            input: 'select',
-            inputOptions: {
-                'Available': 'Available',
-                'Maintenance': 'Maintenance',
-                'Unavailable': 'Unavailable'
-            },
-            inputValue: currentStatus,
-            showCancelButton: true,
-            confirmButtonColor: '#7aa22e'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                $.ajax({
-                    url: '/Admin/UpdateRoomStatus',
-                    method: 'POST',
-                    data: { roomId: roomId, status: result.value },
-                    success: function(response) {
-                        if (response.success) {
-                            Swal.fire('Success', response.message, 'success');
-                            loadRooms();
+        function initializeDataTable() {
+            roomsTable = $('#roomsTable').DataTable({
+                responsive: false,
+                scrollX: true,
+                pageLength: 25,
+                order: [[1, 'asc']],
+                language: {
+                    search: "",
+                    searchPlaceholder: "Search rooms...",
+                    lengthMenu: "Show _MENU_ rooms",
+                    info: "Showing _START_ to _END_ of _TOTAL_ rooms",
+                    emptyTable: "No rooms found",
+                    paginate: {
+                        previous: "&laquo;",
+                        next: "&raquo;"
+                    },
+                    dom: 'row mb-2 col-md-6 l col-md-6 text-end f t row col-12 tr row mt-2 col-md-6 i col-md-6 text-end p'
+                },
+                columns: [
+                    { data: 'room_code', className: 'text-center' },
+                    { data: 'room_name', className: 'text-center' },
+                    { 
+                        data: 'room_capacity', 
+                        className: 'text-center',
+                        render: function(data) {
+                            return data + ' <i class="fas fa-users"></i>';
+                        }
+                    },
+                    { 
+                        data: null,
+                        className: 'text-center',
+                        render: function(data) {
+                            return `${data.location_plant_name} - B${data.location_block} F${data.location_floor}`;
+                        }
+                    },
+                    { 
+                        data: 'room_operational_status',
+                        className: 'text-center',
+                        render: function(data) {
+                            let badgeClass = '';
+                            let statusText = data;
+                            switch(data) {
+                                case 'Available': badgeClass = 'badge-success'; break;
+                                case 'Occupied': badgeClass = 'bg-info text-white'; break;
+                                case 'Maintenance': badgeClass = 'bg-warning text-dark'; break;
+                                case 'Out of Service': badgeClass = 'badge-danger'; break;
+                            }
+                            return `<span class="badge ${badgeClass}">${statusText}</span>`;
+                        }
+                    },
+                    {
+                        data: 'facilities',
+                        className: 'text-center',
+                        orderable: false,
+                        render: function(data) {
+                            if (!data) return '-';
+                            let facilities = [];
+                            if (data.projector) facilities.push('<span class="facility-badge facility-projector"><i class="fas fa-video"></i> Projector</span>');
+                            if (data.smart_screen) facilities.push('<span class="facility-badge facility-smartscreen"><i class="fas fa-tv"></i> Smart Screen Screen</span>');
+                            if (data.screenbeam) facilities.push('<span class="facility-badge facility-screenbeam"><i class="fas fa-broadcast-tower"></i> Screenbeam</span>');
+                            if (data.cisco_bar) facilities.push('<span class="facility-badge facility-ciscobar"><i class="fas fa-network-wired"></i> Cisco Bar Bar</span>');
+                            return facilities.join(' ');
+                        }
+                    },
+                    { 
+                        data: 'room_description',
+                        className: 'text-center',
+                        render: function(data) {
+                            return data ? data.substring(0, 50) + '...' : '-';
+                        }
+                    },
+                    {
+                        data: null,
+                        orderable: false,
+                        className: 'text-center',
+                        render: function(data, type, row) {
+                            return `
+                                <div style="display:flex; gap:6px; justify-content:center;">
+                                    <button class="btn-icon btn-edit" onclick="editRoom(${row.room_id})" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn-icon btn-warning" onclick="updateRoomStatus(${row.room_id}, '${row.room_operational_status}')" title="Update Status">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            `;
                         }
                     }
-                });
+                ]
+            });
+        }
+
+        function bindEvents() {
+            $('#searchInput, #statusFilter, #locationFilter, #capacityFilter').on('keyup change', loadRooms);
+            $('#addRoomBtn').click(function() {
+                $('#roomForm')[0].reset();
+                $('#roomId').val('');
+                $('#modalTitle').text('Add New Room');
+                $('#roomModal').modal('show');
+            });
+            $('#saveRoomBtn').click(saveRoom);
+            $('#exportBtn').click(exportRooms);
+            $('#manageLocationBtn').click(function() {
+                isSwitchingModal = true;
+                returnModal = $('#roomModal');
+                $('#roomModal').one('hidden.bs.modal', function() {
+                    isSwitchingModal = false;
+                    loadLocationsTable();
+                    $('#locationModal').modal('show');
+                }).modal('hide');
+            });
+            $('#addLocationBtn').click(function() {
+                isSwitchingModal = true;
+                returnModal = $('#locationModal');
+                $('#locationModal').one('hidden.bs.modal', function() {
+                    isSwitchingModal = false;
+                    $('#locationForm')[0].reset();
+                    $('#locationId').val('');
+                    $('#locationModalTitle').text('Add Location');
+                    $('#locationFormModal').modal('show');
+                }).modal('hide');
+            });
+            $('#saveLocationBtn').click(saveLocation);
+        }
+
+        function loadRooms() {
+            const search = $('#searchInput').val();
+            const status = $('#statusFilter').val();
+            const locationId = $('#locationFilter').val();
+            const capacity = $('#capacityFilter').val();
+
+            $.ajax({
+                url: '@Url.Action("GetRooms", "Admin")',
+                method: 'GET',
+                data: { search, status, locationId: locationId ? parseInt(locationId) : null, minCapacity: capacity === 'small' ? 1 : capacity === 'medium' ? 10 : null, maxCapacity: capacity === 'small' ? 9 : capacity === 'medium' ? 20 : null },
+                success: function(response) {
+                    if (response.success) {
+                        roomsTable.clear();
+                        roomsTable.rows.add(response.data);
+                        roomsTable.draw();
+                        updateStats(response.data);
+                    }
+                },
+                error: function() {
+                    Swal.fire('Error', 'Failed to load rooms', 'error');
+                }
+            });
+        }
+
+        function updateStats(rooms) {
+            const total = rooms.length;
+            const available = rooms.filter(r => r.room_operational_status === 'Available').length;
+            const avgCapacity = total > 0 ? Math.round(rooms.reduce((sum, r) => sum + r.room_capacity, 0) / total) : 0;
+            
+            $('#totalRooms').text(total);
+            $('#availableRooms').text(available);
+            $('#avgCapacity').text(avgCapacity);
+        }
+
+        function saveRoom() {
+            if (!$('#roomForm')[0].checkValidity()) {
+                $('#roomForm')[0].reportValidity();
+                return;
             }
-        });
-    }
 
-    function exportRooms() {
-        window.location.href = '/Admin/ExportRooms';
-    }
+            const roomId = $('#roomId').val();
+            const roomData = {
+                room_id: roomId ? parseInt(roomId) : 0,
+                room_name: $('#roomName').val(),
+                room_location_id: parseInt($('#locationSelect').val()),
+                room_capacity: parseInt($('#roomCapacity').val()),
+                room_operational_status: $('#roomStatus').val(),
+                room_code: $('#roomCode').val(),
+                room_has_projector: $('#hasProjector').is(':checked'),
+                room_has_smart_screen: $('#hasSmartScreen').is(':checked'),
+                room_has_screenbeam: $('#hasScreenbeam').is(':checked'),
+                room_has_cisco_bar: $('#hasCiscoBar').is(':checked'),
+                room_other_facilities: $('#otherFacilities').val() || null,
+                room_description: $('#roomDescription').val() || null
+            };
 
-    function loadLocationsTable() {
-        $.ajax({
-            url: '/Admin/GetLocations',
-            method: 'GET',
-            success: function(response) {
-                if (response.success) {
-                    const tbody = $('#locationsTableBody');
-                    tbody.empty();
-                                        response.data.forEach(loc => {
-                        tbody.append(`
-                            <tr>
-                                <td>${loc.location_code}</td>
-                                <td>${loc.plant_name}</td>
-                                <td>${loc.block}</td>
-                                <td>${loc.floor}</td>
-                                <td>
-                                    <div style="display:flex; gap:6px; justify-content:center;">
-                                        <button class="btn btn-sm btn-outline-primary"
-                                                onclick="editLocation(${loc.location_id})">
+            const url = roomId ? '@Url.Action("UpdateRoom", "Admin")' : '@Url.Action("CreateRoomFromBody", "Admin")';
+            
+            $.ajax({
+                url: url,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(roomData),
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire('Success', response.message, 'success');
+                        $('#roomModal').modal('hide');
+                        loadRooms();
+                        loadLocations();
+                    } else {
+                        Swal.fire('Error', response.message, 'error');
+                    }
+                },
+                error: function() {
+                    Swal.fire('Error', 'Failed to save room', 'error');
+                }
+            });
+        }
+
+        function editRoom(roomId) {
+            // Find room data and populate form
+            roomsTable.rows().every(function() {
+                const data = this.data();
+                if (data.room_id == roomId) {
+                    $('#roomId').val(data.room_id);
+                    $('#roomName').val(data.room_name);
+                    $('#roomCapacity').val(data.room_capacity);
+                    $('#roomStatus').val(data.room_operational_status);
+                    $('#roomCode').val(data.room_code);
+                    $('#locationSelect').val(data.room_location_id);
+                    $('#hasProjector').prop('checked', data.room_has_projector);
+                    $('#hasSmartScreen').prop('checked', data.room_has_smart_screen);
+                    $('#hasScreenbeam').prop('checked', data.room_has_screenbeam);
+                    $('#hasCiscoBar').prop('checked', data.room_has_cisco_bar);
+                    $('#otherFacilities').val(data.room_other_facilities);
+                    $('#roomDescription').val(data.room_description);
+                    $('#modalTitle').text('Edit Room');
+                    $('#roomModal').modal('show');
+                    return false;
+                }
+            });
+        }
+
+        function updateRoomStatus(roomId, currentStatus) {
+            const statuses = ['Available', 'Occupied', 'Maintenance', 'Out of Service'];
+            const currentIndex = statuses.indexOf(currentStatus);
+            const nextStatus = statuses[(currentIndex + 1) % statuses.length];
+
+            Swal.fire({
+                title: `Update Room Status?`,
+                text: `Change status to "${nextStatus}"?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#7aa22e',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, update!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '@Url.Action("UpdateRoomStatus", "Admin")',
+                        method: 'POST',
+                        data: { roomId, status: nextStatus },
+                        success: function(response) {
+                            if (response.success) {
+                                Swal.fire('Success', response.message, 'success');
+                                loadRooms();
+                            } else {
+                                Swal.fire('Error', response.message, 'error');
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        function exportRooms() {
+            const search = $('#searchInput').val();
+            const status = $('#statusFilter').val();
+            const locationId = $('#locationFilter').val();
+            window.location.href = `@Url.Action("ExportRooms", "Admin")?search=${search}&status=${status}&locationId=${locationId}`;
+        }
+
+        function loadLocations() {
+            $.ajax({
+                url: '@Url.Action("GetLocations", "Admin")',
+                method: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        locations = response.data;
+                        const locationSelect = $('#locationSelect');
+                        locationSelect.empty().append('<option value="">Select Location</option>');
+                        const locationFilter = $('#locationFilter');
+                        locationFilter.empty().append('<option value="">All Locations</option>');
+                        
+                        response.data.forEach(loc => {
+                            locationSelect.append(`<option value="${loc.location_id}">${loc.display_name}</option>`);
+                            locationFilter.append(`<option value="${loc.location_id}">${loc.display_name}</option>`);
+                        });
+                    }
+                }
+            });
+        }
+
+        function loadLocationsTable() {
+            $.ajax({
+                url: '@Url.Action("GetLocations", "Admin")',
+                method: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        console.log(response.data);
+                        const tbody = $('#locationsTableBody');
+                        tbody.empty();
+                        response.data.forEach(loc => {
+                            tbody.append(`
+                                <tr>
+                                    <td>${loc.location_code}</td>
+                                    <td>${loc.location_plant_name}</td>
+                                    <td>${loc.location_block}</td>
+                                    <td>${loc.location_floor}</td>
+                                    <td>${loc.location_description || '-'}</td>
+                                    <td>
+                                        <button class="btn-icon btn-edit btn-sm" onclick="editLocation(${loc.location_id})" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-outline-danger"
-                                                onclick="deleteLocation(${loc.location_id})">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `);
-                    });
+                                    </td>
+                                </tr>
+                            `);
+                        });
+                    }
                 }
-            }
-        });
-    }
-
-    function saveLocation() {
-        if (!$('#locationForm')[0].checkValidity()) {
-            $('#locationForm')[0].reportValidity();
-            return;
+            });
         }
 
-        const locationData = {
-            location_id: $('#locationId').val() ? parseInt($('#locationId').val()) : 0,
-            plant_name: $('#plantName').val(),
-            block: parseInt($('#block').val()),
-            floor: parseInt($('#floor').val()),
-            description: $('#locationDescription').val() || null
-        };
-
-        $.ajax({
-            url: '/Admin/CreateLocation',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(locationData),
-            success: function(response) {
-                if (response.success) {
-                    Swal.fire('Success', response.message, 'success');
-                    $('#locationFormModal').modal('hide');
-
-                    loadLocations();
-
-                    if (lastOpenedModal) {
-                        $(lastOpenedModal).modal('show');
-                        lastOpenedModal = null;
-                    }
-                } else {
-                    Swal.fire('Error', response.message, 'error');
-                }
+        function saveLocation() {
+            if (!$('#locationForm')[0].checkValidity()) {
+                $('#locationForm')[0].reportValidity();
+                return;
             }
-        });
-    }
 
-    function editLocation(locationId) {
-        $.ajax({
-            url: '/Admin/GetLocationById',
-            method: 'GET',
-            data: { id: locationId },
-            success: function(response) {
-                if (response.success) {
-                    const loc = response.data;
+            const locationId = $('#locationId').val();
+            const locationData = {
+                location_id: locationId ? parseInt(locationId) : 0,
+                location_plant_name: $('#locationPlantName').val(),
+                location_code: $('#locationCode').val(),
+                location_block: parseInt($('#locationBlock').val()),
+                location_floor: parseInt($('#locationFloor').val()),
+                location_description: $('#locationDescription').val() || null
+            };
 
-                    $('#locationId').val(loc.location_id);
-                    $('#plantName').val(loc.plant_name);
-                    $('#block').val(loc.block);
-                    $('#floor').val(loc.floor);
-                    $('#locationDescription').val(loc.description || '');
-                    $('#locationModalTitle').text('Edit Location');
+            console.log(locationData);
 
-                    lastOpenedModal = '#locationModal';
-                    $('#locationModal').modal('hide');
+            const url = locationId ? '/Admin/UpdateLocation' : '/Admin/CreateLocation';
 
-                    $('#locationModal').one('hidden.bs.modal', function () {
-                        $('#locationFormModal').modal('show');
-                    });
-                }
-            }
-        });
-    }
-
-    function deleteLocation(locationId) {
-        Swal.fire({
-            title: 'Delete Location?',
-            text: 'This action cannot be undone',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc2626'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                $.ajax({
-                    url: '/Admin/DeleteLocation',
-                    method: 'POST',
-                    data: { id: locationId },
-                    success: function(response) {
-                        if (response.success) {
-                            Swal.fire('Deleted', response.message, 'success');
-                            loadLocationsTable();
-                            loadLocations();
+            console.log(url);
+            
+            $.ajax({
+                url: url,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(locationData),
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire('Success', response.message, 'success');
+                        $('#locationFormModal').modal('hide');
+                        loadLocationsTable();
+                        loadLocations();
+                        if (returnModal) {
+                            returnModal.modal('show');
+                            returnModal = null;
                         }
+                    } else {
+                        Swal.fire('Error', response.message, 'error');
                     }
-                });
+                },
+                error: function() {
+                    Swal.fire('Error', 'Failed to save location', 'error');
+                }
+            });
+        }
+
+        function editLocation(locationId) {
+            const loc = locations.find(l => l.location_id === locationId);
+            isSwitchingModal = true;
+            returnModal = $('#locationModal');
+            $('#locationModal').one('hidden.bs.modal', function() {
+                isSwitchingModal = false;
+                $('#locationId').val(loc.location_id);
+                $('#locationPlantName').val(loc.location_plant_name);
+                $('#locationBlock').val(loc.location_block);
+                $('#locationCode').val(loc.location_code);
+                $('#locationFloor').val(loc.location_floor);
+                $('#locationDescription').val(loc.location_description);
+                $('#locationModalTitle').text('Edit Location');
+                $('#locationFormModal').modal('show');
+            }).modal('hide');
+        }
+
+        $('#locationModal').on('hidden.bs.modal', function() {
+            if (!isSwitchingModal && returnModal) {
+                returnModal.modal('show');
+                returnModal = null;
             }
         });
-    }
-</script>
+
+        $('#locationFormModal').on('hidden.bs.modal', function() {
+            if (!isSwitchingModal && returnModal) {
+                returnModal.modal('show');
+                returnModal = null;
+            }
+        });
+    </script>
 }

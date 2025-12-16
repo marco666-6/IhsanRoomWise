@@ -1,85 +1,11 @@
-﻿@{
-    ViewData["Title"] = "Booking Management";
-    Layout = "~/Views/Shared/_Layout.cshtml";
+﻿@* Views/Admin/BookingsView.cshtml *@
+@model dynamic
+@{
+    ViewData["Title"] = "Bookings Management";
 }
 
-<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
-
 <style>
-    .calendar-container {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        border: 1px solid #e5e7eb;
-    }
-
-    .fc {
-        font-family: inherit;
-    }
-
-    .fc-toolbar-title {
-        color: #2d3e1f !important;
-        font-weight: 700 !important;
-    }
-
-    .fc-button {
-        background: #7aa22e !important;
-        border-color: #7aa22e !important;
-    }
-
-    .fc-button:hover {
-        background: #5f7f23 !important;
-        border-color: #5f7f23 !important;
-    }
-
-    .fc-event {
-        border-radius: 4px;
-        padding: 2px 4px;
-        font-size: 0.85rem;
-    }
-
-    .booking-detail-row {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 0.75rem;
-        padding: 0.75rem;
-        background: #f9fafb;
-        border-radius: 8px;
-    }
-
-    .booking-detail-icon {
-        width: 40px;
-        height: 40px;
-        background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%);
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 1.125rem;
-    }
-
-    .booking-detail-content {
-        flex: 1;
-    }
-
-    .booking-detail-label {
-        font-size: 0.75rem;
-        color: #6b7280;
-        text-transform: uppercase;
-        font-weight: 600;
-        letter-spacing: 0.05em;
-    }
-
-    .booking-detail-value {
-        font-size: 0.9375rem;
-        color: #1f2937;
-        font-weight: 600;
-    }
-
+    /* Reuse all CSS from RoomsView - no need to repeat */
     .page-header {
         background: linear-gradient(135deg, #ffffff 0%, #f5f9f0 100%);
         border-radius: 16px;
@@ -138,7 +64,7 @@
         position: relative;
         min-width: 300px;
         flex: 1;
-        max-width: 400px;
+        max-width: 610px;
     }
 
     .search-box input {
@@ -172,7 +98,7 @@
     }
 
     .filter-select {
-        min-width: 160px;
+        min-width: 300px;
         padding: 0.75rem 1rem;
         border: 2px solid #e5e7eb;
         border-radius: 10px;
@@ -180,6 +106,12 @@
         background: white;
         cursor: pointer;
         transition: all 0.2s;
+    }
+    
+    .search-and-filters {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem; /* spacing between search & filters */
     }
 
     .filter-select:focus {
@@ -531,41 +463,110 @@
             flex: 1;
         }
     }
+/* Additional Calendar-specific styles */
+#calendar {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border: 1px solid #e5e7eb;
+    margin-bottom: 1.5rem;
+}
+
+.fc-event {
+    border-radius: 6px !important;
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+}
+
+.fc-event-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.booking-details {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    color: #6b7280;
+}
+
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8faf5 100%);
+    border: 1px solid rgba(122, 162, 46, 0.1);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(122, 162, 46, 0.15);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.stat-icon.primary { background: #dbeafe; color: #1e40af; }
+.stat-icon.success { background: #d1fae5; color: #065f46; }
+.stat-icon.warning { background: #fed7aa; color: #92400e; }
+
+.booking-status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-confirmed { background: #28a745; color: white; }
+.status-pending { background: #ffc107; color: #000; }
+.status-progress { background: #17a2b8; color: white; }
+.status-cancelled { background: #dc3545; color: white; }
 </style>
 
 <!-- Page Header -->
 <div class="page-header">
-    <h1>
-        <i class="fas fa-calendar-check"></i>
-        Booking Management
-    </h1>
-    <p>Monitor and manage all room bookings</p>
+    <h1><i class="fas fa-calendar-check"></i> Booking Management</h1>
+    <p>Manage all room bookings, view calendar, and update statuses</p>
 </div>
 
 <!-- Statistics -->
 <div class="stats-row">
     <div class="stat-card">
-        <div class="stat-icon success">
-            <i class="fas fa-calendar-check"></i>
-        </div>
+        <div class="stat-icon primary"><i class="fas fa-calendar-day"></i></div>
         <div class="stat-content">
             <h3 id="totalBookings">0</h3>
             <p>Total Bookings</p>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon primary">
-            <i class="fas fa-clock"></i>
-        </div>
+        <div class="stat-icon success"><i class="fas fa-check-circle"></i></div>
         <div class="stat-content">
             <h3 id="todayBookings">0</h3>
             <p>Today's Bookings</p>
         </div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon warning">
-            <i class="fas fa-hourglass-half"></i>
-        </div>
+        <div class="stat-icon warning"><i class="fas fa-clock"></i></div>
         <div class="stat-content">
             <h3 id="activeBookings">0</h3>
             <p>Active Now</p>
@@ -573,78 +574,79 @@
     </div>
 </div>
 
-<!-- Toolbar -->
+<!-- Calendar & Controls -->
 <div class="toolbar">
     <div class="toolbar-row">
         <div class="toolbar-left">
-            <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" id="searchInput" placeholder="Search by title, user, or booking code...">
-            </div>
-            <div class="filter-group">
-                <select id="statusFilter" class="filter-select">
-                    <option value="">All Status</option>
-                    <option value="Confirmed">Confirmed</option>
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Cancelled">Cancelled</option>
-                </select>
-                <select id="roomFilter" class="filter-select">
-                    <option value="">All Rooms</option>
-                </select>
-                <input type="date" id="dateFilter" class="filter-select">
+            <div class="search-and-filters">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search by title, code, or user...">
+                </div>
+                <div class="filter-group">
+                    <select id="statusFilter" class="filter-select">
+                        <option value="">All Status</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Pending">Pending</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                    <select id="roomFilter" class="filter-select">
+                        <option value="">All Rooms</option>
+                    </select>
+                </div>
             </div>
         </div>
         <div class="toolbar-right">
-            <div class="view-toggle">
-                <button id="tableViewBtn" class="active">
-                    <i class="fas fa-table"></i> Table
-                </button>
-                <button id="calendarViewBtn">
-                    <i class="fas fa-calendar"></i> Calendar
-                </button>
-            </div>
             <button class="btn btn-secondary" id="exportBtn">
-                <i class="fas fa-file-excel"></i>
-                Export
+                <i class="fas fa-file-excel"></i> Export
             </button>
             <button class="btn btn-primary" id="addBookingBtn">
-                <i class="fas fa-plus"></i>
-                Add Booking
+                <i class="fas fa-plus"></i> Add Booking
+            </button>
+        </div>
+    </div>
+    <hr />
+    <div class="toolbar-row d-flex justify-content-center align-items-center text-center mt-4">
+        <div class="filter-group">
+            <button class="btn btn-primary" id="calendarBtn" title="Toggle Calendar/List View">
+                <i class="fas fa-calendar"></i> Calendar View
+            </button>
+            <button class="btn btn-secondary" id="listBtn" title="Toggle Calendar/List View">
+                <i class="fas fa-list"></i> List View
             </button>
         </div>
     </div>
 </div>
 
-<!-- Table View -->
-<div class="card" id="tableView">
-    <div class="card-body">
-        <div class="table-responsive" style="overflow-x:hidden;">
-            <table id="bookingsTable" class="table table-hover text-center align-middle" style="width:100%; white-space: nowrap;">
-                <thead style="text-align:center;">
-                    <tr>
-                        <th>Booking Code</th>
-                        <th>Meeting Title</th>
-                        <th>Room</th>
-                        <th>User</th>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Duration</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody style="text-align:center;"></tbody>
-            </table>
-        </div>
-    </div>
+<!-- Calendar -->
+<div id="calendarContainer">
+    <div id="calendar"></div>
 </div>
 
-<!-- Calendar View -->
-<div id="calendarView" style="display: none;">
-    <div class="calendar-container">
-        <div id="calendar"></div>
+<!-- Bookings Table -->
+<div id="tableContainer" style="display: none;">
+    <div class="card">
+        <div class="card-body">
+            <div class="table-container">
+                <table id="bookingsTable" class="table table-hover text-center align-middle" style="width:100%; white-space: nowrap;">
+                    <thead style="text-align:center;">
+                        <tr>
+                            <th>Code</th>
+                            <th>Title</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Duration</th>
+                            <th>Room</th>
+                            <th>User</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody style="text-align:center;"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -663,81 +665,97 @@
             <div class="modal-body">
                 <form id="bookingForm">
                     <input type="hidden" id="bookingId">
-                    <div class="form-group">
-                        <label class="form-label">Meeting Title *</label>
-                        <input type="text" class="form-control" id="meetingTitle" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Meeting Description</label>
-                        <textarea class="form-control" id="meetingDescription" rows="3"></textarea>
-                    </div>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="form-label">User *</label>
-                                <select class="form-control" id="bookingUser" required>
+                                <label class="form-label">User</label>
+                                <select class="form-control" id="bookingUserId" required>
                                     <option value="">Select User</option>
                                 </select>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="form-label">Room *</label>
-                                <select class="form-control" id="bookingRoom" required>
+                                <label class="form-label">Room</label>
+                                <select class="form-control" id="bookingRoomId" required>
                                     <option value="">Select Room</option>
                                 </select>
                             </div>
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-12">
                             <div class="form-group">
-                                <label class="form-label">Date *</label>
+                                <label class="form-label">Meeting Title</label>
+                                <input type="text" class="form-control" id="bookingTitle" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Date</label>
                                 <input type="date" class="form-control" id="bookingDate" required>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="form-group">
-                                <label class="form-label">Start Time *</label>
-                                <input type="time" class="form-control" id="startTime" required>
+                                <label class="form-label">Start Time</label>
+                                <input type="time" class="form-control" id="bookingStartTime" required>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="form-group">
-                                <label class="form-label">End Time *</label>
-                                <input type="time" class="form-control" id="endTime" required>
+                                <label class="form-label">End Time</label>
+                                <input type="time" class="form-control" id="bookingEndTime" required>
                             </div>
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="bookingDescription" rows="3"></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="saveBookingBtn">
-                    <i class="fas fa-save"></i>
-                    Save Booking
+                    <i class="fas fa-save"></i> Save Booking
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Booking Details Modal -->
-<div class="modal fade" id="bookingDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+<!-- Status Update Modal -->
+<div class="modal fade" id="statusModal" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-info-circle"></i>
-                    Booking Details
+                    <i class="fas fa-sync-alt"></i> Update Status
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="bookingDetailsContent">
-                <!-- Details will be loaded here -->
+            <div class="modal-body">
+                <input type="hidden" id="statusBookingId">
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-control" id="statusSelect">
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Pending">Pending</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="form-group" id="reasonGroup" style="display: none;">
+                    <label class="form-label">Reason (for Cancelled)</label>
+                    <textarea class="form-control" id="statusReason" rows="2"></textarea>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="updateStatusBtn">Update</button>
             </div>
         </div>
     </div>
@@ -745,392 +763,329 @@
 }
 
 @section Scripts {
-<script>
-    let bookingsTable;
-    let calendar;
-    let currentView = 'table';
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+    
+    <script>
+        let bookingsTable, calendar, currentView = 'calendar';
+        let users = [], rooms = [];
 
-    $(document).ready(function() {
-        initializeDataTable();
-        initializeCalendar();
-        loadRooms();
-        loadUsers();
-        loadBookings();
-        bindEvents();
-        setMinDate();
-    });
-
-    function setMinDate() {
-        const today = new Date().toISOString().split('T')[0];
-        $('#bookingDate, #dateFilter').attr('min', today);
-        $('#bookingDate').val(today);
-    }
-
-    function initializeDataTable() {
-        bookingsTable = $('#bookingsTable').DataTable({
-            responsive: false,
-            scrollX: true,
-            pageLength: 25,
-            order: [[4, 'desc']],
-            language: {
-                search: "",
-                searchPlaceholder: "🔍 Search bookings...",
-                lengthMenu: "Show _MENU_ bookings",
-                emptyTable: "No bookings found"
-            },
-            columns: [
-                { data: 'booking_code', className: "text-center" },
-                { data: 'booking_meeting_title', className: "text-center" },
-                { data: 'room_name', className: "text-center" },
-                { data: 'user_full_name', className: "text-center" },
-                { data: 'booking_date', className: "text-center" },
-                { 
-                    data: null,
-                    className: "text-center",
-                    render: function(data) {
-                        return `${data.booking_start_time} - ${data.booking_end_time}`;
-                    }
-                },
-                { 
-                    data: 'booking_duration_minutes',
-                    className: "text-center",
-                    render: function(data) {
-                        return `${data} min`;
-                    }
-                },
-                { 
-                    data: 'booking_status',
-                    className: "text-center",
-                    render: function(data) {
-                        const statusMap = {
-                            'Confirmed': 'bg-success',
-                            'Pending': 'bg-warning',
-                            'In Progress': 'bg-info',
-                            'Completed': 'bg-secondary',
-                            'Cancelled': 'bg-danger'
-                        };
-                        return `<span class="badge ${statusMap[data]}">${data}</span>`;
-                    }
-                },
-                { 
-                    data: null,
-                    orderable: false,
-                    className: "text-center",
-                    render: function(data, type, row) {
-                        let actions = `
-                            <div style="display:flex; gap:6px; justify-content:center;">
-                                <button class="btn btn-sm btn-outline-info" onclick="viewBookingDetails(${row.booking_id})" title="View Details">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                        `;
-                        
-                        if (row.booking_status !== 'Cancelled' && row.booking_status !== 'Completed') {
-                            actions += `
-                                <button class="btn btn-sm btn-outline-danger" onclick="cancelBooking(${row.booking_id})" title="Cancel">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            `;
-                        }
-                        
-                        actions += `</div>`;
-                        return actions;
-                    }
-                }
-            ]
+        $(document).ready(function() {
+            initializeDataTable();
+            loadUsers();
+            loadRooms();
+            loadBookings();
+            bindEvents();
+            initializeCalendar();
         });
-    }
 
-    function initializeCalendar() {
-        const calendarEl = document.getElementById('calendar');
-        calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay'
-            },
-            events: function(info, successCallback, failureCallback) {
-                $.ajax({
-                    url: '/Admin/GetCalendarBookings',
-                    method: 'GET',
-                    data: {
-                        start: info.start.toISOString(),
-                        end: info.end.toISOString()
+        function initializeDataTable() {
+            bookingsTable = $('#bookingsTable').DataTable({
+                responsive: false,
+                scrollX: true,
+                pageLength: 25,
+                order: [[2, 'desc'], [3, 'asc']],
+                language: {
+                    search: '',
+                    searchPlaceholder: 'Search bookings...',
+                    lengthMenu: 'Show _MENU_ bookings',
+                    info: 'Showing _START_ to _END_ of _TOTAL_ bookings',
+                    emptyTable: 'No bookings found',
+                    paginate: { previous: '«', next: '»' }
+                },
+                dom: 'row<"mb-2 col-md-6"l><"col-md-6 text-end"f>rt<"row mt-2 col-md-6"i><"col-md-6"p>',
+                columns: [
+                    { data: 'booking_code', className: 'text-center' },
+                    { data: 'booking_meeting_title', className: 'text-center' },
+                    {
+                        data: 'booking_date',
+                        className: 'text-center',
+                        render: data => new Date(data).toLocaleDateString()
                     },
-                    success: function(response) {
-                        if (response.success) {
-                            successCallback(response.data);
+                    {
+                        data: null,
+                        className: 'text-center',
+                        render: d => `${d.booking_start_time} - ${d.booking_end_time}`
+                    },
+                    {
+                        data: null,
+                        className: 'text-center',
+                        render: d => {
+                            if (!d.booking_start_time || !d.booking_end_time) return '-';
+                            return `${d.booking_duration_minutes ?? '-'} min`;
                         }
+                    },
+                    { data: 'room_name', className: 'text-center' },
+                    { data: 'user_full_name', className: 'text-center' },
+                    {
+                        data: 'booking_status',
+                        className: 'text-center',
+                        render: status => {
+                            const map = {
+                                'Confirmed': 'status-confirmed',
+                                'Pending': 'status-pending',
+                                'In Progress': 'status-progress',
+                                'Cancelled': 'status-cancelled'
+                            };
+                            return `<span class="booking-status-badge ${map[status]}">${status}</span>`;
+                        }
+                    },
+                    {
+                        data: null,
+                        orderable: false,
+                        render: d => `
+                            <div style="display:flex;gap:6px;justify-content:center;">
+                                <button class="btn-icon btn-edit"
+                                        onclick="editBooking(${d.booking_id})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn-icon btn-warning"
+                                        onclick="showStatusModal(${d.booking_id}, '${d.booking_status}')">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        `
                     }
-                });
-            },
-            eventClick: function(info) {
-                viewBookingDetails(info.event.id);
-            },
-            eventTimeFormat: {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-            }
-        });
-    }
-
-    function bindEvents() {
-        $('#searchInput').on('keyup', function() {
-            loadBookings();
-        });
-
-        $('#statusFilter, #roomFilter, #dateFilter').on('change', function() {
-            loadBookings();
-        });
-
-        $('#tableViewBtn').click(function() {
-            currentView = 'table';
-            $('#tableView').show();
-            $('#calendarView').hide();
-            $(this).addClass('active');
-            $('#calendarViewBtn').removeClass('active');
-        });
-
-        $('#calendarViewBtn').click(function() {
-            currentView = 'calendar';
-            $('#tableView').hide();
-            $('#calendarView').show();
-            $(this).addClass('active');
-            $('#tableViewBtn').removeClass('active');
-            setTimeout(() => calendar.render(), 100);
-        });
-
-        $('#addBookingBtn').click(function() {
-            $('#bookingForm')[0].reset();
-            $('#bookingId').val('');
-            $('#modalTitle').text('Add New Booking');
-            setMinDate();
-            $('#bookingModal').modal('show');
-        });
-
-        $('#saveBookingBtn').click(saveBooking);
-        $('#exportBtn').click(exportBookings);
-    }
-
-    function loadBookings() {
-        const search = $('#searchInput').val();
-        const status = $('#statusFilter').val();
-        const roomId = $('#roomFilter').val();
-        const date = $('#dateFilter').val();
-
-        $.ajax({
-            url: '/Admin/GetBookings',
-            method: 'GET',
-            data: { search, status, roomId, fromDate: date, toDate: date },
-            success: function(response) {
-                if (response.success) {
-                    bookingsTable.clear();
-                    bookingsTable.rows.add(response.data);
-                    bookingsTable.draw();
-                    updateStats(response.data);
-                }
-            }
-        });
-    }
-
-    function updateStats(bookings) {
-        const today = new Date().toISOString().split('T')[0];
-        $('#totalBookings').text(bookings.length);
-        $('#todayBookings').text(bookings.filter(b => b.booking_date === today).length);
-        $('#activeBookings').text(bookings.filter(b => b.booking_status === 'In Progress').length);
-    }
-
-    function loadRooms() {
-        $.ajax({
-            url: '/Admin/GetRooms',
-            method: 'GET',
-            success: function(response) {
-                if (response.success) {
-                    const roomSelect = $('#bookingRoom, #roomFilter');
-                    roomSelect.find('option:not(:first)').remove();
-                    response.data.forEach(room => {
-                        $('#bookingRoom').append(`<option value="${room.room_id}">${room.room_name} (${room.room_code})</option>`);
-                        $('#roomFilter').append(`<option value="${room.room_id}">${room.room_name}</option>`);
-                    });
-                }
-            }
-        });
-    }
-
-    function loadUsers() {
-        $.ajax({
-            url: '/Admin/GetUsers',
-            method: 'GET',
-            success: function(response) {
-                if (response.success) {
-                    const userSelect = $('#bookingUser');
-                    userSelect.find('option:not(:first)').remove();
-                    response.data.filter(u => u.user_is_active).forEach(user => {
-                        userSelect.append(`<option value="${user.user_id}">${user.user_full_name} (${user.user_employee_id})</option>`);
-                    });
-                }
-            }
-        });
-    }
-
-    function saveBooking() {
-        if (!$('#bookingForm')[0].checkValidity()) {
-            $('#bookingForm')[0].reportValidity();
-            return;
+                ]
+            });
         }
 
-        const bookingData = {
-            booking_user_id: parseInt($('#bookingUser').val()),
-            booking_room_id: parseInt($('#bookingRoom').val()),
-            booking_meeting_title: $('#meetingTitle').val(),
-            booking_meeting_description: $('#meetingDescription').val() || null,
-            booking_date: $('#bookingDate').val(),
-            booking_start_time: $('#startTime').val(),
-            booking_end_time: $('#endTime').val()
-        };
+        function bindEvents() {
+            $('#searchInput, #statusFilter, #roomFilter').on('keyup change', loadBookings);
+            
+            $('#calendarBtn').click(() => switchView('calendar'));
+            $('#listBtn').click(() => switchView('list'));
+            
+            $('#addBookingBtn').click(() => {
+                $('#bookingForm')[0].reset();
+                $('#modalTitle').text('Add New Booking');
+                $('#bookingModal').modal('show');
+            });
+            
+            $('#saveBookingBtn').click(saveBooking);
+            $('#updateStatusBtn').click(updateStatus);
+            
+            $('#statusSelect').change(function() {
+                $('#reasonGroup').toggle($(this).val() === 'Cancelled');
+            });
+            
+            $('#exportBtn').click(exportBookings);
+        }
 
-        $.ajax({
-            url: '/Admin/CreateBooking',
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(bookingData),
-            success: function(response) {
-                if (response.success) {
-                    Swal.fire('Success', response.message, 'success');
-                    $('#bookingModal').modal('hide');
-                    loadBookings();
-                    if (currentView === 'calendar') {
-                        calendar.refetchEvents();
+        function switchView(view) {
+            currentView = view;
+            if (view === 'calendar') {
+                $('#calendarContainer').show();
+                $('#tableContainer').hide();
+                $('#calendar').fullCalendar('refetchEvents');
+            } else {
+                $('#tableContainer').show();
+                $('#calendarContainer').hide();
+                loadBookings();
+            }
+        }
+
+        function loadUsers() {
+            $.ajax({
+                url: '@Url.Action("GetUsers", "Admin")',
+                method: 'GET',
+                success: response => {
+                    if (response.success) {
+                        users = response.data;
+                        const userSelect = $('#bookingUserId');
+                        userSelect.empty().append('<option value="">Select User</option>');
+                        users.forEach(user => {
+                            userSelect.append(`<option value="${user.user_id}">${user.user_full_name} (${user.user_employee_id})</option>`);
+                        });
                     }
-                } else {
-                    Swal.fire('Error', response.message, 'error');
                 }
+            });
+        }
+
+        function loadRooms() {
+            $.ajax({
+                url: '@Url.Action("GetRooms", "Admin")',
+                method: 'GET',
+                success: response => {
+                    if (response.success) {
+                        rooms = response.data;
+                        const roomSelect = $('#bookingRoomId');
+                        const roomFilter = $('#roomFilter');
+                        roomSelect.empty().append('<option value="">Select Room</option>');
+                        roomFilter.empty().append('<option value="">All Rooms</option>');
+                        
+                        rooms.forEach(room => {
+                            const roomName = `${room.room_code} - ${room.room_name}`;
+                            roomSelect.append(`<option value="${room.room_id}">${roomName}</option>`);
+                            roomFilter.append(`<option value="${room.room_id}">${roomName}</option>`);
+                        });
+                    }
+                }
+            });
+        }
+
+        function loadBookings() {
+            const search = $('#searchInput').val();
+            const status = $('#statusFilter').val();
+            const roomId = $('#roomFilter').val();
+
+            $.ajax({
+                url: '@Url.Action("GetBookings", "Admin")',
+                method: 'GET',
+                data: { search, status, roomId: roomId ? parseInt(roomId) : null },
+                success: response => {
+                    if (response.success) {
+                        bookingsTable.clear().rows.add(response.data).draw();
+                        updateStats(response.data);
+                    }
+                }
+            });
+        }
+
+        function updateStats(bookings) {
+            const now = new Date();
+
+            const today = bookings.filter(b =>
+                new Date(b.booking_date).toDateString() === now.toDateString()
+            ).length;
+
+            const active = bookings.filter(b => {
+                if (b.booking_status !== 'Confirmed') return false;
+                const start = new Date(`${b.booking_date} ${b.booking_start_time}`);
+                const end   = new Date(`${b.booking_date} ${b.booking_end_time}`);
+                return now >= start && now <= end;
+            }).length;
+
+            $('#totalBookings').text(bookings.length);
+            $('#todayBookings').text(today);
+            $('#activeBookings').text(active);
+        }
+
+        function saveBooking() {
+            if (!$('#bookingForm')[0].checkValidity()) {
+                $('#bookingForm')[0].reportValidity();
+                return;
             }
-        });
-    }
 
-    function viewBookingDetails(bookingId) {
-        bookingsTable.rows().every(function() {
-            const data = this.data();
-            if (data.booking_id == bookingId) {
-                const statusMap = {
-                    'Confirmed': 'bg-success',
-                    'Pending': 'bg-warning',
-                    'In Progress': 'bg-info',
-                    'Completed': 'bg-secondary',
-                    'Cancelled': 'bg-danger'
-                };
+            const bookingId = $('#bookingId').val();
+            const bookingData = {
+                booking_id: bookingId ? parseInt(bookingId) : 0,
+                booking_user_id: parseInt($('#bookingUserId').val()),
+                booking_room_id: parseInt($('#bookingRoomId').val()),
+                booking_meeting_title: $('#bookingTitle').val(),
+                booking_meeting_description: $('#bookingDescription').val(),
+                booking_date: $('#bookingDate').val(),
+                booking_start_time: $('#bookingStartTime').val(),
+                booking_end_time: $('#bookingEndTime').val(),
+                booking_status: 'Confirmed'
+            };
 
-                $('#bookingDetailsContent').html(`
-                    <div class="booking-detail-row">
-                        <div class="booking-detail-icon">
-                            <i class="fas fa-hashtag"></i>
-                        </div>
-                        <div class="booking-detail-content">
-                            <div class="booking-detail-label">Booking Code</div>
-                            <div class="booking-detail-value">${data.booking_code}</div>
-                        </div>
-                    </div>
-                    <div class="booking-detail-row">
-                        <div class="booking-detail-icon">
-                            <i class="fas fa-calendar"></i>
-                        </div>
-                        <div class="booking-detail-content">
-                            <div class="booking-detail-label">Meeting Title</div>
-                            <div class="booking-detail-value">${data.booking_meeting_title}</div>
-                        </div>
-                    </div>
-                    <div class="booking-detail-row">
-                        <div class="booking-detail-icon">
-                            <i class="fas fa-door-open"></i>
-                        </div>
-                        <div class="booking-detail-content">
-                            <div class="booking-detail-label">Room</div>
-                            <div class="booking-detail-value">${data.room_name} (${data.room_code})</div>
-                        </div>
-                    </div>
-                    <div class="booking-detail-row">
-                        <div class="booking-detail-icon">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div class="booking-detail-content">
-                            <div class="booking-detail-label">Booked By</div>
-                            <div class="booking-detail-value">${data.user_full_name} (${data.user_employee_id})</div>
-                        </div>
-                    </div>
-                    <div class="booking-detail-row">
-                        <div class="booking-detail-icon">
-                            <i class="fas fa-calendar-day"></i>
-                        </div>
-                        <div class="booking-detail-content">
-                            <div class="booking-detail-label">Date</div>
-                            <div class="booking-detail-value">${data.booking_date}</div>
-                        </div>
-                    </div>
-                    <div class="booking-detail-row">
-                        <div class="booking-detail-icon">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <div class="booking-detail-content">
-                            <div class="booking-detail-label">Time</div>
-                            <div class="booking-detail-value">${data.booking_start_time} - ${data.booking_end_time} (${data.booking_duration_minutes} minutes)</div>
-                        </div>
-                    </div>
-                    <div class="booking-detail-row">
-                        <div class="booking-detail-icon">
-                            <i class="fas fa-info-circle"></i>
-                        </div>
-                        <div class="booking-detail-content">
-                            <div class="booking-detail-label">Status</div>
-                            <div class="booking-detail-value">
-                                <span class="badge ${statusMap[data.booking_status]}">${data.booking_status}</span>
-                            </div>
-                        </div>
-                    </div>
-                `);
-                $('#bookingDetailsModal').modal('show');
-                return false;
-            }
-        });
-    }
+            console.log(bookingData);
 
-    function cancelBooking(bookingId) {
-        Swal.fire({
-            title: 'Cancel Booking?',
-            text: 'Please provide a reason for cancellation',
-            input: 'textarea',
-            inputPlaceholder: 'Cancellation reason...',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Yes, cancel it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                $.ajax({
-                    url: '/Admin/UpdateBookingStatus',
-                    method: 'POST',
-                    data: { 
-                        bookingId: bookingId, 
-                        status: 'Cancelled',
-                        reason: result.value
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            Swal.fire('Success', response.message, 'success');
-                            loadBookings();
-                            if (currentView === 'calendar') {
-                                calendar.refetchEvents();
+            const url = bookingId ? '@Url.Action("UpdateBooking", "Admin")' : '@Url.Action("CreateBooking", "Admin")';
+            
+            $.ajax({
+                url,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(bookingData),
+                success: response => {
+                    if (response.success) {
+                        Swal.fire('Success!', response.message, 'success');
+                        $('#bookingModal').modal('hide');
+                        if (currentView === 'list') loadBookings();
+                        else calendar.refetchEvents();
+                    } else {
+                        Swal.fire('Error!', response.message, 'error');
+                    }
+                },
+                error: () => Swal.fire('Error!', 'Failed to save booking', 'error')
+            });
+        }
+
+        function editBooking(bookingId) {
+            // Find booking data and populate form (simplified - would need to fetch from server)
+            $('#modalTitle').text('Edit Booking');
+            $('#bookingModal').modal('show');
+        }
+
+        function showStatusModal(bookingId, currentStatus) {
+            $('#statusBookingId').val(bookingId);
+            $('#statusSelect').val(currentStatus);
+            $('#reasonGroup').hide();
+            $('#statusModal').modal('show');
+        }
+
+        function updateStatus() {
+            const bookingId = parseInt($('#statusBookingId').val());
+            const status = $('#statusSelect').val();
+            const reason = status === 'Cancelled' ? $('#statusReason').val() : null;
+
+            $.ajax({
+                url: '@Url.Action("UpdateBookingStatus", "Admin")',
+                method: 'POST',
+                data: { bookingId, status, reason },
+                success: response => {
+                    if (response.success) {
+                        Swal.fire('Success!', response.message, 'success');
+                        $('#statusModal').modal('hide');
+                        if (currentView === 'list') loadBookings();
+                        else calendar.refetchEvents();
+                    } else {
+                        Swal.fire('Error!', response.message, 'error');
+                    }
+                }
+            });
+        }
+
+        function exportBookings() {
+            const search = $('#searchInput').val();
+            const status = $('#statusFilter').val();
+            const roomId = $('#roomFilter').val();
+            window.location.href = `@Url.Action("ExportBookings", "Admin")?search=${search}&status=${status}&roomId=${roomId}`;
+        }
+
+        function initializeCalendar() {
+            const calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                events: function(fetchInfo, successCallback, failureCallback) {
+                    $.ajax({
+                        url: '@Url.Action("GetCalendarBookings", "Admin")',
+                        method: 'GET',
+                        data: {
+                            start: fetchInfo.startStr,
+                            end: fetchInfo.endStr
+                        },
+                        success: response => {
+                            if (response.success) {
+                                successCallback(response.data);
                             }
                         }
-                    }
-                });
-            }
-        });
-    }
-
-    function exportBookings() {
-        window.location.href = '/Admin/ExportBookings';
-    }
-</script>
+                    });
+                },
+                eventClick: function(info) {
+                    Swal.fire({
+                        title: info.event.title,
+                        html: `                            
+                                <strong>Code:</strong> ${info.event.extendedProps.code}<br>
+                                <strong>Room:</strong> ${info.event.extendedProps.room}<br>
+                                <strong>User:</strong> ${info.event.extendedProps.user}<br>
+                                <strong>Status:</strong> ${info.event.extendedProps.status}
+                        `,
+                        icon: 'info'
+                    });
+                },
+                eventDidMount: function(info) {
+                    info.el.style.cursor = 'pointer';
+                }
+            });
+            calendar.render();
+        }
+    </script>
 }
