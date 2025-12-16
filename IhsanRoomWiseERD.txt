@@ -1,0 +1,191 @@
+@startuml RoomWise_ERD
+
+!define table(x) class x << (T,#FFAAAA) >>
+!define primary_key(x) <b><u>x</u></b>
+!define foreign_key(x) <i>x</i>
+
+skinparam linetype ortho
+skinparam shadowing false
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+skinparam arrowColor Black
+
+' Tables Definition
+
+table(departments) {
+  primary_key(dept_id) : INT
+  --
+  dept_code : NVARCHAR(10) <<UK>>
+  dept_name : NVARCHAR(100)
+  dept_description : NVARCHAR(500)
+  dept_is_active : BIT
+  dept_created_at : DATETIME
+  dept_updated_at : DATETIME
+}
+
+table(locations) {
+  primary_key(location_id) : INT
+  --
+  location_code : NVARCHAR(15) <<UK>>
+  location_plant_name : NVARCHAR(50)
+  location_block : TINYINT
+  location_floor : TINYINT
+  location_description : NVARCHAR(500)
+  location_is_active : BIT
+  location_created_at : DATETIME
+  location_updated_at : DATETIME
+}
+
+table(users) {
+  primary_key(user_id) : INT
+  --
+  user_employee_id : NVARCHAR(20) <<UK>>
+  user_email : NVARCHAR(100) <<UK>>
+  user_password : NVARCHAR(255)
+  user_full_name : NVARCHAR(150)
+  user_phone : NVARCHAR(20)
+  user_role : NVARCHAR(20)
+  foreign_key(user_dept_id) : INT
+  user_profile_photo : NVARCHAR(max)
+  user_is_active : BIT
+  user_last_login : DATETIME
+  user_reset_token : NVARCHAR(255)
+  user_reset_token_expiry : DATETIME
+  user_created_at : DATETIME
+  user_updated_at : DATETIME
+}
+
+table(rooms) {
+  primary_key(room_id) : INT
+  --
+  room_code : NVARCHAR(20) <<UK>>
+  room_name : NVARCHAR(100)
+  foreign_key(room_location_id) : INT
+  room_capacity : INT
+  room_description : NVARCHAR(500)
+  room_photo : NVARCHAR(max)
+  room_has_projector : BIT
+  room_has_smart_screen : BIT
+  room_has_screenbeam : BIT
+  room_has_cisco_bar : BIT
+  room_other_facilities : NVARCHAR(500)
+  room_operational_status : NVARCHAR(20)
+  room_is_active : BIT
+  room_created_at : DATETIME
+  room_updated_at : DATETIME
+}
+
+table(bookings) {
+  primary_key(booking_id) : INT
+  --
+  booking_code : NVARCHAR(30) <<UK>>
+  foreign_key(booking_user_id) : INT
+  foreign_key(booking_room_id) : INT
+  booking_meeting_title : NVARCHAR(200)
+  booking_meeting_description : NVARCHAR(500)
+  booking_date : DATE
+  booking_start_time : TIME
+  booking_end_time : TIME
+  booking_duration_minutes : INT <<computed>>
+  booking_status : NVARCHAR(20)
+  booking_cancellation_reason : NVARCHAR(500)
+  booking_cancelled_at : DATETIME
+  foreign_key(booking_cancelled_by) : INT
+  booking_actual_end_time : DATETIME
+  booking_created_at : DATETIME
+  booking_updated_at : DATETIME
+}
+
+table(feedbacks) {
+  primary_key(feedback_id) : INT
+  --
+  foreign_key(feedback_booking_id) : INT <<UK>>
+  foreign_key(feedback_user_id) : INT
+  foreign_key(feedback_room_id) : INT
+  feedback_rating : TINYINT
+  feedback_room_condition : NVARCHAR(500)
+  feedback_facility_condition : NVARCHAR(500)
+  feedback_issues_reported : NVARCHAR(500)
+  feedback_photo : NVARCHAR(max)
+  feedback_admin_response : NVARCHAR(500)
+  foreign_key(feedback_admin_responded_by) : INT
+  feedback_admin_responded_at : DATETIME
+  feedback_created_at : DATETIME
+  feedback_updated_at : DATETIME
+}
+
+table(notifications) {
+  primary_key(notification_id) : INT
+  --
+  notification_type : NVARCHAR(30)
+  notification_title : NVARCHAR(200)
+  notification_message : NVARCHAR(500)
+  foreign_key(notification_target_user_id) : INT
+  notification_target_role : NVARCHAR(20)
+  foreign_key(notification_related_booking_id) : INT
+  foreign_key(notification_related_feedback_id) : INT
+  notification_is_read : BIT
+  notification_read_at : DATETIME
+  notification_priority : NVARCHAR(10)
+  foreign_key(notification_created_by) : INT
+  notification_created_at : DATETIME
+}
+
+table(activity_logs) {
+  primary_key(log_id) : BIGINT
+  --
+  foreign_key(log_user_id) : INT
+  log_action_type : NVARCHAR(50)
+  log_entity_type : NVARCHAR(50)
+  log_entity_id : INT
+  log_description : NVARCHAR(500)
+  log_old_values : NVARCHAR(MAX)
+  log_new_values : NVARCHAR(MAX)
+  log_created_at : DATETIME
+}
+
+' Relationships
+
+departments ||--o{ users : "has"
+locations ||--o{ rooms : "contains"
+users ||--o{ bookings : "creates"
+users ||--o{ feedbacks : "submits"
+users ||--o{ notifications : "receives"
+users ||--o{ notifications : "creates"
+users ||--o{ activity_logs : "performs"
+users ||--o{ bookings : "cancels"
+users ||--o{ feedbacks : "responds to"
+
+rooms ||--o{ bookings : "booked for"
+rooms ||--o{ feedbacks : "receives"
+
+bookings ||--o| feedbacks : "has"
+bookings ||--o{ notifications : "triggers"
+
+feedbacks ||--o{ notifications : "triggers"
+
+note right of users
+  Roles: Admin, Employee
+  Password: MD5 hashed
+end note
+
+note right of rooms
+  Status: Available,
+  Under Maintenance,
+  Out of Service
+end note
+
+note right of bookings
+  Status: Pending, Confirmed,
+  In Progress, Completed,
+  Cancelled
+end note
+
+note right of notifications
+  Types: Booking Related,
+  Admin Announcement,
+  System Alert,
+  Feedback Response
+end note
+
+@enduml
