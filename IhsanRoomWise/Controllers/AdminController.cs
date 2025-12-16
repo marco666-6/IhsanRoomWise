@@ -414,8 +414,10 @@ namespace RoomWise.Controllers
                                 user_employee_id = row["user_employee_id"],
                                 user_email = row["user_email"],
                                 user_full_name = row["user_full_name"],
+                                user_phone = row["user_phone"],
                                 user_role = row["user_role"],
                                 dept_name = row["dept_name"],
+                                user_dept_id = row["user_dept_id"],
                                 user_is_active = row["user_is_active"],
                                 user_last_login = row["user_last_login"],
                                 user_created_at = row["user_created_at"]

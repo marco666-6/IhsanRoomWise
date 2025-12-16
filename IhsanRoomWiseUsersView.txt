@@ -597,7 +597,7 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Phone Number</label>
-                        <input type="tel" class="form-control" id="phone">
+                        <input type="text" class="form-control" id="phone">
                     </div>
                     <div class="row">
                         <div class="col-md-6">
@@ -723,7 +723,8 @@
 @section Scripts {
 <script>
     let usersTable;
-    let lastOpenedModal = null;
+    let returnModal = null;
+    let isSwitchingModal = false;
     let departments = [];
 
     $(document).ready(function() {
@@ -758,7 +759,7 @@
                 { data: 'user_employee_id', className: "text-center" },
                 { data: 'user_full_name', className: "text-center" },
                 { data: 'user_email', className: "text-center" },
-                { data: 'user_phone', defaultContent: '-', className: "text-center" },
+                { data: 'user_phone', className: "text-center" },
                 { 
                     data: 'user_role',
                     className: "text-center",
@@ -830,27 +831,38 @@
         $('#exportBtn').click(exportUsers);
 
         $('#manageDeptBtn').click(function () {
-            lastOpenedModal = '#userModal';
+            isSwitchingModal = true;
 
-            $('#userModal').modal('hide');
-
-            $('#userModal').one('hidden.bs.modal', function () {
-                loadDepartmentsTable();
-                $('#departmentModal').modal('show');
-            });
+            $('#userModal')
+                .one('hidden.bs.modal', function () {
+                    isSwitchingModal = false;
+                    loadDepartmentsTable();
+                    $('#departmentModal').modal('show');
+                })
+                .modal('hide');
         });
 
         $('#addDeptBtn').click(function () {
-            lastOpenedModal = '#departmentModal';
+            isSwitchingModal = true;
+            returnModal = '#departmentModal';
 
-            $('#departmentModal').modal('hide');
+            $('#departmentModal')
+                .one('hidden.bs.modal', function () {
+                    isSwitchingModal = false;
 
-            $('#departmentModal').one('hidden.bs.modal', function () {
-                $('#deptForm')[0].reset();
-                $('#deptId').val('');
-                $('#deptModalTitle').text('Add Department');
-                $('#deptFormModal').modal('show');
-            });
+                    $('#deptForm')[0].reset();
+                    $('#deptId').val('');
+                    $('#deptModalTitle').text('Add Department');
+                    $('#deptFormModal').modal('show');
+                })
+                .modal('hide');
+        });
+
+        $('#deptFormModal').on('hidden.bs.modal', function () {
+            if (!isSwitchingModal && returnModal) {
+                $(returnModal).modal('show');
+                returnModal = null;
+            }
         });
 
         $('#saveDeptBtn').click(saveDepartment);
@@ -868,6 +880,7 @@
             data: { search, role, deptId, isActive },
             success: function(response) {
                 if (response.success) {
+                    console.log(response.data);
                     usersTable.clear();
                     usersTable.rows.add(response.data);
                     usersTable.draw();
@@ -1098,14 +1111,23 @@
 
     function editDepartment(deptId) {
         const dept = departments.find(d => d.dept_id === deptId);
-        if (dept) {
-            $('#deptId').val(dept.dept_id);
-            $('#deptCode').val(dept.dept_code);
-            $('#deptName').val(dept.dept_name);
-            $('#deptDescription').val(dept.dept_description || '');
-            $('#deptModalTitle').text('Edit Department');
-            $('#deptFormModal').modal('show');
-        }
+        isSwitchingModal = true;
+        returnModal = '#departmentModal';
+
+        $('#departmentModal')
+            .one('hidden.bs.modal', function () {
+                isSwitchingModal = false;
+
+                if (dept) {
+                    $('#deptId').val(dept.dept_id);
+                    $('#deptCode').val(dept.dept_code);
+                    $('#deptName').val(dept.dept_name);
+                    $('#deptDescription').val(dept.dept_description || '');
+                    $('#deptModalTitle').text('Edit Department');
+                    $('#deptFormModal').modal('show');
+                }
+            })
+            .modal('hide');
     }
 
     function deleteDepartment(deptId) {
@@ -1136,12 +1158,5 @@
             }
         });
     }
-
-    $('#departmentModal, #deptFormModal').on('hidden.bs.modal', function () {
-        if (lastOpenedModal) {
-            $(lastOpenedModal).modal('show');
-            lastOpenedModal = null;
-        }
-    });
 </script>
 }
