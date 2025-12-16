@@ -831,6 +831,232 @@ namespace RoomWise.Controllers
             }
         }
 
+        // Update Department
+        [HttpPost]
+        public IActionResult UpdateDepartment(int deptId, string deptCode, string deptName, string? deptDescription)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            if (string.IsNullOrWhiteSpace(deptCode) || string.IsNullOrWhiteSpace(deptName))
+            {
+                return Json(new { success = false, message = "Department code and name are required" });
+            }
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Check if department exists
+                    string checkQuery = "SELECT dept_code, dept_name, dept_description FROM departments WHERE dept_id = @DeptId";
+                    string oldValues = "";
+                    
+                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        using (SqlDataReader reader = checkCmd.ExecuteReader())
+                        {
+                            if (!reader.Read())
+                            {
+                                return Json(new { success = false, message = "Department not found" });
+                            }
+                            oldValues = $"Code: {reader["dept_code"]}, Name: {reader["dept_name"]}, Description: {reader["dept_description"]}";
+                        }
+                    }
+                    
+                    // Check if new code already exists for different department
+                    string duplicateQuery = "SELECT COUNT(*) FROM departments WHERE dept_code = @DeptCode AND dept_id != @DeptId";
+                    using (SqlCommand duplicateCmd = new SqlCommand(duplicateQuery, conn))
+                    {
+                        duplicateCmd.Parameters.AddWithValue("@DeptCode", deptCode);
+                        duplicateCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        int count = (int)duplicateCmd.ExecuteScalar();
+                        if (count > 0)
+                        {
+                            return Json(new { success = false, message = "Department code already exists" });
+                        }
+                    }
+                    
+                    // Update department
+                    string updateQuery = @"
+                        UPDATE departments 
+                        SET dept_code = @DeptCode,
+                            dept_name = @DeptName,
+                            dept_description = @DeptDescription,
+                            dept_updated_at = GETDATE()
+                        WHERE dept_id = @DeptId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@DeptId", deptId);
+                        cmd.Parameters.AddWithValue("@DeptCode", deptCode);
+                        cmd.Parameters.AddWithValue("@DeptName", deptName);
+                        cmd.Parameters.AddWithValue("@DeptDescription", (object?)deptDescription ?? DBNull.Value);
+                        
+                        cmd.ExecuteNonQuery();
+                        
+                        string newValues = $"Code: {deptCode}, Name: {deptName}, Description: {deptDescription}";
+                        LogActivity("Update", "Department", deptId, $"Updated department: {deptName}", oldValues, newValues);
+                        
+                        return Json(new { success = true, message = "Department updated successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // Delete Department (Soft Delete)
+        [HttpPost]
+        public IActionResult DeleteDepartment(int deptId)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Check if department has active users
+                    string checkUsersQuery = "SELECT COUNT(*) FROM users WHERE user_dept_id = @DeptId AND user_is_active = 1";
+                    using (SqlCommand checkCmd = new SqlCommand(checkUsersQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        int userCount = (int)checkCmd.ExecuteScalar();
+                        
+                        if (userCount > 0)
+                        {
+                            return Json(new { success = false, message = $"Cannot delete department. {userCount} active user(s) are assigned to this department." });
+                        }
+                    }
+                    
+                    // Get department name for logging
+                    string getDeptQuery = "SELECT dept_name FROM departments WHERE dept_id = @DeptId";
+                    string deptName = "";
+                    using (SqlCommand getCmd = new SqlCommand(getDeptQuery, conn))
+                    {
+                        getCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        deptName = getCmd.ExecuteScalar()?.ToString() ?? "";
+                    }
+                    
+                    // Soft delete department
+                    string deleteQuery = @"
+                        UPDATE departments 
+                        SET dept_is_active = 0,
+                            dept_updated_at = GETDATE()
+                        WHERE dept_id = @DeptId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(deleteQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@DeptId", deptId);
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        
+                        if (rowsAffected > 0)
+                        {
+                            LogActivity("Delete", "Department", deptId, $"Deleted department: {deptName}");
+                            return Json(new { success = true, message = "Department deleted successfully" });
+                        }
+                        else
+                        {
+                            return Json(new { success = false, message = "Department not found" });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // Toggle Department Active Status
+        [HttpPost]
+        public IActionResult ToggleDepartmentStatus(int deptId)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Get current status and name
+                    string getQuery = "SELECT dept_name, dept_is_active FROM departments WHERE dept_id = @DeptId";
+                    string deptName = "";
+                    bool currentStatus = false;
+                    
+                    using (SqlCommand getCmd = new SqlCommand(getQuery, conn))
+                    {
+                        getCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        using (SqlDataReader reader = getCmd.ExecuteReader())
+                        {
+                            if (!reader.Read())
+                            {
+                                return Json(new { success = false, message = "Department not found" });
+                            }
+                            deptName = reader["dept_name"].ToString() ?? "";
+                            currentStatus = (bool)reader["dept_is_active"];
+                        }
+                    }
+                    
+                    // If activating, check if users will be affected
+                    if (!currentStatus)
+                    {
+                        // Activating department - no issues
+                    }
+                    else
+                    {
+                        // Deactivating department - check for active users
+                        string checkUsersQuery = "SELECT COUNT(*) FROM users WHERE user_dept_id = @DeptId AND user_is_active = 1";
+                        using (SqlCommand checkCmd = new SqlCommand(checkUsersQuery, conn))
+                        {
+                            checkCmd.Parameters.AddWithValue("@DeptId", deptId);
+                            int userCount = (int)checkCmd.ExecuteScalar();
+                            
+                            if (userCount > 0)
+                            {
+                                return Json(new { success = false, message = $"Cannot deactivate department. {userCount} active user(s) are assigned to this department." });
+                            }
+                        }
+                    }
+                    
+                    // Toggle status
+                    string updateQuery = @"
+                        UPDATE departments 
+                        SET dept_is_active = @NewStatus,
+                            dept_updated_at = GETDATE()
+                        WHERE dept_id = @DeptId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
+                    {
+                        bool newStatus = !currentStatus;
+                        cmd.Parameters.AddWithValue("@DeptId", deptId);
+                        cmd.Parameters.AddWithValue("@NewStatus", newStatus);
+                        
+                        cmd.ExecuteNonQuery();
+                        
+                        string action = newStatus ? "Activated" : "Deactivated";
+                        LogActivity("Toggle Status", "Department", deptId, $"{action} department: {deptName}");
+                        
+                        return Json(new { 
+                            success = true, 
+                            message = $"Department {action.ToLower()} successfully",
+                            newStatus = newStatus
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
         // ==================== ROOMS MANAGEMENT ====================
         [HttpGet]
         public IActionResult RoomsView()
@@ -1146,6 +1372,252 @@ namespace RoomWise.Controllers
                         LogActivity("Create Location", "Location", locationId, $"Created location {location.location_code}");
                         
                         return Json(new { success = true, message = "Location created successfully", locationId = locationId });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // Update Location
+        [HttpPost]
+        public IActionResult UpdateLocation(int locationId, string locationCode, string locationPlantName, 
+            byte locationBlock, byte locationFloor, string? locationDescription)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            if (string.IsNullOrWhiteSpace(locationCode) || string.IsNullOrWhiteSpace(locationPlantName))
+            {
+                return Json(new { success = false, message = "Location code and plant name are required" });
+            }
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Check if location exists
+                    string checkQuery = @"
+                        SELECT location_code, location_plant_name, location_block, 
+                               location_floor, location_description 
+                        FROM locations 
+                        WHERE location_id = @LocationId";
+                    string oldValues = "";
+                    
+                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        using (SqlDataReader reader = checkCmd.ExecuteReader())
+                        {
+                            if (!reader.Read())
+                            {
+                                return Json(new { success = false, message = "Location not found" });
+                            }
+                            oldValues = $"Code: {reader["location_code"]}, Plant: {reader["location_plant_name"]}, " +
+                                      $"Block: {reader["location_block"]}, Floor: {reader["location_floor"]}, " +
+                                      $"Description: {reader["location_description"]}";
+                        }
+                    }
+                    
+                    // Check if new code already exists for different location
+                    string duplicateQuery = "SELECT COUNT(*) FROM locations WHERE location_code = @LocationCode AND location_id != @LocationId";
+                    using (SqlCommand duplicateCmd = new SqlCommand(duplicateQuery, conn))
+                    {
+                        duplicateCmd.Parameters.AddWithValue("@LocationCode", locationCode);
+                        duplicateCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        int count = (int)duplicateCmd.ExecuteScalar();
+                        if (count > 0)
+                        {
+                            return Json(new { success = false, message = "Location code already exists" });
+                        }
+                    }
+                    
+                    // Update location
+                    string updateQuery = @"
+                        UPDATE locations 
+                        SET location_code = @LocationCode,
+                            location_plant_name = @LocationPlantName,
+                            location_block = @LocationBlock,
+                            location_floor = @LocationFloor,
+                            location_description = @LocationDescription,
+                            location_updated_at = GETDATE()
+                        WHERE location_id = @LocationId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@LocationId", locationId);
+                        cmd.Parameters.AddWithValue("@LocationCode", locationCode);
+                        cmd.Parameters.AddWithValue("@LocationPlantName", locationPlantName);
+                        cmd.Parameters.AddWithValue("@LocationBlock", locationBlock);
+                        cmd.Parameters.AddWithValue("@LocationFloor", locationFloor);
+                        cmd.Parameters.AddWithValue("@LocationDescription", (object?)locationDescription ?? DBNull.Value);
+                        
+                        cmd.ExecuteNonQuery();
+                        
+                        string newValues = $"Code: {locationCode}, Plant: {locationPlantName}, " +
+                                         $"Block: {locationBlock}, Floor: {locationFloor}, " +
+                                         $"Description: {locationDescription}";
+                        LogActivity("Update", "Location", locationId, $"Updated location: {locationPlantName} - Block {locationBlock} - Floor {locationFloor}", oldValues, newValues);
+                        
+                        return Json(new { success = true, message = "Location updated successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // Delete Location (Soft Delete)
+        [HttpPost]
+        public IActionResult DeleteLocation(int locationId)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Check if location has active rooms
+                    string checkRoomsQuery = "SELECT COUNT(*) FROM rooms WHERE room_location_id = @LocationId AND room_is_active = 1";
+                    using (SqlCommand checkCmd = new SqlCommand(checkRoomsQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        int roomCount = (int)checkCmd.ExecuteScalar();
+                        
+                        if (roomCount > 0)
+                        {
+                            return Json(new { success = false, message = $"Cannot delete location. {roomCount} active room(s) are assigned to this location." });
+                        }
+                    }
+                    
+                    // Get location details for logging
+                    string getLocationQuery = @"
+                        SELECT location_plant_name, location_block, location_floor 
+                        FROM locations 
+                        WHERE location_id = @LocationId";
+                    string locationName = "";
+                    using (SqlCommand getCmd = new SqlCommand(getLocationQuery, conn))
+                    {
+                        getCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        using (SqlDataReader reader = getCmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                locationName = $"{reader["location_plant_name"]} - Block {reader["location_block"]} - Floor {reader["location_floor"]}";
+                            }
+                        }
+                    }
+                    
+                    // Soft delete location
+                    string deleteQuery = @"
+                        UPDATE locations 
+                        SET location_is_active = 0,
+                            location_updated_at = GETDATE()
+                        WHERE location_id = @LocationId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(deleteQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@LocationId", locationId);
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        
+                        if (rowsAffected > 0)
+                        {
+                            LogActivity("Delete", "Location", locationId, $"Deleted location: {locationName}");
+                            return Json(new { success = true, message = "Location deleted successfully" });
+                        }
+                        else
+                        {
+                            return Json(new { success = false, message = "Location not found" });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // Toggle Location Active Status
+        [HttpPost]
+        public IActionResult ToggleLocationStatus(int locationId)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Get current status and details
+                    string getQuery = @"
+                        SELECT location_plant_name, location_block, location_floor, location_is_active 
+                        FROM locations 
+                        WHERE location_id = @LocationId";
+                    string locationName = "";
+                    bool currentStatus = false;
+                    
+                    using (SqlCommand getCmd = new SqlCommand(getQuery, conn))
+                    {
+                        getCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        using (SqlDataReader reader = getCmd.ExecuteReader())
+                        {
+                            if (!reader.Read())
+                            {
+                                return Json(new { success = false, message = "Location not found" });
+                            }
+                            locationName = $"{reader["location_plant_name"]} - Block {reader["location_block"]} - Floor {reader["location_floor"]}";
+                            currentStatus = (bool)reader["location_is_active"];
+                        }
+                    }
+                    
+                    // If deactivating, check for active rooms
+                    if (currentStatus)
+                    {
+                        string checkRoomsQuery = "SELECT COUNT(*) FROM rooms WHERE room_location_id = @LocationId AND room_is_active = 1";
+                        using (SqlCommand checkCmd = new SqlCommand(checkRoomsQuery, conn))
+                        {
+                            checkCmd.Parameters.AddWithValue("@LocationId", locationId);
+                            int roomCount = (int)checkCmd.ExecuteScalar();
+                            
+                            if (roomCount > 0)
+                            {
+                                return Json(new { success = false, message = $"Cannot deactivate location. {roomCount} active room(s) are assigned to this location." });
+                            }
+                        }
+                    }
+                    
+                    // Toggle status
+                    string updateQuery = @"
+                        UPDATE locations 
+                        SET location_is_active = @NewStatus,
+                            location_updated_at = GETDATE()
+                        WHERE location_id = @LocationId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
+                    {
+                        bool newStatus = !currentStatus;
+                        cmd.Parameters.AddWithValue("@LocationId", locationId);
+                        cmd.Parameters.AddWithValue("@NewStatus", newStatus);
+                        
+                        cmd.ExecuteNonQuery();
+                        
+                        string action = newStatus ? "Activated" : "Deactivated";
+                        LogActivity("Toggle Status", "Location", locationId, $"{action} location: {locationName}");
+                        
+                        return Json(new { 
+                            success = true, 
+                            message = $"Location {action.ToLower()} successfully",
+                            newStatus = newStatus
+                        });
                     }
                 }
             }

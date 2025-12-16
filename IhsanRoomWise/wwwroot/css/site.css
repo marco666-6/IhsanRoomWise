@@ -354,7 +354,7 @@ body::before {
     visibility: hidden;
     pointer-events: none;
     transition: all var(--transition-base);
-    z-index: 10000;
+    z-index: 2000;
     box-shadow: var(--shadow-xl);
 }
 
@@ -370,7 +370,7 @@ body::before {
     opacity: 0;
     visibility: hidden;
     transition: all var(--transition-base);
-    z-index: 10000;
+    z-index: 2000;
 }
 
 .sidebar.collapsed .nav-item:hover::before {
@@ -969,4 +969,78 @@ body::before {
     .main-content {
         margin-left: 0 !important;
     }
+}
+
+/* DataTables search input */
+.dataTables_filter input {
+    border-radius: 10px;
+    padding: 0.5rem 0.75rem;
+    border: 2px solid #e5e7eb;
+    outline: none;
+}
+
+.dataTables_filter input:focus {
+    border-color: #7aa22e;
+    box-shadow: 0 0 0 0.2rem rgba(122, 162, 46, 0.15);
+}
+
+
+/* DataTables length select */
+.dataTables_length select {
+    border-radius: 10px;
+    padding: 0.45rem 0.75rem;
+    border: 2px solid #e5e7eb;
+}
+
+.dataTables_length select:focus {
+    border-color: #7aa22e;
+    box-shadow: 0 0 0 0.2rem rgba(122, 162, 46, 0.15);
+}
+
+/* Pagination container */
+.dataTables_paginate {
+    margin-top: 1rem;
+}
+
+/* Pagination buttons */
+.dataTables_paginate .paginate_button {
+    border-radius: 10px !important;
+    border: 2px solid #e5e7eb !important;
+    padding: 0.4rem 0.75rem !important;
+    margin: 0 0.15rem;
+    color: #ffffff !important;
+    background: white !important;
+    font-weight: 600;
+}
+
+/* Hover */
+.dataTables_paginate .paginate_button:hover {
+    border-color: #7aa22e !important;
+    color: #7aa22e !important;
+    background: #f8faf5 !important;
+}
+
+/* Active page */
+.dataTables_paginate .paginate_button.current {
+    background: linear-gradient(135deg, #7aa22e, #5f7f23) !important;
+    color: white !important;
+    border-color: #7aa22e !important;
+}
+
+/* Disabled buttons */
+.dataTables_paginate .paginate_button.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* FORCE text color for pagination buttons */
+.dataTables_paginate .paginate_button {
+    color: #374151 !important;
+}
+
+/* ACTIVE page — text MUST be white */
+.dataTables_paginate .paginate_button.current,
+.dataTables_paginate .paginate_button.current:hover,
+.dataTables_paginate .paginate_button.current:focus {
+    color: #ffffff !important;
 }

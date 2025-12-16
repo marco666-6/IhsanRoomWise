@@ -1,0 +1,1136 @@
+﻿@{
+    ViewData["Title"] = "Booking Management";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+
+<style>
+    .calendar-container {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        border: 1px solid #e5e7eb;
+    }
+
+    .fc {
+        font-family: inherit;
+    }
+
+    .fc-toolbar-title {
+        color: #2d3e1f !important;
+        font-weight: 700 !important;
+    }
+
+    .fc-button {
+        background: #7aa22e !important;
+        border-color: #7aa22e !important;
+    }
+
+    .fc-button:hover {
+        background: #5f7f23 !important;
+        border-color: #5f7f23 !important;
+    }
+
+    .fc-event {
+        border-radius: 4px;
+        padding: 2px 4px;
+        font-size: 0.85rem;
+    }
+
+    .booking-detail-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+        padding: 0.75rem;
+        background: #f9fafb;
+        border-radius: 8px;
+    }
+
+    .booking-detail-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.125rem;
+    }
+
+    .booking-detail-content {
+        flex: 1;
+    }
+
+    .booking-detail-label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+    }
+
+    .booking-detail-value {
+        font-size: 0.9375rem;
+        color: #1f2937;
+        font-weight: 600;
+    }
+
+    .page-header {
+        background: linear-gradient(135deg, #ffffff 0%, #f5f9f0 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid rgba(122, 162, 46, 0.1);
+    }
+
+    .page-header h1 {
+        color: #2d3e1f;
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .page-header h1 i {
+        color: #7aa22e;
+        font-size: 2rem;
+    }
+
+    .page-header p {
+        color: #6b7280;
+        margin: 0;
+        font-size: 0.9375rem;
+    }
+
+    .toolbar {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        border: 1px solid #e5e7eb;
+    }
+
+    .toolbar-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .toolbar-left {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        flex: 1;
+    }
+
+    .search-box {
+        position: relative;
+        min-width: 300px;
+        flex: 1;
+        max-width: 400px;
+    }
+
+    .search-box input {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.75rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.9375rem;
+        transition: all 0.2s;
+    }
+
+    .search-box input:focus {
+        outline: none;
+        border-color: #7aa22e;
+        box-shadow: 0 0 0 3px rgba(122, 162, 46, 0.1);
+    }
+
+    .search-box i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9ca3af;
+        font-size: 1rem;
+    }
+
+    .filter-group {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .filter-select {
+        min-width: 160px;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.9375rem;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .filter-select:focus {
+        outline: none;
+        border-color: #7aa22e;
+        box-shadow: 0 0 0 3px rgba(122, 162, 46, 0.1);
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.9375rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(122, 162, 46, 0.25);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(122, 162, 46, 0.35);
+    }
+
+    .btn-secondary {
+        background: white;
+        color: #374151;
+        border: 2px solid #e5e7eb;
+    }
+
+    .btn-secondary:hover {
+        border-color: #7aa22e;
+        color: #7aa22e;
+        transform: translateY(-2px);
+    }
+
+    .btn-success {
+        background: #10b981;
+        color: white;
+    }
+
+    .btn-warning {
+        background: #f59e0b;
+        color: white;
+    }
+
+    .btn-danger {
+        background: #ef4444;
+        color: white;
+    }
+
+    .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        border: 1px solid #e5e7eb;
+        overflow: hidden;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    .table-container {
+        overflow-x: auto;
+    }
+
+    table.dataTable {
+        width: 100% !important;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    table.dataTable thead th {
+        background: linear-gradient(135deg, #f8faf5 0%, #f0f4ef 100%);
+        color: #2d3e1f;
+        font-weight: 600;
+        padding: 1rem;
+        border-bottom: 2px solid #7aa22e;
+        text-transform: uppercase;
+        font-size: 0.8125rem;
+        letter-spacing: 0.05em;
+    }
+
+    table.dataTable tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    table.dataTable tbody tr {
+        transition: all 0.2s;
+    }
+
+    table.dataTable tbody tr:hover {
+        background: #f8faf5;
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .badge-success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .badge-danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .badge-admin {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .badge-employee {
+        background: #e0e7ff;
+        color: #4338ca;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .btn-icon {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+        transform: translateY(-2px);
+    }
+
+    .btn-icon.btn-edit {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .btn-icon.btn-edit:hover {
+        background: #3b82f6;
+        color: white;
+    }
+
+    .btn-icon.btn-reset {
+        background: #fed7aa;
+        color: #92400e;
+    }
+
+    .btn-icon.btn-reset:hover {
+        background: #f59e0b;
+        color: white;
+    }
+
+    .btn-icon.btn-toggle {
+        background: #fce7f3;
+        color: #831843;
+    }
+
+    .btn-icon.btn-toggle:hover {
+        background: #ec4899;
+        color: white;
+    }
+
+    .modal-content {
+        border-radius: 16px;
+        border: none;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, #f8faf5 0%, #f0f4ef 100%);
+        border-bottom: 2px solid #7aa22e;
+        padding: 1.5rem;
+        border-radius: 16px 16px 0 0;
+    }
+
+    .modal-title {
+        color: #2d3e1f;
+        font-weight: 700;
+        font-size: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .modal-title i {
+        color: #7aa22e;
+    }
+
+    .modal-body {
+        padding: 2rem;
+    }
+
+    .modal-footer {
+        padding: 1.5rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #374151;
+        font-weight: 600;
+        font-size: 0.9375rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.9375rem;
+        transition: all 0.2s;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #7aa22e;
+        box-shadow: 0 0 0 3px rgba(122, 162, 46, 0.1);
+    }
+
+    .form-check {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .form-check-input {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8faf5 100%);
+        border: 1px solid rgba(122, 162, 46, 0.1);
+        border-radius: 12px;
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: all 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(122, 162, 46, 0.15);
+    }
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+    .stat-icon.success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .stat-icon.primary {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .stat-icon.warning {
+        background: #fed7aa;
+        color: #92400e;
+    }
+
+    .stat-content h3 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0;
+    }
+
+    .stat-content p {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    @@media (max-width: 768px) {
+        .toolbar-row {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .search-box {
+            min-width: 100%;
+            max-width: 100%;
+        }
+
+        .filter-group {
+            width: 100%;
+        }
+
+        .filter-select {
+            flex: 1;
+        }
+    }
+</style>
+
+<!-- Page Header -->
+<div class="page-header">
+    <h1>
+        <i class="fas fa-calendar-check"></i>
+        Booking Management
+    </h1>
+    <p>Monitor and manage all room bookings</p>
+</div>
+
+<!-- Statistics -->
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="stat-icon success">
+            <i class="fas fa-calendar-check"></i>
+        </div>
+        <div class="stat-content">
+            <h3 id="totalBookings">0</h3>
+            <p>Total Bookings</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon primary">
+            <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+            <h3 id="todayBookings">0</h3>
+            <p>Today's Bookings</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon warning">
+            <i class="fas fa-hourglass-half"></i>
+        </div>
+        <div class="stat-content">
+            <h3 id="activeBookings">0</h3>
+            <p>Active Now</p>
+        </div>
+    </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+    <div class="toolbar-row">
+        <div class="toolbar-left">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search by title, user, or booking code...">
+            </div>
+            <div class="filter-group">
+                <select id="statusFilter" class="filter-select">
+                    <option value="">All Status</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+                <select id="roomFilter" class="filter-select">
+                    <option value="">All Rooms</option>
+                </select>
+                <input type="date" id="dateFilter" class="filter-select">
+            </div>
+        </div>
+        <div class="toolbar-right">
+            <div class="view-toggle">
+                <button id="tableViewBtn" class="active">
+                    <i class="fas fa-table"></i> Table
+                </button>
+                <button id="calendarViewBtn">
+                    <i class="fas fa-calendar"></i> Calendar
+                </button>
+            </div>
+            <button class="btn btn-secondary" id="exportBtn">
+                <i class="fas fa-file-excel"></i>
+                Export
+            </button>
+            <button class="btn btn-primary" id="addBookingBtn">
+                <i class="fas fa-plus"></i>
+                Add Booking
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Table View -->
+<div class="card" id="tableView">
+    <div class="card-body">
+        <div class="table-responsive" style="overflow-x:hidden;">
+            <table id="bookingsTable" class="table table-hover text-center align-middle" style="width:100%; white-space: nowrap;">
+                <thead style="text-align:center;">
+                    <tr>
+                        <th>Booking Code</th>
+                        <th>Meeting Title</th>
+                        <th>Room</th>
+                        <th>User</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody style="text-align:center;"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Calendar View -->
+<div id="calendarView" style="display: none;">
+    <div class="calendar-container">
+        <div id="calendar"></div>
+    </div>
+</div>
+
+@section Modals {
+<!-- Add/Edit Booking Modal -->
+<div class="modal fade" id="bookingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-calendar-plus"></i>
+                    <span id="modalTitle">Add New Booking</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="bookingForm">
+                    <input type="hidden" id="bookingId">
+                    <div class="form-group">
+                        <label class="form-label">Meeting Title *</label>
+                        <input type="text" class="form-control" id="meetingTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Meeting Description</label>
+                        <textarea class="form-control" id="meetingDescription" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">User *</label>
+                                <select class="form-control" id="bookingUser" required>
+                                    <option value="">Select User</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Room *</label>
+                                <select class="form-control" id="bookingRoom" required>
+                                    <option value="">Select Room</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">Date *</label>
+                                <input type="date" class="form-control" id="bookingDate" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">Start Time *</label>
+                                <input type="time" class="form-control" id="startTime" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label class="form-label">End Time *</label>
+                                <input type="time" class="form-control" id="endTime" required>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveBookingBtn">
+                    <i class="fas fa-save"></i>
+                    Save Booking
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Booking Details Modal -->
+<div class="modal fade" id="bookingDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle"></i>
+                    Booking Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="bookingDetailsContent">
+                <!-- Details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+@section Scripts {
+<script>
+    let bookingsTable;
+    let calendar;
+    let currentView = 'table';
+
+    $(document).ready(function() {
+        initializeDataTable();
+        initializeCalendar();
+        loadRooms();
+        loadUsers();
+        loadBookings();
+        bindEvents();
+        setMinDate();
+    });
+
+    function setMinDate() {
+        const today = new Date().toISOString().split('T')[0];
+        $('#bookingDate, #dateFilter').attr('min', today);
+        $('#bookingDate').val(today);
+    }
+
+    function initializeDataTable() {
+        bookingsTable = $('#bookingsTable').DataTable({
+            responsive: false,
+            scrollX: true,
+            pageLength: 25,
+            order: [[4, 'desc']],
+            language: {
+                search: "",
+                searchPlaceholder: "🔍 Search bookings...",
+                lengthMenu: "Show _MENU_ bookings",
+                emptyTable: "No bookings found"
+            },
+            columns: [
+                { data: 'booking_code', className: "text-center" },
+                { data: 'booking_meeting_title', className: "text-center" },
+                { data: 'room_name', className: "text-center" },
+                { data: 'user_full_name', className: "text-center" },
+                { data: 'booking_date', className: "text-center" },
+                { 
+                    data: null,
+                    className: "text-center",
+                    render: function(data) {
+                        return `${data.booking_start_time} - ${data.booking_end_time}`;
+                    }
+                },
+                { 
+                    data: 'booking_duration_minutes',
+                    className: "text-center",
+                    render: function(data) {
+                        return `${data} min`;
+                    }
+                },
+                { 
+                    data: 'booking_status',
+                    className: "text-center",
+                    render: function(data) {
+                        const statusMap = {
+                            'Confirmed': 'bg-success',
+                            'Pending': 'bg-warning',
+                            'In Progress': 'bg-info',
+                            'Completed': 'bg-secondary',
+                            'Cancelled': 'bg-danger'
+                        };
+                        return `<span class="badge ${statusMap[data]}">${data}</span>`;
+                    }
+                },
+                { 
+                    data: null,
+                    orderable: false,
+                    className: "text-center",
+                    render: function(data, type, row) {
+                        let actions = `
+                            <div style="display:flex; gap:6px; justify-content:center;">
+                                <button class="btn btn-sm btn-outline-info" onclick="viewBookingDetails(${row.booking_id})" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                        `;
+                        
+                        if (row.booking_status !== 'Cancelled' && row.booking_status !== 'Completed') {
+                            actions += `
+                                <button class="btn btn-sm btn-outline-danger" onclick="cancelBooking(${row.booking_id})" title="Cancel">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            `;
+                        }
+                        
+                        actions += `</div>`;
+                        return actions;
+                    }
+                }
+            ]
+        });
+    }
+
+    function initializeCalendar() {
+        const calendarEl = document.getElementById('calendar');
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            events: function(info, successCallback, failureCallback) {
+                $.ajax({
+                    url: '/Admin/GetCalendarBookings',
+                    method: 'GET',
+                    data: {
+                        start: info.start.toISOString(),
+                        end: info.end.toISOString()
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            successCallback(response.data);
+                        }
+                    }
+                });
+            },
+            eventClick: function(info) {
+                viewBookingDetails(info.event.id);
+            },
+            eventTimeFormat: {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }
+        });
+    }
+
+    function bindEvents() {
+        $('#searchInput').on('keyup', function() {
+            loadBookings();
+        });
+
+        $('#statusFilter, #roomFilter, #dateFilter').on('change', function() {
+            loadBookings();
+        });
+
+        $('#tableViewBtn').click(function() {
+            currentView = 'table';
+            $('#tableView').show();
+            $('#calendarView').hide();
+            $(this).addClass('active');
+            $('#calendarViewBtn').removeClass('active');
+        });
+
+        $('#calendarViewBtn').click(function() {
+            currentView = 'calendar';
+            $('#tableView').hide();
+            $('#calendarView').show();
+            $(this).addClass('active');
+            $('#tableViewBtn').removeClass('active');
+            setTimeout(() => calendar.render(), 100);
+        });
+
+        $('#addBookingBtn').click(function() {
+            $('#bookingForm')[0].reset();
+            $('#bookingId').val('');
+            $('#modalTitle').text('Add New Booking');
+            setMinDate();
+            $('#bookingModal').modal('show');
+        });
+
+        $('#saveBookingBtn').click(saveBooking);
+        $('#exportBtn').click(exportBookings);
+    }
+
+    function loadBookings() {
+        const search = $('#searchInput').val();
+        const status = $('#statusFilter').val();
+        const roomId = $('#roomFilter').val();
+        const date = $('#dateFilter').val();
+
+        $.ajax({
+            url: '/Admin/GetBookings',
+            method: 'GET',
+            data: { search, status, roomId, fromDate: date, toDate: date },
+            success: function(response) {
+                if (response.success) {
+                    bookingsTable.clear();
+                    bookingsTable.rows.add(response.data);
+                    bookingsTable.draw();
+                    updateStats(response.data);
+                }
+            }
+        });
+    }
+
+    function updateStats(bookings) {
+        const today = new Date().toISOString().split('T')[0];
+        $('#totalBookings').text(bookings.length);
+        $('#todayBookings').text(bookings.filter(b => b.booking_date === today).length);
+        $('#activeBookings').text(bookings.filter(b => b.booking_status === 'In Progress').length);
+    }
+
+    function loadRooms() {
+        $.ajax({
+            url: '/Admin/GetRooms',
+            method: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    const roomSelect = $('#bookingRoom, #roomFilter');
+                    roomSelect.find('option:not(:first)').remove();
+                    response.data.forEach(room => {
+                        $('#bookingRoom').append(`<option value="${room.room_id}">${room.room_name} (${room.room_code})</option>`);
+                        $('#roomFilter').append(`<option value="${room.room_id}">${room.room_name}</option>`);
+                    });
+                }
+            }
+        });
+    }
+
+    function loadUsers() {
+        $.ajax({
+            url: '/Admin/GetUsers',
+            method: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    const userSelect = $('#bookingUser');
+                    userSelect.find('option:not(:first)').remove();
+                    response.data.filter(u => u.user_is_active).forEach(user => {
+                        userSelect.append(`<option value="${user.user_id}">${user.user_full_name} (${user.user_employee_id})</option>`);
+                    });
+                }
+            }
+        });
+    }
+
+    function saveBooking() {
+        if (!$('#bookingForm')[0].checkValidity()) {
+            $('#bookingForm')[0].reportValidity();
+            return;
+        }
+
+        const bookingData = {
+            booking_user_id: parseInt($('#bookingUser').val()),
+            booking_room_id: parseInt($('#bookingRoom').val()),
+            booking_meeting_title: $('#meetingTitle').val(),
+            booking_meeting_description: $('#meetingDescription').val() || null,
+            booking_date: $('#bookingDate').val(),
+            booking_start_time: $('#startTime').val(),
+            booking_end_time: $('#endTime').val()
+        };
+
+        $.ajax({
+            url: '/Admin/CreateBooking',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(bookingData),
+            success: function(response) {
+                if (response.success) {
+                    Swal.fire('Success', response.message, 'success');
+                    $('#bookingModal').modal('hide');
+                    loadBookings();
+                    if (currentView === 'calendar') {
+                        calendar.refetchEvents();
+                    }
+                } else {
+                    Swal.fire('Error', response.message, 'error');
+                }
+            }
+        });
+    }
+
+    function viewBookingDetails(bookingId) {
+        bookingsTable.rows().every(function() {
+            const data = this.data();
+            if (data.booking_id == bookingId) {
+                const statusMap = {
+                    'Confirmed': 'bg-success',
+                    'Pending': 'bg-warning',
+                    'In Progress': 'bg-info',
+                    'Completed': 'bg-secondary',
+                    'Cancelled': 'bg-danger'
+                };
+
+                $('#bookingDetailsContent').html(`
+                    <div class="booking-detail-row">
+                        <div class="booking-detail-icon">
+                            <i class="fas fa-hashtag"></i>
+                        </div>
+                        <div class="booking-detail-content">
+                            <div class="booking-detail-label">Booking Code</div>
+                            <div class="booking-detail-value">${data.booking_code}</div>
+                        </div>
+                    </div>
+                    <div class="booking-detail-row">
+                        <div class="booking-detail-icon">
+                            <i class="fas fa-calendar"></i>
+                        </div>
+                        <div class="booking-detail-content">
+                            <div class="booking-detail-label">Meeting Title</div>
+                            <div class="booking-detail-value">${data.booking_meeting_title}</div>
+                        </div>
+                    </div>
+                    <div class="booking-detail-row">
+                        <div class="booking-detail-icon">
+                            <i class="fas fa-door-open"></i>
+                        </div>
+                        <div class="booking-detail-content">
+                            <div class="booking-detail-label">Room</div>
+                            <div class="booking-detail-value">${data.room_name} (${data.room_code})</div>
+                        </div>
+                    </div>
+                    <div class="booking-detail-row">
+                        <div class="booking-detail-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="booking-detail-content">
+                            <div class="booking-detail-label">Booked By</div>
+                            <div class="booking-detail-value">${data.user_full_name} (${data.user_employee_id})</div>
+                        </div>
+                    </div>
+                    <div class="booking-detail-row">
+                        <div class="booking-detail-icon">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                        <div class="booking-detail-content">
+                            <div class="booking-detail-label">Date</div>
+                            <div class="booking-detail-value">${data.booking_date}</div>
+                        </div>
+                    </div>
+                    <div class="booking-detail-row">
+                        <div class="booking-detail-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="booking-detail-content">
+                            <div class="booking-detail-label">Time</div>
+                            <div class="booking-detail-value">${data.booking_start_time} - ${data.booking_end_time} (${data.booking_duration_minutes} minutes)</div>
+                        </div>
+                    </div>
+                    <div class="booking-detail-row">
+                        <div class="booking-detail-icon">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <div class="booking-detail-content">
+                            <div class="booking-detail-label">Status</div>
+                            <div class="booking-detail-value">
+                                <span class="badge ${statusMap[data.booking_status]}">${data.booking_status}</span>
+                            </div>
+                        </div>
+                    </div>
+                `);
+                $('#bookingDetailsModal').modal('show');
+                return false;
+            }
+        });
+    }
+
+    function cancelBooking(bookingId) {
+        Swal.fire({
+            title: 'Cancel Booking?',
+            text: 'Please provide a reason for cancellation',
+            input: 'textarea',
+            inputPlaceholder: 'Cancellation reason...',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, cancel it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: '/Admin/UpdateBookingStatus',
+                    method: 'POST',
+                    data: { 
+                        bookingId: bookingId, 
+                        status: 'Cancelled',
+                        reason: result.value
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire('Success', response.message, 'success');
+                            loadBookings();
+                            if (currentView === 'calendar') {
+                                calendar.refetchEvents();
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    function exportBookings() {
+        window.location.href = '/Admin/ExportBookings';
+    }
+</script>
+}

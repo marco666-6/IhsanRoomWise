@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "User Management";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
@@ -597,7 +597,7 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">Phone Number</label>
-                        <input type="text" class="form-control" id="phone">
+                        <input type="tel" class="form-control" id="phone">
                     </div>
                     <div class="row">
                         <div class="col-md-6">
@@ -723,8 +723,7 @@
 @section Scripts {
 <script>
     let usersTable;
-    let returnModal = null;
-    let isSwitchingModal = false;
+    let lastOpenedModal = null;
     let departments = [];
 
     $(document).ready(function() {
@@ -831,38 +830,27 @@
         $('#exportBtn').click(exportUsers);
 
         $('#manageDeptBtn').click(function () {
-            isSwitchingModal = true;
+            lastOpenedModal = '#userModal';
 
-            $('#userModal')
-                .one('hidden.bs.modal', function () {
-                    isSwitchingModal = false;
-                    loadDepartmentsTable();
-                    $('#departmentModal').modal('show');
-                })
-                .modal('hide');
+            $('#userModal').modal('hide');
+
+            $('#userModal').one('hidden.bs.modal', function () {
+                loadDepartmentsTable();
+                $('#departmentModal').modal('show');
+            });
         });
 
         $('#addDeptBtn').click(function () {
-            isSwitchingModal = true;
-            returnModal = '#departmentModal';
+            lastOpenedModal = '#departmentModal';
 
-            $('#departmentModal')
-                .one('hidden.bs.modal', function () {
-                    isSwitchingModal = false;
+            $('#departmentModal').modal('hide');
 
-                    $('#deptForm')[0].reset();
-                    $('#deptId').val('');
-                    $('#deptModalTitle').text('Add Department');
-                    $('#deptFormModal').modal('show');
-                })
-                .modal('hide');
-        });
-
-        $('#deptFormModal').on('hidden.bs.modal', function () {
-            if (!isSwitchingModal && returnModal) {
-                $(returnModal).modal('show');
-                returnModal = null;
-            }
+            $('#departmentModal').one('hidden.bs.modal', function () {
+                $('#deptForm')[0].reset();
+                $('#deptId').val('');
+                $('#deptModalTitle').text('Add Department');
+                $('#deptFormModal').modal('show');
+            });
         });
 
         $('#saveDeptBtn').click(saveDepartment);
@@ -1110,23 +1098,14 @@
 
     function editDepartment(deptId) {
         const dept = departments.find(d => d.dept_id === deptId);
-        isSwitchingModal = true;
-        returnModal = '#departmentModal';
-
-        $('#departmentModal')
-            .one('hidden.bs.modal', function () {
-                isSwitchingModal = false;
-
-                if (dept) {
-                    $('#deptId').val(dept.dept_id);
-                    $('#deptCode').val(dept.dept_code);
-                    $('#deptName').val(dept.dept_name);
-                    $('#deptDescription').val(dept.dept_description || '');
-                    $('#deptModalTitle').text('Edit Department');
-                    $('#deptFormModal').modal('show');
-                }
-            })
-            .modal('hide');
+        if (dept) {
+            $('#deptId').val(dept.dept_id);
+            $('#deptCode').val(dept.dept_code);
+            $('#deptName').val(dept.dept_name);
+            $('#deptDescription').val(dept.dept_description || '');
+            $('#deptModalTitle').text('Edit Department');
+            $('#deptFormModal').modal('show');
+        }
     }
 
     function deleteDepartment(deptId) {
@@ -1157,5 +1136,12 @@
             }
         });
     }
+
+    $('#departmentModal, #deptFormModal').on('hidden.bs.modal', function () {
+        if (lastOpenedModal) {
+            $(lastOpenedModal).modal('show');
+            lastOpenedModal = null;
+        }
+    });
 </script>
 }

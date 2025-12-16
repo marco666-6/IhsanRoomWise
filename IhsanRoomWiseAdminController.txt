@@ -73,10 +73,29 @@ namespace RoomWise.Controllers
             
             var dashboardData = new
             {
+                // Basic Stats
                 TotalRooms = 0,
                 TotalUsers = 0,
                 TodayBookings = 0,
-                PendingFeedbacks = 0
+                PendingFeedbacks = 0,
+                ActiveBookingsNow = 0,
+                AvailableRooms = 0,
+                TotalBookingsThisMonth = 0,
+                AverageRating = 0m,
+                
+                // Trend Data
+                BookingTrendsData = new List<object>(),
+                RoomUtilizationData = new List<object>(),
+                PeakHoursData = new List<object>(),
+                DepartmentUsageData = new List<object>(),
+                MonthlyComparisonData = new List<object>(),
+                RoomPopularityData = new List<object>(),
+                
+                // Tables Data
+                UpcomingBookings = new List<object>(),
+                RecentFeedbacks = new List<object>(),
+                TopUsers = new List<object>(),
+                MaintenanceAlerts = new List<object>()
             };
             
             try
@@ -85,65 +104,243 @@ namespace RoomWise.Controllers
                 {
                     conn.Open();
                     
-                    // Get total active rooms
-                    string roomsQuery = "SELECT COUNT(*) FROM rooms WHERE room_is_active = 1";
-                    using (SqlCommand cmd = new SqlCommand(roomsQuery, conn))
+                    // 1. BASIC STATISTICS
+                    dashboardData = new
                     {
-                        dashboardData = new
-                        {
-                            TotalRooms = Convert.ToInt32(cmd.ExecuteScalar()),
-                            TotalUsers = 0,
-                            TodayBookings = 0,
-                            PendingFeedbacks = 0
-                        };
-                    }
-                    
-                    // Get total active users
-                    string usersQuery = "SELECT COUNT(*) FROM users WHERE user_is_active = 1";
-                    using (SqlCommand cmd = new SqlCommand(usersQuery, conn))
-                    {
-                        int totalUsers = Convert.ToInt32(cmd.ExecuteScalar());
-                        dashboardData = new
-                        {
-                            dashboardData.TotalRooms,
-                            TotalUsers = totalUsers,
-                            dashboardData.TodayBookings,
-                            dashboardData.PendingFeedbacks
-                        };
-                    }
-                    
-                    // Get today's bookings
-                    string bookingsQuery = "SELECT COUNT(*) FROM bookings WHERE booking_date = CAST(GETDATE() AS DATE)";
-                    using (SqlCommand cmd = new SqlCommand(bookingsQuery, conn))
-                    {
-                        int todayBookings = Convert.ToInt32(cmd.ExecuteScalar());
-                        dashboardData = new
-                        {
-                            dashboardData.TotalRooms,
-                            dashboardData.TotalUsers,
-                            TodayBookings = todayBookings,
-                            dashboardData.PendingFeedbacks
-                        };
-                    }
-                    
-                    // Get pending feedbacks
-                    string feedbacksQuery = "SELECT COUNT(*) FROM feedbacks WHERE feedback_admin_response IS NULL";
-                    using (SqlCommand cmd = new SqlCommand(feedbacksQuery, conn))
-                    {
-                        int pendingFeedbacks = Convert.ToInt32(cmd.ExecuteScalar());
-                        dashboardData = new
-                        {
-                            dashboardData.TotalRooms,
-                            dashboardData.TotalUsers,
-                            dashboardData.TodayBookings,
-                            PendingFeedbacks = pendingFeedbacks
-                        };
-                    }
+                        TotalRooms = GetScalarInt(conn, "SELECT COUNT(*) FROM rooms WHERE room_is_active = 1"),
+                        TotalUsers = GetScalarInt(conn, "SELECT COUNT(*) FROM users WHERE user_is_active = 1"),
+                        TodayBookings = GetScalarInt(conn, "SELECT COUNT(*) FROM bookings WHERE booking_date = CAST(GETDATE() AS DATE)"),
+                        PendingFeedbacks = GetScalarInt(conn, "SELECT COUNT(*) FROM feedbacks WHERE feedback_admin_response IS NULL"),
+                        ActiveBookingsNow = GetScalarInt(conn, @"
+                            SELECT COUNT(*) FROM bookings 
+                            WHERE booking_date = CAST(GETDATE() AS DATE) 
+                            AND CAST(GETDATE() AS TIME) BETWEEN booking_start_time AND booking_end_time
+                            AND booking_status = 'Confirmed'"),
+                        AvailableRooms = GetScalarInt(conn, @"
+                            SELECT COUNT(*) FROM rooms r
+                            WHERE r.room_is_active = 1 
+                            AND r.room_operational_status = 'Available'
+                            AND NOT EXISTS (
+                                SELECT 1 FROM bookings b
+                                WHERE b.booking_room_id = r.room_id
+                                AND b.booking_date = CAST(GETDATE() AS DATE)
+                                AND CAST(GETDATE() AS TIME) BETWEEN b.booking_start_time AND b.booking_end_time
+                                AND b.booking_status = 'Confirmed'
+                            )"),
+                        TotalBookingsThisMonth = GetScalarInt(conn, @"
+                            SELECT COUNT(*) FROM bookings 
+                            WHERE MONTH(booking_date) = MONTH(GETDATE()) 
+                            AND YEAR(booking_date) = YEAR(GETDATE())"),
+                        AverageRating = GetScalarDecimal(conn, "SELECT ISNULL(AVG(CAST(feedback_rating AS FLOAT)), 0) FROM feedbacks"),
+                        
+                        // 2. BOOKING TRENDS (Last 7 Days)
+                        BookingTrendsData = GetListData(conn, @"
+                            SELECT TOP 7
+                                CONVERT(VARCHAR, DATEADD(DAY, -number, GETDATE()), 107) as date,
+                                DATENAME(WEEKDAY, DATEADD(DAY, -number, GETDATE())) as day,
+                                COUNT(b.booking_id) as count
+                            FROM master.dbo.spt_values
+                            LEFT JOIN bookings b ON CAST(b.booking_date AS DATE) = CAST(DATEADD(DAY, -number, GETDATE()) AS DATE)
+                            WHERE type = 'P' AND number BETWEEN 0 AND 6
+                            GROUP BY DATEADD(DAY, -number, GETDATE()), number
+                            ORDER BY number DESC"),
+                        
+                        // 3. ROOM UTILIZATION STATUS
+                        RoomUtilizationData = GetListData(conn, @"
+                            SELECT 
+                                CASE
+                                    WHEN r.room_operational_status = 'Maintenance' THEN 'Maintenance'
+                                    WHEN r.room_operational_status != 'Available' THEN 'Out of Service'
+                                    WHEN b.booking_id IS NOT NULL THEN 'Occupied'
+                                    ELSE 'Available'
+                                END AS status,
+                                COUNT(*) AS count
+                            FROM rooms r
+                            LEFT JOIN bookings b
+                                ON b.booking_room_id = r.room_id
+                                AND b.booking_date = CAST(GETDATE() AS DATE)
+                                AND CAST(GETDATE() AS TIME) BETWEEN b.booking_start_time AND b.booking_end_time
+                                AND b.booking_status = 'Confirmed'
+                            WHERE r.room_is_active = 1
+                            GROUP BY
+                                CASE
+                                    WHEN r.room_operational_status = 'Maintenance' THEN 'Maintenance'
+                                    WHEN r.room_operational_status != 'Available' THEN 'Out of Service'
+                                    WHEN b.booking_id IS NOT NULL THEN 'Occupied'
+                                    ELSE 'Available'
+                                END"),
+                        
+                        // 4. PEAK HOURS (Today's bookings by hour)
+                        PeakHoursData = GetListData(conn, @"
+                            SELECT 
+                                DATEPART(HOUR, booking_start_time) as hour,
+                                COUNT(*) as bookings
+                            FROM bookings
+                            WHERE booking_date = CAST(GETDATE() AS DATE)
+                            GROUP BY DATEPART(HOUR, booking_start_time)
+                            ORDER BY hour"),
+                        
+                        // 5. DEPARTMENT USAGE (This Month)
+                        DepartmentUsageData = GetListData(conn, @"
+                            SELECT TOP 5
+                                d.dept_name as department,
+                                COUNT(b.booking_id) as bookings
+                            FROM bookings b
+                            INNER JOIN users u ON b.booking_user_id = u.user_id
+                            INNER JOIN departments d ON u.user_dept_id = d.dept_id
+                            WHERE MONTH(b.booking_date) = MONTH(GETDATE())
+                            AND YEAR(b.booking_date) = YEAR(GETDATE())
+                            GROUP BY d.dept_name
+                            ORDER BY COUNT(b.booking_id) DESC"),
+                        
+                        // 6. MONTHLY COMPARISON (Last 6 Months)
+                        MonthlyComparisonData = GetListData(conn, @"
+                            SELECT TOP 6
+                                FORMAT(DATEADD(MONTH, -number, GETDATE()), 'MMM yyyy') as month,
+                                COUNT(b.booking_id) as bookings,
+                                AVG(CAST(f.feedback_rating AS FLOAT)) as avg_rating
+                            FROM master.dbo.spt_values
+                            LEFT JOIN bookings b ON 
+                                MONTH(b.booking_date) = MONTH(DATEADD(MONTH, -number, GETDATE()))
+                                AND YEAR(b.booking_date) = YEAR(DATEADD(MONTH, -number, GETDATE()))
+                            LEFT JOIN feedbacks f ON b.booking_id = f.feedback_booking_id
+                            WHERE type = 'P' AND number BETWEEN 0 AND 5
+                            GROUP BY DATEADD(MONTH, -number, GETDATE()), number
+                            ORDER BY number DESC"),
+                        
+                        // 7. ROOM POPULARITY
+                        RoomPopularityData = GetListData(conn, @"
+                            SELECT TOP 5
+                                r.room_name,
+                                COUNT(b.booking_id) as total_bookings,
+                                AVG(CAST(f.feedback_rating AS FLOAT)) as avg_rating,
+                                SUM(DATEDIFF(MINUTE, b.booking_start_time, b.booking_end_time)) as total_minutes
+                            FROM rooms r
+                            LEFT JOIN bookings b ON r.room_id = b.booking_room_id
+                                AND b.booking_status = 'Confirmed'
+                                AND b.booking_date >= DATEADD(MONTH, -1, GETDATE())
+                            LEFT JOIN feedbacks f ON b.booking_id = f.feedback_booking_id
+                            WHERE r.room_is_active = 1
+                            GROUP BY r.room_name
+                            ORDER BY COUNT(b.booking_id) DESC"),
+                        
+                        // 8. UPCOMING BOOKINGS (Next 5)
+                        UpcomingBookings = GetListData(conn, @"
+                            SELECT TOP 5
+                                b.booking_id,
+                                r.room_name,
+                                u.user_full_name,
+                                b.booking_meeting_title,
+                                b.booking_date,
+                                b.booking_start_time,
+                                b.booking_end_time,
+                                b.booking_status
+                            FROM bookings b
+                            INNER JOIN rooms r ON b.booking_room_id = r.room_id
+                            INNER JOIN users u ON b.booking_user_id = u.user_id
+                            WHERE b.booking_date >= CAST(GETDATE() AS DATE)
+                            AND b.booking_status != 'Cancelled'
+                            ORDER BY b.booking_date, b.booking_start_time"),
+                        
+                        // 9. RECENT FEEDBACKS (Last 5)
+                        RecentFeedbacks = GetListData(conn, @"
+                            SELECT TOP 5
+                                f.feedback_id,
+                                u.user_full_name,
+                                r.room_name,
+                                f.feedback_rating,
+                                f.feedback_issues_reported,
+                                f.feedback_created_at,
+                                CASE WHEN f.feedback_admin_response IS NULL THEN 0 ELSE 1 END as is_responded
+                            FROM feedbacks f
+                            INNER JOIN users u ON f.feedback_user_id = u.user_id
+                            INNER JOIN rooms r ON f.feedback_room_id = r.room_id
+                            ORDER BY f.feedback_created_at DESC"),
+                        
+                        // 10. TOP USERS (Most Active This Month)
+                        TopUsers = GetListData(conn, @"
+                            SELECT TOP 5
+                                u.user_full_name,
+                                d.dept_name,
+                                COUNT(b.booking_id) as total_bookings,
+                                SUM(DATEDIFF(MINUTE, b.booking_start_time, b.booking_end_time)) as total_minutes
+                            FROM users u
+                            INNER JOIN departments d ON u.user_dept_id = d.dept_id
+                            LEFT JOIN bookings b ON u.user_id = b.booking_user_id
+                                AND MONTH(b.booking_date) = MONTH(GETDATE())
+                                AND YEAR(b.booking_date) = YEAR(GETDATE())
+                            WHERE u.user_is_active = 1
+                            GROUP BY u.user_full_name, d.dept_name
+                            HAVING COUNT(b.booking_id) > 0
+                            ORDER BY COUNT(b.booking_id) DESC"),
+                        
+                        // 11. MAINTENANCE ALERTS
+                        MaintenanceAlerts = GetListData(conn, @"
+                            SELECT 
+                                r.room_name,
+                                r.room_operational_status,
+                                COUNT(f.feedback_id) as issue_count,
+                                MAX(f.feedback_created_at) as last_issue_date
+                            FROM rooms r
+                            LEFT JOIN feedbacks f ON r.room_id = f.feedback_room_id
+                                AND f.feedback_rating <= 2
+                                AND f.feedback_created_at >= DATEADD(DAY, -7, GETDATE())
+                            WHERE r.room_operational_status != 'Available' 
+                                OR EXISTS (
+                                    SELECT 1 FROM feedbacks f2
+                                    WHERE f2.feedback_room_id = r.room_id
+                                    AND f2.feedback_rating <= 2
+                                    AND f2.feedback_created_at >= DATEADD(DAY, -7, GETDATE())
+                                )
+                            GROUP BY r.room_name, r.room_operational_status
+                            HAVING COUNT(f.feedback_id) > 0 OR r.room_operational_status != 'Available'")
+                    };
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Dashboard Error: {ex.Message}");
+            }
             
             return View(dashboardData);
+        }
+
+        // Helper Methods
+        private int GetScalarInt(SqlConnection conn, string query)
+        {
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            {
+                var result = cmd.ExecuteScalar();
+                return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
+            }
+        }
+
+        private decimal GetScalarDecimal(SqlConnection conn, string query)
+        {
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            {
+                var result = cmd.ExecuteScalar();
+                return result != null && result != DBNull.Value ? Convert.ToDecimal(result) : 0;
+            }
+        }
+
+        private List<object> GetListData(SqlConnection conn, string query)
+        {
+            var list = new List<object>();
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            using (SqlDataReader reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    var item = new Dictionary<string, object>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        item[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                    }
+                    list.Add(item);
+                }
+            }
+            return list;
         }
 
         // ==================== USERS MANAGEMENT ====================
@@ -634,6 +831,232 @@ namespace RoomWise.Controllers
             }
         }
 
+        // Update Department
+        [HttpPost]
+        public IActionResult UpdateDepartment(int deptId, string deptCode, string deptName, string? deptDescription)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            if (string.IsNullOrWhiteSpace(deptCode) || string.IsNullOrWhiteSpace(deptName))
+            {
+                return Json(new { success = false, message = "Department code and name are required" });
+            }
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Check if department exists
+                    string checkQuery = "SELECT dept_code, dept_name, dept_description FROM departments WHERE dept_id = @DeptId";
+                    string oldValues = "";
+                    
+                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        using (SqlDataReader reader = checkCmd.ExecuteReader())
+                        {
+                            if (!reader.Read())
+                            {
+                                return Json(new { success = false, message = "Department not found" });
+                            }
+                            oldValues = $"Code: {reader["dept_code"]}, Name: {reader["dept_name"]}, Description: {reader["dept_description"]}";
+                        }
+                    }
+                    
+                    // Check if new code already exists for different department
+                    string duplicateQuery = "SELECT COUNT(*) FROM departments WHERE dept_code = @DeptCode AND dept_id != @DeptId";
+                    using (SqlCommand duplicateCmd = new SqlCommand(duplicateQuery, conn))
+                    {
+                        duplicateCmd.Parameters.AddWithValue("@DeptCode", deptCode);
+                        duplicateCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        int count = (int)duplicateCmd.ExecuteScalar();
+                        if (count > 0)
+                        {
+                            return Json(new { success = false, message = "Department code already exists" });
+                        }
+                    }
+                    
+                    // Update department
+                    string updateQuery = @"
+                        UPDATE departments 
+                        SET dept_code = @DeptCode,
+                            dept_name = @DeptName,
+                            dept_description = @DeptDescription,
+                            dept_updated_at = GETDATE()
+                        WHERE dept_id = @DeptId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@DeptId", deptId);
+                        cmd.Parameters.AddWithValue("@DeptCode", deptCode);
+                        cmd.Parameters.AddWithValue("@DeptName", deptName);
+                        cmd.Parameters.AddWithValue("@DeptDescription", (object?)deptDescription ?? DBNull.Value);
+                        
+                        cmd.ExecuteNonQuery();
+                        
+                        string newValues = $"Code: {deptCode}, Name: {deptName}, Description: {deptDescription}";
+                        LogActivity("Update", "Department", deptId, $"Updated department: {deptName}", oldValues, newValues);
+                        
+                        return Json(new { success = true, message = "Department updated successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // Delete Department (Soft Delete)
+        [HttpPost]
+        public IActionResult DeleteDepartment(int deptId)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Check if department has active users
+                    string checkUsersQuery = "SELECT COUNT(*) FROM users WHERE user_dept_id = @DeptId AND user_is_active = 1";
+                    using (SqlCommand checkCmd = new SqlCommand(checkUsersQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        int userCount = (int)checkCmd.ExecuteScalar();
+                        
+                        if (userCount > 0)
+                        {
+                            return Json(new { success = false, message = $"Cannot delete department. {userCount} active user(s) are assigned to this department." });
+                        }
+                    }
+                    
+                    // Get department name for logging
+                    string getDeptQuery = "SELECT dept_name FROM departments WHERE dept_id = @DeptId";
+                    string deptName = "";
+                    using (SqlCommand getCmd = new SqlCommand(getDeptQuery, conn))
+                    {
+                        getCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        deptName = getCmd.ExecuteScalar()?.ToString() ?? "";
+                    }
+                    
+                    // Soft delete department
+                    string deleteQuery = @"
+                        UPDATE departments 
+                        SET dept_is_active = 0,
+                            dept_updated_at = GETDATE()
+                        WHERE dept_id = @DeptId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(deleteQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@DeptId", deptId);
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        
+                        if (rowsAffected > 0)
+                        {
+                            LogActivity("Delete", "Department", deptId, $"Deleted department: {deptName}");
+                            return Json(new { success = true, message = "Department deleted successfully" });
+                        }
+                        else
+                        {
+                            return Json(new { success = false, message = "Department not found" });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // Toggle Department Active Status
+        [HttpPost]
+        public IActionResult ToggleDepartmentStatus(int deptId)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Get current status and name
+                    string getQuery = "SELECT dept_name, dept_is_active FROM departments WHERE dept_id = @DeptId";
+                    string deptName = "";
+                    bool currentStatus = false;
+                    
+                    using (SqlCommand getCmd = new SqlCommand(getQuery, conn))
+                    {
+                        getCmd.Parameters.AddWithValue("@DeptId", deptId);
+                        using (SqlDataReader reader = getCmd.ExecuteReader())
+                        {
+                            if (!reader.Read())
+                            {
+                                return Json(new { success = false, message = "Department not found" });
+                            }
+                            deptName = reader["dept_name"].ToString() ?? "";
+                            currentStatus = (bool)reader["dept_is_active"];
+                        }
+                    }
+                    
+                    // If activating, check if users will be affected
+                    if (!currentStatus)
+                    {
+                        // Activating department - no issues
+                    }
+                    else
+                    {
+                        // Deactivating department - check for active users
+                        string checkUsersQuery = "SELECT COUNT(*) FROM users WHERE user_dept_id = @DeptId AND user_is_active = 1";
+                        using (SqlCommand checkCmd = new SqlCommand(checkUsersQuery, conn))
+                        {
+                            checkCmd.Parameters.AddWithValue("@DeptId", deptId);
+                            int userCount = (int)checkCmd.ExecuteScalar();
+                            
+                            if (userCount > 0)
+                            {
+                                return Json(new { success = false, message = $"Cannot deactivate department. {userCount} active user(s) are assigned to this department." });
+                            }
+                        }
+                    }
+                    
+                    // Toggle status
+                    string updateQuery = @"
+                        UPDATE departments 
+                        SET dept_is_active = @NewStatus,
+                            dept_updated_at = GETDATE()
+                        WHERE dept_id = @DeptId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
+                    {
+                        bool newStatus = !currentStatus;
+                        cmd.Parameters.AddWithValue("@DeptId", deptId);
+                        cmd.Parameters.AddWithValue("@NewStatus", newStatus);
+                        
+                        cmd.ExecuteNonQuery();
+                        
+                        string action = newStatus ? "Activated" : "Deactivated";
+                        LogActivity("Toggle Status", "Department", deptId, $"{action} department: {deptName}");
+                        
+                        return Json(new { 
+                            success = true, 
+                            message = $"Department {action.ToLower()} successfully",
+                            newStatus = newStatus
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
         // ==================== ROOMS MANAGEMENT ====================
         [HttpGet]
         public IActionResult RoomsView()
@@ -949,6 +1372,252 @@ namespace RoomWise.Controllers
                         LogActivity("Create Location", "Location", locationId, $"Created location {location.location_code}");
                         
                         return Json(new { success = true, message = "Location created successfully", locationId = locationId });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // Update Location
+        [HttpPost]
+        public IActionResult UpdateLocation(int locationId, string locationCode, string locationPlantName, 
+            byte locationBlock, byte locationFloor, string? locationDescription)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            if (string.IsNullOrWhiteSpace(locationCode) || string.IsNullOrWhiteSpace(locationPlantName))
+            {
+                return Json(new { success = false, message = "Location code and plant name are required" });
+            }
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Check if location exists
+                    string checkQuery = @"
+                        SELECT location_code, location_plant_name, location_block, 
+                               location_floor, location_description 
+                        FROM locations 
+                        WHERE location_id = @LocationId";
+                    string oldValues = "";
+                    
+                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        using (SqlDataReader reader = checkCmd.ExecuteReader())
+                        {
+                            if (!reader.Read())
+                            {
+                                return Json(new { success = false, message = "Location not found" });
+                            }
+                            oldValues = $"Code: {reader["location_code"]}, Plant: {reader["location_plant_name"]}, " +
+                                      $"Block: {reader["location_block"]}, Floor: {reader["location_floor"]}, " +
+                                      $"Description: {reader["location_description"]}";
+                        }
+                    }
+                    
+                    // Check if new code already exists for different location
+                    string duplicateQuery = "SELECT COUNT(*) FROM locations WHERE location_code = @LocationCode AND location_id != @LocationId";
+                    using (SqlCommand duplicateCmd = new SqlCommand(duplicateQuery, conn))
+                    {
+                        duplicateCmd.Parameters.AddWithValue("@LocationCode", locationCode);
+                        duplicateCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        int count = (int)duplicateCmd.ExecuteScalar();
+                        if (count > 0)
+                        {
+                            return Json(new { success = false, message = "Location code already exists" });
+                        }
+                    }
+                    
+                    // Update location
+                    string updateQuery = @"
+                        UPDATE locations 
+                        SET location_code = @LocationCode,
+                            location_plant_name = @LocationPlantName,
+                            location_block = @LocationBlock,
+                            location_floor = @LocationFloor,
+                            location_description = @LocationDescription,
+                            location_updated_at = GETDATE()
+                        WHERE location_id = @LocationId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@LocationId", locationId);
+                        cmd.Parameters.AddWithValue("@LocationCode", locationCode);
+                        cmd.Parameters.AddWithValue("@LocationPlantName", locationPlantName);
+                        cmd.Parameters.AddWithValue("@LocationBlock", locationBlock);
+                        cmd.Parameters.AddWithValue("@LocationFloor", locationFloor);
+                        cmd.Parameters.AddWithValue("@LocationDescription", (object?)locationDescription ?? DBNull.Value);
+                        
+                        cmd.ExecuteNonQuery();
+                        
+                        string newValues = $"Code: {locationCode}, Plant: {locationPlantName}, " +
+                                         $"Block: {locationBlock}, Floor: {locationFloor}, " +
+                                         $"Description: {locationDescription}";
+                        LogActivity("Update", "Location", locationId, $"Updated location: {locationPlantName} - Block {locationBlock} - Floor {locationFloor}", oldValues, newValues);
+                        
+                        return Json(new { success = true, message = "Location updated successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // Delete Location (Soft Delete)
+        [HttpPost]
+        public IActionResult DeleteLocation(int locationId)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Check if location has active rooms
+                    string checkRoomsQuery = "SELECT COUNT(*) FROM rooms WHERE room_location_id = @LocationId AND room_is_active = 1";
+                    using (SqlCommand checkCmd = new SqlCommand(checkRoomsQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        int roomCount = (int)checkCmd.ExecuteScalar();
+                        
+                        if (roomCount > 0)
+                        {
+                            return Json(new { success = false, message = $"Cannot delete location. {roomCount} active room(s) are assigned to this location." });
+                        }
+                    }
+                    
+                    // Get location details for logging
+                    string getLocationQuery = @"
+                        SELECT location_plant_name, location_block, location_floor 
+                        FROM locations 
+                        WHERE location_id = @LocationId";
+                    string locationName = "";
+                    using (SqlCommand getCmd = new SqlCommand(getLocationQuery, conn))
+                    {
+                        getCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        using (SqlDataReader reader = getCmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                locationName = $"{reader["location_plant_name"]} - Block {reader["location_block"]} - Floor {reader["location_floor"]}";
+                            }
+                        }
+                    }
+                    
+                    // Soft delete location
+                    string deleteQuery = @"
+                        UPDATE locations 
+                        SET location_is_active = 0,
+                            location_updated_at = GETDATE()
+                        WHERE location_id = @LocationId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(deleteQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@LocationId", locationId);
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        
+                        if (rowsAffected > 0)
+                        {
+                            LogActivity("Delete", "Location", locationId, $"Deleted location: {locationName}");
+                            return Json(new { success = true, message = "Location deleted successfully" });
+                        }
+                        else
+                        {
+                            return Json(new { success = false, message = "Location not found" });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // Toggle Location Active Status
+        [HttpPost]
+        public IActionResult ToggleLocationStatus(int locationId)
+        {
+            if (!CheckAuth()) return Json(new { success = false, message = "Unauthorized" });
+            
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Get current status and details
+                    string getQuery = @"
+                        SELECT location_plant_name, location_block, location_floor, location_is_active 
+                        FROM locations 
+                        WHERE location_id = @LocationId";
+                    string locationName = "";
+                    bool currentStatus = false;
+                    
+                    using (SqlCommand getCmd = new SqlCommand(getQuery, conn))
+                    {
+                        getCmd.Parameters.AddWithValue("@LocationId", locationId);
+                        using (SqlDataReader reader = getCmd.ExecuteReader())
+                        {
+                            if (!reader.Read())
+                            {
+                                return Json(new { success = false, message = "Location not found" });
+                            }
+                            locationName = $"{reader["location_plant_name"]} - Block {reader["location_block"]} - Floor {reader["location_floor"]}";
+                            currentStatus = (bool)reader["location_is_active"];
+                        }
+                    }
+                    
+                    // If deactivating, check for active rooms
+                    if (currentStatus)
+                    {
+                        string checkRoomsQuery = "SELECT COUNT(*) FROM rooms WHERE room_location_id = @LocationId AND room_is_active = 1";
+                        using (SqlCommand checkCmd = new SqlCommand(checkRoomsQuery, conn))
+                        {
+                            checkCmd.Parameters.AddWithValue("@LocationId", locationId);
+                            int roomCount = (int)checkCmd.ExecuteScalar();
+                            
+                            if (roomCount > 0)
+                            {
+                                return Json(new { success = false, message = $"Cannot deactivate location. {roomCount} active room(s) are assigned to this location." });
+                            }
+                        }
+                    }
+                    
+                    // Toggle status
+                    string updateQuery = @"
+                        UPDATE locations 
+                        SET location_is_active = @NewStatus,
+                            location_updated_at = GETDATE()
+                        WHERE location_id = @LocationId";
+                    
+                    using (SqlCommand cmd = new SqlCommand(updateQuery, conn))
+                    {
+                        bool newStatus = !currentStatus;
+                        cmd.Parameters.AddWithValue("@LocationId", locationId);
+                        cmd.Parameters.AddWithValue("@NewStatus", newStatus);
+                        
+                        cmd.ExecuteNonQuery();
+                        
+                        string action = newStatus ? "Activated" : "Deactivated";
+                        LogActivity("Toggle Status", "Location", locationId, $"{action} location: {locationName}");
+                        
+                        return Json(new { 
+                            success = true, 
+                            message = $"Location {action.ToLower()} successfully",
+                            newStatus = newStatus
+                        });
                     }
                 }
             }
