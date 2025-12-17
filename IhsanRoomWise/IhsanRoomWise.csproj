@@ -9,7 +9,6 @@
   <ItemGroup>
     <Folder Include="Controllers\" />
     <Folder Include="Functions\" />
-    <Folder Include="Views\Admin\" />
     <Folder Include="Views\Auth\" />
     <Folder Include="wwwroot\images\" />
     <Folder Include="wwwroot\images\assets\" />

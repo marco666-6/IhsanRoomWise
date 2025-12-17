@@ -1,759 +1,191 @@
--- =============================================
--- RoomWise Database Schema (Final Production Version)
--- SQL Server Implementation
--- Meeting Room Management System for PT XYZ
--- =============================================
-
-CREATE DATABASE roomwise;
+-- Create RoomWise Database
+CREATE DATABASE rwdb;
 GO
 
-USE roomwise;
+USE rwdb;
 GO
 
--- =============================================
--- 1. DEPARTMENTS TABLE
--- Manages organizational departments
--- =============================================
-CREATE TABLE departments (
-    dept_id INT IDENTITY(1,1) PRIMARY KEY,
-    dept_code NVARCHAR(10) NOT NULL UNIQUE,
-    dept_name NVARCHAR(100) NOT NULL,
-    dept_description NVARCHAR(500) NULL,
-    dept_is_active BIT NOT NULL DEFAULT 1,
-    dept_created_at DATETIME NOT NULL DEFAULT GETDATE(),
-    dept_updated_at DATETIME NULL
+-- Users Table (handles login, profiles, roles KF-01,02,03,05,06)
+CREATE TABLE users (
+    user_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_employee_id NVARCHAR(20) UNIQUE NOT NULL,
+    user_email NVARCHAR(100) UNIQUE NOT NULL,
+    user_password NVARCHAR(255) NOT NULL,
+    user_full_name NVARCHAR(150) NOT NULL,
+    user_role NVARCHAR(20) NOT NULL CHECK (user_role IN ('Admin', 'Employee')),
+    user_dept_name NVARCHAR(100),
+    user_is_active BIT NOT NULL DEFAULT 1,
+    user_created_at DATETIME2 DEFAULT GETDATE(),
+    user_updated_at DATETIME2 DEFAULT GETDATE()
 );
 
-CREATE INDEX idx_departments_active ON departments(dept_is_active);
-
--- =============================================
--- 2. LOCATIONS TABLE
--- Manages Plant-Block-Floor hierarchy
--- =============================================
+-- Locations Table (Plant/Block/Floor hierarchy KF-08,16)
 CREATE TABLE locations (
     location_id INT IDENTITY(1,1) PRIMARY KEY,
-    location_code NVARCHAR(15) NOT NULL UNIQUE, -- Format: Plant1-1-1
+    location_code NVARCHAR(15) UNIQUE NOT NULL,
     location_plant_name NVARCHAR(50) NOT NULL,
     location_block TINYINT NOT NULL,
     location_floor TINYINT NOT NULL,
-    location_description NVARCHAR(500) NULL,
     location_is_active BIT NOT NULL DEFAULT 1,
-    location_created_at DATETIME NOT NULL DEFAULT GETDATE(),
-    location_updated_at DATETIME NULL
+    location_created_at DATETIME2 DEFAULT GETDATE()
 );
 
-CREATE INDEX idx_locations_plant ON locations(location_plant_name);
-CREATE INDEX idx_locations_active ON locations(location_is_active);
-
--- =============================================
--- 3. USERS TABLE
--- Manages all system users (Admin & Employee)
--- =============================================
-CREATE TABLE users (
-    user_id INT IDENTITY(1,1) PRIMARY KEY,
-    user_employee_id NVARCHAR(20) NOT NULL UNIQUE, -- Employee badge/ID number
-    user_email NVARCHAR(100) NOT NULL UNIQUE,
-    user_password NVARCHAR(255) NOT NULL, -- MD5 hashed password
-    user_full_name NVARCHAR(150) NOT NULL,
-    user_phone NVARCHAR(20) NULL,
-    user_role NVARCHAR(20) NOT NULL CHECK (user_role IN ('Admin', 'Employee')),
-    user_dept_id INT NOT NULL,
-    user_profile_photo NVARCHAR(max) NULL, -- Filename stored in wwwroot/images/profiles/
-    user_is_active BIT NOT NULL DEFAULT 1,
-    user_last_login DATETIME NULL,
-    user_reset_token NVARCHAR(255) NULL,
-    user_reset_token_expiry DATETIME NULL,
-    user_created_at DATETIME NOT NULL DEFAULT GETDATE(),
-    user_updated_at DATETIME NULL,
-    CONSTRAINT FK_users_departments FOREIGN KEY (user_dept_id) REFERENCES departments(dept_id)
-);
-
-CREATE INDEX idx_users_email ON users(user_email);
-CREATE INDEX idx_users_role ON users(user_role);
-CREATE INDEX idx_users_active ON users(user_is_active);
-CREATE INDEX idx_users_dept ON users(user_dept_id);
-
--- =============================================
--- 4. ROOMS TABLE
--- Manages meeting room information
--- =============================================
+-- Rooms Table (facilities, status KF-09,10,15,16)
 CREATE TABLE rooms (
     room_id INT IDENTITY(1,1) PRIMARY KEY,
-    room_code NVARCHAR(20) NOT NULL UNIQUE, -- Generate with the help of abbreviations helper function (AbrvHelperFunction.cs)
+    room_code NVARCHAR(20) UNIQUE NOT NULL,
     room_name NVARCHAR(100) NOT NULL,
     room_location_id INT NOT NULL,
-    room_capacity INT NOT NULL CHECK (room_capacity > 0),
-    room_description NVARCHAR(500) NULL,
-    room_photo NVARCHAR(max) NULL, -- Filename stored in wwwroot/images/rooms/
-    
-    -- Facilities (Boolean flags)
-    room_has_projector BIT NOT NULL DEFAULT 0,
-    room_has_smart_screen BIT NOT NULL DEFAULT 0,
-    room_has_screenbeam BIT NOT NULL DEFAULT 0,
-    room_has_cisco_bar BIT NOT NULL DEFAULT 0,
-    room_other_facilities NVARCHAR(500) NULL, -- Additional facilities as text
-    
-    -- Status Management
-    room_operational_status NVARCHAR(20) NOT NULL DEFAULT 'Available' CHECK (room_operational_status IN ('Available', 'Under Maintenance', 'Out of Service')),
-    room_is_active BIT NOT NULL DEFAULT 1, -- Soft delete flag
-    
-    room_created_at DATETIME NOT NULL DEFAULT GETDATE(),
-    room_updated_at DATETIME NULL,
-    
-    CONSTRAINT FK_rooms_locations FOREIGN KEY (room_location_id) REFERENCES locations(location_id)
+    room_capacity INT NOT NULL,
+    room_facilities NVARCHAR(500),
+    room_status NVARCHAR(20) NOT NULL DEFAULT 'Available' 
+        CHECK (room_status IN ('Available', 'Maintenance', 'OutOfService')),
+    room_is_active BIT NOT NULL DEFAULT 1,
+    room_created_at DATETIME2 DEFAULT GETDATE(),
+    room_updated_at DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (room_location_id) REFERENCES locations(location_id)
 );
 
-CREATE INDEX idx_rooms_location ON rooms(room_location_id);
-CREATE INDEX idx_rooms_status ON rooms(room_operational_status);
-CREATE INDEX idx_rooms_active ON rooms(room_is_active);
-CREATE INDEX idx_rooms_capacity ON rooms(room_capacity);
-
--- =============================================
--- 5. BOOKINGS TABLE
--- Manages meeting room reservations
--- =============================================
+-- Bookings Table (core scheduling KF-11,15,17,18,19)
 CREATE TABLE bookings (
     booking_id INT IDENTITY(1,1) PRIMARY KEY,
-    booking_code NVARCHAR(30) NOT NULL UNIQUE, -- e.g., BK-20250115-001
+    booking_code NVARCHAR(30) UNIQUE NOT NULL,
     booking_user_id INT NOT NULL,
     booking_room_id INT NOT NULL,
-    booking_meeting_title NVARCHAR(200) NOT NULL,
-    booking_meeting_description NVARCHAR(500) NULL,
-    
-    -- Date & Time Management
+    booking_title NVARCHAR(200) NOT NULL,
+    booking_description NVARCHAR(500),
     booking_date DATE NOT NULL,
     booking_start_time TIME NOT NULL,
     booking_end_time TIME NOT NULL,
-    booking_duration_minutes AS (DATEDIFF(MINUTE, booking_start_time, booking_end_time)) PERSISTED,
-    
-    -- Status Management
-    booking_status NVARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (booking_status IN ('Pending', 'Confirmed', 'In Progress', 'Completed', 'Cancelled')),
-    booking_cancellation_reason NVARCHAR(500) NULL,
-    booking_cancelled_at DATETIME NULL,
-    booking_cancelled_by INT NULL, -- user_id who cancelled
-    
-    -- Meeting Control
-    booking_actual_end_time DATETIME NULL, -- When meeting actually ended (for early finish)
-    
-    booking_created_at DATETIME NOT NULL DEFAULT GETDATE(),
-    booking_updated_at DATETIME NULL,
-    
-    CONSTRAINT FK_bookings_users FOREIGN KEY (booking_user_id) REFERENCES users(user_id),
-    CONSTRAINT FK_bookings_rooms FOREIGN KEY (booking_room_id) REFERENCES rooms(room_id),
-    CONSTRAINT FK_bookings_cancelled_by FOREIGN KEY (booking_cancelled_by) REFERENCES users(user_id),
-    CONSTRAINT CHK_bookings_time CHECK (booking_end_time > booking_start_time)
+    booking_status NVARCHAR(20) NOT NULL DEFAULT 'Pending'
+        CHECK (booking_status IN ('Pending', 'Confirmed', 'InProgress', 'Completed', 'Cancelled')),
+    booking_cancel_reason NVARCHAR(500),
+    booking_cancelled_by INT NULL,
+    booking_created_at DATETIME2 DEFAULT GETDATE(),
+    booking_updated_at DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (booking_user_id) REFERENCES users(user_id),
+    FOREIGN KEY (booking_room_id) REFERENCES rooms(room_id),
+    FOREIGN KEY (booking_cancelled_by) REFERENCES users(user_id)
 );
 
-CREATE INDEX idx_bookings_user ON bookings(booking_user_id);
-CREATE INDEX idx_bookings_room ON bookings(booking_room_id);
-CREATE INDEX idx_bookings_date ON bookings(booking_date);
-CREATE INDEX idx_bookings_status ON bookings(booking_status);
-CREATE INDEX idx_bookings_datetime ON bookings(booking_date, booking_start_time, booking_end_time);
-
--- =============================================
--- 6. FEEDBACKS TABLE
--- Manages user feedback after meetings
--- =============================================
+-- Feedbacks Table (post-meeting KF-20)
 CREATE TABLE feedbacks (
     feedback_id INT IDENTITY(1,1) PRIMARY KEY,
-    feedback_booking_id INT NOT NULL,
+    feedback_booking_id INT NOT NULL UNIQUE,
     feedback_user_id INT NOT NULL,
-    feedback_room_id INT NOT NULL,
-    
-    -- Rating & Feedback
     feedback_rating TINYINT NOT NULL CHECK (feedback_rating BETWEEN 1 AND 5),
-    feedback_room_condition NVARCHAR(500) NULL,
-    feedback_facility_condition NVARCHAR(500) NULL,
-    feedback_issues_reported NVARCHAR(500) NULL,
-    feedback_photo NVARCHAR(max) NULL, -- Filename stored in wwwroot/images/feedbacks/
-    
-    -- Admin Response
-    feedback_admin_response NVARCHAR(500) NULL,
-    feedback_admin_responded_by INT NULL, -- admin user_id
-    feedback_admin_responded_at DATETIME NULL,
-    
-    feedback_created_at DATETIME NOT NULL DEFAULT GETDATE(),
-    feedback_updated_at DATETIME NULL,
-    
-    CONSTRAINT FK_feedbacks_bookings FOREIGN KEY (feedback_booking_id) REFERENCES bookings(booking_id),
-    CONSTRAINT FK_feedbacks_users FOREIGN KEY (feedback_user_id) REFERENCES users(user_id),
-    CONSTRAINT FK_feedbacks_rooms FOREIGN KEY (feedback_room_id) REFERENCES rooms(room_id),
-    CONSTRAINT FK_feedbacks_admin FOREIGN KEY (feedback_admin_responded_by) REFERENCES users(user_id),
-    CONSTRAINT UQ_feedbacks_booking UNIQUE (feedback_booking_id) -- One feedback per booking
+    feedback_comments NVARCHAR(500),
+    feedback_admin_response NVARCHAR(500),
+    feedback_admin_responded_by INT NULL,
+    feedback_responded_at DATETIME2 NULL,
+    feedback_created_at DATETIME2 DEFAULT GETDATE(),
+    FOREIGN KEY (feedback_booking_id) REFERENCES bookings(booking_id),
+    FOREIGN KEY (feedback_user_id) REFERENCES users(user_id),
+    FOREIGN KEY (feedback_admin_responded_by) REFERENCES users(user_id)
 );
 
-CREATE INDEX idx_feedbacks_user ON feedbacks(feedback_user_id);
-CREATE INDEX idx_feedbacks_room ON feedbacks(feedback_room_id);
-CREATE INDEX idx_feedbacks_rating ON feedbacks(feedback_rating);
+-- Indexes for performance (KF-15,16,19)
+CREATE INDEX IX_bookings_date_time ON bookings(booking_date, booking_start_time, booking_room_id);
+CREATE INDEX IX_bookings_user ON bookings(booking_user_id, booking_status);
+CREATE INDEX IX_rooms_location_status ON rooms(room_location_id, room_status);
 
--- =============================================
--- 7. NOTIFICATIONS TABLE
--- Manages system notifications and announcements
--- =============================================
-CREATE TABLE notifications (
-    notification_id INT IDENTITY(1,1) PRIMARY KEY,
-    notification_type NVARCHAR(30) NOT NULL CHECK (notification_type IN ('Booking Related', 'Admin Announcement', 'System Alert', 'Feedback Response')),
-    notification_title NVARCHAR(200) NOT NULL,
-    notification_message NVARCHAR(500) NOT NULL,
-    
-    -- Target Audience
-    notification_target_user_id INT NULL, -- NULL = all users, specific ID = individual user
-    notification_target_role NVARCHAR(20) NULL CHECK (notification_target_role IN ('Admin', 'Employee', 'All')), -- For announcements
-    
-    -- Related Entities
-    notification_related_booking_id INT NULL,
-    notification_related_feedback_id INT NULL,
-    
-    -- Status
-    notification_is_read BIT NOT NULL DEFAULT 0,
-    notification_read_at DATETIME NULL,
-    notification_priority NVARCHAR(10) NOT NULL DEFAULT 'Normal' CHECK (notification_priority IN ('Low', 'Normal', 'High', 'Urgent')),
-    
-    notification_created_by INT NOT NULL, -- user_id who created (usually admin for announcements) or system
-    notification_created_at DATETIME NOT NULL DEFAULT GETDATE(),
-    
-    CONSTRAINT FK_notifications_target_user FOREIGN KEY (notification_target_user_id) REFERENCES users(user_id),
-    CONSTRAINT FK_notifications_booking FOREIGN KEY (notification_related_booking_id) REFERENCES bookings(booking_id),
-    CONSTRAINT FK_notifications_feedback FOREIGN KEY (notification_related_feedback_id) REFERENCES feedbacks(feedback_id),
-    CONSTRAINT FK_notifications_creator FOREIGN KEY (notification_created_by) REFERENCES users(user_id)
-);
-
-CREATE INDEX idx_notifications_target_user ON notifications(notification_target_user_id);
-CREATE INDEX idx_notifications_type ON notifications(notification_type);
-CREATE INDEX idx_notifications_read ON notifications(notification_is_read);
-CREATE INDEX idx_notifications_created ON notifications(notification_created_at);
-
--- =============================================
--- 8. ACTIVITY_LOGS TABLE
--- Tracks all user activities and system changes
--- =============================================
-CREATE TABLE activity_logs (
-    log_id BIGINT IDENTITY(1,1) PRIMARY KEY,
-    log_user_id INT NOT NULL,
-    log_action_type NVARCHAR(50) NOT NULL, -- e.g., 'User Login', 'Create Booking', 'Update Room', etc.
-    log_entity_type NVARCHAR(50) NULL, -- e.g., 'User', 'Room', 'Booking', 'Feedback', etc.
-    log_entity_id INT NULL, -- ID of the affected entity
-    log_description NVARCHAR(500) NOT NULL, -- Human-readable description
-    log_old_values NVARCHAR(MAX) NULL, -- JSON of old values (for updates)
-    log_new_values NVARCHAR(MAX) NULL, -- JSON of new values (for updates)
-    log_created_at DATETIME NOT NULL DEFAULT GETDATE(),
-    
-    CONSTRAINT FK_activity_logs_users FOREIGN KEY (log_user_id) REFERENCES users(user_id)
-);
-
-CREATE INDEX idx_activity_logs_user ON activity_logs(log_user_id);
-CREATE INDEX idx_activity_logs_action ON activity_logs(log_action_type);
-CREATE INDEX idx_activity_logs_entity ON activity_logs(log_entity_type, log_entity_id);
-CREATE INDEX idx_activity_logs_created ON activity_logs(log_created_at);
-
--- =============================================
--- SEED DATA
--- =============================================
-
--- Insert Departments
-INSERT INTO departments (dept_code, dept_name, dept_description) VALUES
-('IT', 'Information Technology', 'Technology and software development team'),
-('HR', 'Human Resources', 'Employee management and recruitment'),
-('FIN', 'Finance', 'Financial planning and accounting'),
-('OPS', 'Operations', 'Operational management and logistics'),
-('MKT', 'Marketing', 'Marketing and brand management'),
-('ENG', 'Engineering', 'Product and systems engineering'),
-('QA', 'Quality Assurance', 'Quality control and testing'),
-('LOG', 'Logistics', 'Supply chain and distribution');
-
--- Insert Locations (Plant-Block-Floor structure)
-INSERT INTO locations (location_code, location_plant_name, location_block, location_floor, location_description) VALUES
--- Plant 1: Blocks 1-4, Floors 1-2
-('Plant1-1-1', 'Plant 1', 1, 1, 'Plant 1 - Block 1 - Floor 1'),
-('Plant1-1-2', 'Plant 1', 1, 2, 'Plant 1 - Block 1 - Floor 2'),
-('Plant1-2-1', 'Plant 1', 2, 1, 'Plant 1 - Block 2 - Floor 1'),
-('Plant1-2-2', 'Plant 1', 2, 2, 'Plant 1 - Block 2 - Floor 2'),
-('Plant1-3-1', 'Plant 1', 3, 1, 'Plant 1 - Block 3 - Floor 1'),
-('Plant1-3-2', 'Plant 1', 3, 2, 'Plant 1 - Block 3 - Floor 2'),
-('Plant1-4-1', 'Plant 1', 4, 1, 'Plant 1 - Block 4 - Floor 1'),
-('Plant1-4-2', 'Plant 1', 4, 2, 'Plant 1 - Block 4 - Floor 2'),
--- Plant 2: Blocks 5-9, Floors 1-2
-('Plant2-5-1', 'Plant 2', 5, 1, 'Plant 2 - Block 5 - Floor 1'),
-('Plant2-5-2', 'Plant 2', 5, 2, 'Plant 2 - Block 5 - Floor 2'),
-('Plant2-6-1', 'Plant 2', 6, 1, 'Plant 2 - Block 6 - Floor 1'),
-('Plant2-6-2', 'Plant 2', 6, 2, 'Plant 2 - Block 6 - Floor 2'),
-('Plant2-7-1', 'Plant 2', 7, 1, 'Plant 2 - Block 7 - Floor 1'),
-('Plant2-7-2', 'Plant 2', 7, 2, 'Plant 2 - Block 7 - Floor 2'),
-('Plant2-8-1', 'Plant 2', 8, 1, 'Plant 2 - Block 8 - Floor 1'),
-('Plant2-8-2', 'Plant 2', 8, 2, 'Plant 2 - Block 8 - Floor 2'),
-('Plant2-9-1', 'Plant 2', 9, 1, 'Plant 2 - Block 9 - Floor 1'),
-('Plant2-9-2', 'Plant 2', 9, 2, 'Plant 2 - Block 9 - Floor 2'),
--- Plant 3: Blocks 10-12, Floors 1-2
-('Plant3-10-1', 'Plant 3', 10, 1, 'Plant 3 - Block 10 - Floor 1'),
-('Plant3-10-2', 'Plant 3', 10, 2, 'Plant 3 - Block 10 - Floor 2'),
-('Plant3-11-1', 'Plant 3', 11, 1, 'Plant 3 - Block 11 - Floor 1'),
-('Plant3-11-2', 'Plant 3', 11, 2, 'Plant 3 - Block 11 - Floor 2'),
-('Plant3-12-1', 'Plant 3', 12, 1, 'Plant 3 - Block 12 - Floor 1'),
-('Plant3-12-2', 'Plant 3', 12, 2, 'Plant 3 - Block 12 - Floor 2');
-
--- Insert Default Admin User
--- Password: Admin@123 (MD5: 0192023a7bbd73250516f069df18b500)
-INSERT INTO users (user_employee_id, user_email, user_password, user_full_name, user_phone, user_role, user_dept_id, user_is_active) VALUES
-('ADM001', 'admin@roomwise.com', '0192023a7bbd73250516f069df18b500', 'System Administrator', '+62 812-3456-7890', 'Admin', 1, 1);
-
--- Insert Sample Employee Users
-INSERT INTO users (user_employee_id, user_email, user_password, user_full_name, user_phone, user_role, user_dept_id, user_is_active) VALUES
-('EMP001', 'john.doe@roomwise.com', '0192023a7bbd73250516f069df18b500', 'John Doe', '+62 813-1111-1111', 'Employee', 1, 1),
-('EMP002', 'jane.smith@roomwise.com', '0192023a7bbd73250516f069df18b500', 'Jane Smith', '+62 813-2222-2222', 'Employee', 2, 1),
-('EMP003', 'michael.johnson@roomwise.com', '0192023a7bbd73250516f069df18b500', 'Michael Johnson', '+62 813-3333-3333', 'Employee', 3, 1);
-
--- Insert Sample Rooms
-INSERT INTO rooms (room_code, room_name, room_location_id, room_capacity, room_description, room_has_projector, room_has_smart_screen, room_has_screenbeam, room_has_cisco_bar, room_operational_status) VALUES
-('EMRA-P1-B1-F1', 'Executive Meeting Room A', 1, 12, 'Large executive meeting room with full facilities', 1, 1, 1, 1, 'Available'),
-('CRB-P1-B1-F1', 'Conference Room B', 1, 20, 'Large conference room for presentations', 1, 1, 0, 1, 'Available'),
-('SMRC-P1-B1-F2', 'Small Meeting Room C', 2, 6, 'Cozy meeting room for small teams', 1, 0, 1, 0, 'Available'),
-('TRA-P2-B5-F1', 'Training Room Alpha', 9, 30, 'Spacious training and workshop room', 1, 1, 1, 1, 'Available'),
-('BH-P3-B10-F1', 'Brainstorm Hub', 19, 8, 'Creative space for brainstorming sessions', 0, 1, 1, 0, 'Available'),
-('CRD-P1-B2-F1', 'Conference Room Delta', 3, 15, 'Medium-sized conference room', 1, 1, 0, 1, 'Available'),
-('MRE-P2-B6-F1', 'Meeting Room Echo', 11, 10, 'Standard meeting room with basic facilities', 1, 0, 1, 0, 'Available'),
-('TRB-P2-B7-F2', 'Training Room Bravo', 14, 25, 'Training room with presentation setup', 1, 1, 1, 1, 'Available');
+-- Additional Tables for RoomWise System
+-- Run this script after creating the main database tables
 
 GO
 
--- =============================================
--- USEFUL VIEWS FOR APPLICATION
--- =============================================
+-- Seed Locations (Plant A Block 1 Floor 1-3)
+INSERT INTO locations (location_code, location_plant_name, location_block, location_floor) VALUES
+('PLANT-A-B1-F1', 'Plant A', 1, 1),
+('PLANT-A-B1-F2', 'Plant A', 1, 2),
+('PLANT-A-B1-F3', 'Plant A', 1, 3);
 
--- View: Active Rooms with Location Details
-CREATE VIEW vw_active_rooms AS
-SELECT 
-    r.room_id,
-    r.room_code,
-    r.room_name,
-    r.room_capacity,
-    r.room_operational_status,
-    r.room_description,
-    l.location_code,
-    l.location_plant_name,
-    l.location_block,
-    l.location_floor,
-    r.room_has_projector,
-    r.room_has_smart_screen,
-    r.room_has_screenbeam,
-    r.room_has_cisco_bar,
-    r.room_other_facilities
-FROM rooms r
-INNER JOIN locations l ON r.room_location_id = l.location_id
-WHERE r.room_is_active = 1 AND l.location_is_active = 1;
+-- Seed Rooms
+INSERT INTO rooms (room_code, room_name, room_location_id, room_capacity, room_facilities, room_status) VALUES
+('RM-001', 'Meeting Room Alpha', 1, 8, 'Projector,SmartScreen', 'Available'),
+('RM-002', 'Conference Room Beta', 1, 15, 'Projector,ScreenBeam,CiscoBar', 'Available'),
+('RM-003', 'Board Room Gamma', 2, 20, 'Projector,SmartScreen,CiscoBar', 'Maintenance');
+
+-- Seed Admin User (MD5: admin123)
+INSERT INTO users (user_employee_id, user_email, user_password, user_full_name, user_role, user_dept_name) VALUES
+('EMP-0001', 'admin@company.com', '0192023a7bbd73250516f069df18b500', 'System Administrator', 'Admin', 'IT Department');
+
+-- Seed Employee Users
+INSERT INTO users (user_employee_id, user_email, user_password, user_full_name, user_role, user_dept_name) VALUES
+('EMP-0002', 'john.doe@company.com', '827ccb0eea8a706c4c34a16891f84e7b', 'John Doe', 'Employee', 'Engineering'),
+('EMP-0003', 'jane.smith@company.com', '827ccb0eea8a706c4c34a16891f84e7b', 'Jane Smith', 'Employee', 'HR');
+
+-- Sample Booking (password: employee123 for both)
+INSERT INTO bookings (booking_code, booking_user_id, booking_room_id, booking_title, booking_date, booking_start_time, booking_end_time, booking_status) VALUES
+('BK-20251220-001', 2, 1, 'Project Review Meeting', '2025-12-20', '10:00', '11:30', 'Confirmed');
+
 GO
 
--- View: User Booking History with Details
-CREATE VIEW vw_user_bookings AS
-SELECT 
-    b.booking_id,
-    b.booking_code,
-    b.booking_date,
-    b.booking_start_time,
-    b.booking_end_time,
-    b.booking_status,
-    b.booking_meeting_title,
-    b.booking_meeting_description,
-    u.user_id,
-    u.user_full_name,
-    u.user_email,
-    u.user_employee_id,
-    r.room_id,
-    r.room_name,
-    r.room_code,
-    r.room_capacity,
-    l.location_plant_name,
-    l.location_block,
-    l.location_floor,
-    d.dept_name
-FROM bookings b
-INNER JOIN users u ON b.booking_user_id = u.user_id
-INNER JOIN rooms r ON b.booking_room_id = r.room_id
-INNER JOIN locations l ON r.room_location_id = l.location_id
-INNER JOIN departments d ON u.user_dept_id = d.dept_id;
-GO
-
--- View: Feedback Summary by Room
-CREATE VIEW vw_room_feedback_summary AS
-SELECT 
-    r.room_id,
-    r.room_code,
-    r.room_name,
-    COUNT(f.feedback_id) AS total_feedbacks,
-    AVG(CAST(f.feedback_rating AS FLOAT)) AS average_rating,
-    SUM(CASE WHEN f.feedback_admin_response IS NOT NULL THEN 1 ELSE 0 END) AS responded_count,
-    MAX(f.feedback_created_at) AS last_feedback_date
-FROM rooms r
-LEFT JOIN feedbacks f ON r.room_id = f.feedback_room_id
-WHERE r.room_is_active = 1
-GROUP BY r.room_id, r.room_code, r.room_name;
-GO
-
--- =============================================
--- STORED PROCEDURES FOR COMMON OPERATIONS
--- =============================================
-
--- 1. Check Room Availability for Booking (Conflict Detection)
-CREATE PROCEDURE sp_check_room_availability
-    @room_id INT,
-    @booking_date DATE,
-    @start_time TIME,
-    @end_time TIME,
-    @exclude_booking_id INT = NULL
-AS
+-- Notifications Table (KF-12, KF-21)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'notifications')
 BEGIN
-    SELECT COUNT(*) AS conflict_count
-    FROM bookings
-    WHERE booking_room_id = @room_id
-        AND booking_date = @booking_date
-        AND booking_status NOT IN ('Cancelled', 'Completed')
-        AND (@exclude_booking_id IS NULL OR booking_id != @exclude_booking_id)
-        AND (
-            (booking_start_time < @end_time AND booking_end_time > @start_time)
-        );
-END;
-GO
-
--- 2. Get Current Room Status (Real-Time Occupancy)
-CREATE PROCEDURE sp_get_current_room_status
-    @room_id INT = NULL -- NULL = check all rooms
-AS
-BEGIN
-    DECLARE @current_datetime DATETIME = GETDATE();
-    DECLARE @current_date DATE = CAST(@current_datetime AS DATE);
-    DECLARE @current_time TIME = CAST(@current_datetime AS TIME);
-
-    SELECT 
-        r.room_id,
-        r.room_code,
-        r.room_name,
-        r.room_capacity,
-        r.room_operational_status,
-        l.location_plant_name,
-        l.location_block,
-        l.location_floor,
-        
-        -- Current Booking Info
-        b.booking_id AS current_booking_id,
-        b.booking_code AS current_booking_code,
-        b.booking_user_id AS current_user_id,
-        u.user_full_name AS current_user_name,
-        u.user_employee_id AS current_user_employee_id,
-        b.booking_meeting_title AS current_meeting_title,
-        b.booking_start_time AS current_start_time,
-        b.booking_end_time AS current_end_time,
-        b.booking_status AS current_booking_status,
-        
-        -- Real-time Status Calculation
-        CASE 
-            WHEN r.room_operational_status != 'Available' THEN 'Unavailable'
-            WHEN b.booking_id IS NOT NULL AND b.booking_status IN ('In Progress', 'Confirmed') THEN 'Occupied'
-            ELSE 'Available'
-        END AS real_time_status,
-        
-        -- Next Booking Info (using OUTER APPLY for SQL Server compatibility)
-        next_b.booking_id AS next_booking_id,
-        next_b.booking_start_time AS next_booking_start_time,
-        next_b.booking_meeting_title AS next_meeting_title,
-        next_u.user_full_name AS next_user_name
-        
-    FROM rooms r
-    INNER JOIN locations l ON r.room_location_id = l.location_id
-    
-    -- Current active booking (happening RIGHT NOW)
-    LEFT JOIN bookings b ON r.room_id = b.booking_room_id
-        AND b.booking_date = @current_date
-        AND b.booking_start_time <= @current_time
-        AND b.booking_end_time > @current_time
-        AND b.booking_status IN ('Confirmed', 'In Progress')
-    
-    LEFT JOIN users u ON b.booking_user_id = u.user_id
-    
-    -- Next upcoming booking (future booking today) - SQL Server compatible
-    OUTER APPLY (
-        SELECT TOP 1 
-            booking_id, 
-            booking_start_time, 
-            booking_meeting_title, 
-            booking_user_id
-        FROM bookings
-        WHERE booking_room_id = r.room_id
-            AND booking_date = @current_date
-            AND booking_start_time > @current_time
-            AND booking_status IN ('Pending', 'Confirmed')
-        ORDER BY booking_start_time ASC
-    ) next_b
-    
-    LEFT JOIN users next_u ON next_b.booking_user_id = next_u.user_id
-    
-    WHERE r.room_is_active = 1
-        AND (@room_id IS NULL OR r.room_id = @room_id)
-    
-    ORDER BY r.room_name;
-END;
-GO
-
--- 3. Get Room Schedule for a Specific Date
-CREATE PROCEDURE sp_get_room_schedule
-    @room_id INT,
-    @booking_date DATE
-AS
-BEGIN
-    SELECT 
-        b.booking_id,
-        b.booking_code,
-        b.booking_start_time,
-        b.booking_end_time,
-        b.booking_duration_minutes,
-        b.booking_meeting_title,
-        b.booking_meeting_description,
-        b.booking_status,
-        u.user_id,
-        u.user_full_name,
-        u.user_employee_id,
-        u.user_email,
-        u.user_phone,
-        d.dept_name,
-        
-        -- Check if this booking is happening NOW
-        CASE 
-            WHEN b.booking_date = CAST(GETDATE() AS DATE)
-                AND b.booking_start_time <= CAST(GETDATE() AS TIME)
-                AND b.booking_end_time > CAST(GETDATE() AS TIME)
-                AND b.booking_status IN ('Confirmed', 'In Progress')
-            THEN 1
-            ELSE 0
-        END AS is_current_booking
-        
-    FROM bookings b
-    INNER JOIN users u ON b.booking_user_id = u.user_id
-    INNER JOIN departments d ON u.user_dept_id = d.dept_id
-    WHERE b.booking_room_id = @room_id
-        AND b.booking_date = @booking_date
-        AND b.booking_status NOT IN ('Cancelled')
-    ORDER BY b.booking_start_time;
-END;
-GO
-
--- 4. Get Available Time Slots for a Room on a Specific Date
-CREATE PROCEDURE sp_get_available_time_slots
-    @room_id INT,
-    @booking_date DATE,
-    @slot_duration_minutes INT = 30 -- Default 30-minute slots
-AS
-BEGIN
-    -- Operating hours: 07:00 - 18:00 (7 AM to 6 PM)
-    DECLARE @start_hour INT = 7;
-    DECLARE @end_hour INT = 18;
-    
-    -- Generate time slots using a numbers table approach
-    ;WITH Numbers AS (
-        SELECT TOP ((((@end_hour - @start_hour) * 60) / @slot_duration_minutes))
-            ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) - 1 AS slot_number
-        FROM sys.all_objects a
-        CROSS JOIN sys.all_objects b
-    ),
-    TimeSlots AS (
-        SELECT 
-            CAST(DATEADD(MINUTE, slot_number * @slot_duration_minutes, 
-                CAST(CAST(@start_hour AS VARCHAR(2)) + ':00:00' AS TIME)) AS TIME) AS slot_start_time,
-            CAST(DATEADD(MINUTE, (slot_number + 1) * @slot_duration_minutes, 
-                CAST(CAST(@start_hour AS VARCHAR(2)) + ':00:00' AS TIME)) AS TIME) AS slot_end_time
-        FROM Numbers
-    )
-    SELECT 
-        ts.slot_start_time,
-        ts.slot_end_time,
-        CASE 
-            WHEN EXISTS (
-                SELECT 1 FROM bookings b
-                WHERE b.booking_room_id = @room_id
-                    AND b.booking_date = @booking_date
-                    AND b.booking_status NOT IN ('Cancelled', 'Completed')
-                    AND (
-                        (b.booking_start_time < ts.slot_end_time AND b.booking_end_time > ts.slot_start_time)
-                    )
-            ) THEN 0
-            ELSE 1
-        END AS is_available,
-        -- Show which booking is occupying this slot (if any)
-        (
-            SELECT TOP 1 booking_code + ' - ' + booking_meeting_title
-            FROM bookings b
-            WHERE b.booking_room_id = @room_id
-                AND b.booking_date = @booking_date
-                AND b.booking_status NOT IN ('Cancelled', 'Completed')
-                AND (
-                    (b.booking_start_time < ts.slot_end_time AND b.booking_end_time > ts.slot_start_time)
-                )
-        ) AS occupied_by
-    FROM TimeSlots ts
-    ORDER BY ts.slot_start_time;
-END;
-GO
-
--- 6. Get User's Upcoming Bookings
-CREATE PROCEDURE sp_get_user_upcoming_bookings
-    @user_id INT,
-    @days_ahead INT = 30 -- Default: next 30 days
-AS
-BEGIN
-    DECLARE @current_date DATE = CAST(GETDATE() AS DATE);
-    DECLARE @end_date DATE = DATEADD(DAY, @days_ahead, @current_date);
-    
-    SELECT 
-        b.booking_id,
-        b.booking_code,
-        b.booking_date,
-        b.booking_start_time,
-        b.booking_end_time,
-        b.booking_meeting_title,
-        b.booking_status,
-        r.room_name,
-        r.room_code,
-        r.room_capacity,
-        l.location_plant_name,
-        l.location_block,
-        l.location_floor,
-        
-        -- Calculate days until meeting
-        DATEDIFF(DAY, @current_date, b.booking_date) AS days_until_meeting,
-        
-        -- Check if meeting is today
-        CASE WHEN b.booking_date = @current_date THEN 1 ELSE 0 END AS is_today
-        
-    FROM bookings b
-    INNER JOIN rooms r ON b.booking_room_id = r.room_id
-    INNER JOIN locations l ON r.room_location_id = l.location_id
-    WHERE b.booking_user_id = @user_id
-        AND b.booking_date BETWEEN @current_date AND @end_date
-        AND b.booking_status NOT IN ('Cancelled', 'Completed')
-    ORDER BY b.booking_date, b.booking_start_time;
-END;
-GO
-
--- 7. Get Room Statistics
-CREATE PROCEDURE sp_get_room_statistics
-    @room_id INT = NULL, -- NULL = all rooms
-    @start_date DATE = NULL,
-    @end_date DATE = NULL
-AS
-BEGIN
-    -- Default to last 30 days if dates not provided
-    IF @start_date IS NULL
-        SET @start_date = DATEADD(DAY, -30, CAST(GETDATE() AS DATE));
-    
-    IF @end_date IS NULL
-        SET @end_date = CAST(GETDATE() AS DATE);
-    
-    SELECT 
-        r.room_id,
-        r.room_code,
-        r.room_name,
-        r.room_capacity,
-        
-        -- Booking Statistics
-        COUNT(b.booking_id) AS total_bookings,
-        SUM(CASE WHEN b.booking_status = 'Completed' THEN 1 ELSE 0 END) AS completed_bookings,
-        SUM(CASE WHEN b.booking_status = 'Cancelled' THEN 1 ELSE 0 END) AS cancelled_bookings,
-        SUM(CASE WHEN b.booking_status IN ('Pending', 'Confirmed') THEN 1 ELSE 0 END) AS upcoming_bookings,
-        
-        -- Time Statistics
-        SUM(b.booking_duration_minutes) AS total_minutes_booked,
-        AVG(CAST(b.booking_duration_minutes AS FLOAT)) AS average_duration_minutes,
-        
-        -- Feedback Statistics
-        COUNT(DISTINCT f.feedback_id) AS total_feedbacks,
-        AVG(CAST(f.feedback_rating AS FLOAT)) AS average_rating
-        
-    FROM rooms r
-    LEFT JOIN bookings b ON r.room_id = b.booking_room_id
-        AND b.booking_date BETWEEN @start_date AND @end_date
-    LEFT JOIN feedbacks f ON b.booking_id = f.feedback_booking_id
-    WHERE r.room_is_active = 1
-        AND (@room_id IS NULL OR r.room_id = @room_id)
-    GROUP BY r.room_id, r.room_code, r.room_name, r.room_capacity
-    ORDER BY total_bookings DESC;
-END;
-GO
-
--- 8. Mark Notification as Read
-CREATE PROCEDURE sp_mark_notification_read
-    @notification_id INT,
-    @user_id INT
-AS
-BEGIN
-    UPDATE notifications
-    SET notification_is_read = 1,
-        notification_read_at = GETDATE()
-    WHERE notification_id = @notification_id
-        AND (notification_target_user_id = @user_id OR notification_target_user_id IS NULL);
-    
-    SELECT @@ROWCOUNT AS rows_affected;
-END;
-GO
-
--- 9. Get Unread Notification Count
-CREATE PROCEDURE sp_get_unread_notification_count
-    @user_id INT,
-    @user_role NVARCHAR(20)
-AS
-BEGIN
-    SELECT COUNT(*) AS unread_count
-    FROM notifications
-    WHERE notification_is_read = 0
-        AND (
-            notification_target_user_id = @user_id
-            OR notification_target_user_id IS NULL
-            OR notification_target_role = @user_role
-            OR notification_target_role = 'All'
-        );
-END;
-GO
-
--- 10. Log User Activity
-CREATE PROCEDURE sp_log_user_activity
-    @user_id INT,
-    @action_type NVARCHAR(50),
-    @entity_type NVARCHAR(50) = NULL,
-    @entity_id INT = NULL,
-    @description NVARCHAR(500),
-    @old_values NVARCHAR(MAX) = NULL,
-    @new_values NVARCHAR(MAX) = NULL
-AS
-BEGIN
-    INSERT INTO activity_logs (
-        log_user_id,
-        log_action_type,
-        log_entity_type,
-        log_entity_id,
-        log_description,
-        log_old_values,
-        log_new_values
-    )
-    VALUES (
-        @user_id,
-        @action_type,
-        @entity_type,
-        @entity_id,
-        @description,
-        @old_values,
-        @new_values
+    CREATE TABLE notifications (
+        notification_id INT IDENTITY(1,1) PRIMARY KEY,
+        notification_title NVARCHAR(200) NOT NULL,
+        notification_message NVARCHAR(1000) NOT NULL,
+        notification_type NVARCHAR(20) NOT NULL CHECK (notification_type IN ('Info', 'Warning', 'Alert', 'Announcement')),
+        notification_target_role NVARCHAR(20) NOT NULL CHECK (notification_target_role IN ('Admin', 'Employee', 'All')),
+        notification_is_active BIT NOT NULL DEFAULT 1,
+        notification_created_at DATETIME2 DEFAULT GETDATE()
     );
     
-    SELECT SCOPE_IDENTITY() AS log_id;
-END;
+    PRINT 'Notifications table created successfully';
+END
+ELSE
+BEGIN
+    PRINT 'Notifications table already exists';
+END
 GO
 
--- =============================================
--- DATABASE SETUP COMPLETE
--- =============================================
--- Default Admin Credentials:
--- Email: admin@roomwise.com
--- Password: Admin@123
---
--- Sample Employee Credentials (all use same password):
--- - john.doe@roomwise.com
--- - jane.smith@roomwise.com
--- - michael.johnson@roomwise.com
--- Password: Admin@123
--- =============================================
+-- Activity Logs Table (KF-13, KF-22)
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'activity_logs')
+BEGIN
+    CREATE TABLE activity_logs (
+        log_id INT IDENTITY(1,1) PRIMARY KEY,
+        log_user_id INT NOT NULL,
+        log_action NVARCHAR(100) NOT NULL,
+        log_description NVARCHAR(500) NOT NULL,
+        log_created_at DATETIME2 DEFAULT GETDATE(),
+        FOREIGN KEY (log_user_id) REFERENCES users(user_id)
+    );
+    
+    PRINT 'Activity logs table created successfully';
+END
+ELSE
+BEGIN
+    PRINT 'Activity logs table already exists';
+END
+GO
+
+-- Create indexes for better performance
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_notifications_target_role')
+BEGIN
+    CREATE INDEX IX_notifications_target_role ON notifications(notification_target_role, notification_is_active);
+    PRINT 'Index IX_notifications_target_role created';
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_activity_logs_user')
+BEGIN
+    CREATE INDEX IX_activity_logs_user ON activity_logs(log_user_id, log_created_at);
+    PRINT 'Index IX_activity_logs_user created';
+END
+GO
+
+-- Insert sample notifications
+IF NOT EXISTS (SELECT * FROM notifications WHERE notification_id = 1)
+BEGIN
+    INSERT INTO notifications (notification_title, notification_message, notification_type, notification_target_role, notification_is_active)
+    VALUES 
+    ('Welcome to RoomWise', 'Welcome to the RoomWise Meeting Room Management System. Book your rooms efficiently and manage your meetings seamlessly.', 'Info', 'All', 1),
+    ('System Maintenance Notice', 'The system will undergo scheduled maintenance on Sunday from 2:00 AM to 4:00 AM. Please plan accordingly.', 'Warning', 'All', 1),
+    ('New Feature: Real-time Availability', 'You can now check room availability in real-time before making a booking!', 'Announcement', 'Employee', 1);
+    
+    PRINT 'Sample notifications inserted';
+END
+GO

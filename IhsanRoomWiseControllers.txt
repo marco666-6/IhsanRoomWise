@@ -1,3 +1,184 @@
+// Controllers\AuthController.cs
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using IhsanRoomWise.Functions;
+using IhsanRoomWise.Models;
+
+namespace RoomWise.Controllers
+{
+    public class AuthController : Controller
+    {
+        private readonly string _connectionString;
+
+        public AuthController()
+        {
+            _connectionString = new DbAccessFunction().GetConnectionString();
+        }
+
+        // ============================================
+        // KF-01: Login View (All users can access)
+        // ============================================
+        [HttpGet]
+        public IActionResult LoginView()
+        {
+            // If already logged in, redirect to appropriate dashboard
+            if (HttpContext.Session.GetString("UserId") != null)
+            {
+                var role = HttpContext.Session.GetString("UserRole");
+                if (role == "Admin")
+                    return RedirectToAction("DashboardView", "Admin");
+                else
+                    return RedirectToAction("DashboardView", "Employee");
+            }
+
+            return View();
+        }
+
+        // ============================================
+        // KF-02: Sign In (All users can sign in based on role)
+        // ============================================
+        [HttpPost]
+        public IActionResult Login(string email, string password)
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = @"SELECT user_id, user_employee_id, user_email, user_password, user_full_name, 
+                                    user_role, user_dept_name, user_is_active 
+                                    FROM users 
+                                    WHERE user_email = @Email AND user_is_active = 1";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Email", email);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                string storedPassword = reader["user_password"]?.ToString() ?? "";
+
+                                // Verify password
+                                if (SecHelperFunction.VerifyPassword(password, storedPassword))
+                                {
+                                    // Set session variables
+                                    HttpContext.Session.SetString("UserId", reader["user_id"].ToString()!);
+                                    HttpContext.Session.SetString("UserEmployeeId", reader["user_employee_id"].ToString()!);
+                                    HttpContext.Session.SetString("UserEmail", reader["user_email"].ToString()!);
+                                    HttpContext.Session.SetString("UserFullName", reader["user_full_name"].ToString()!);
+                                    HttpContext.Session.SetString("UserRole", reader["user_role"].ToString()!);
+                                    HttpContext.Session.SetString("UserDeptName", reader["user_dept_name"]?.ToString() ?? "");
+
+                                    string role = reader["user_role"].ToString()!;
+                                    int userId = Convert.ToInt32(reader["user_id"]);
+
+                                    reader.Close();
+
+                                    // Log activity
+                                    LogActivity(userId, "Login", "User logged in successfully");
+
+                                    // Redirect based on role
+                                    if (role == "Admin")
+                                        return Json(new { success = true, redirectUrl = Url.Action("DashboardView", "Admin") });
+                                    else
+                                        return Json(new { success = true, redirectUrl = Url.Action("DashboardView", "Employee") });
+                                }
+                                else
+                                {
+                                    return Json(new { success = false, message = "Invalid email or password" });
+                                }
+                            }
+                            else
+                            {
+                                return Json(new { success = false, message = "Invalid email or password" });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "An error occurred: " + ex.Message });
+            }
+        }
+
+        // ============================================
+        // KF-23: Logout (All users can logout)
+        // ============================================
+        [HttpPost]
+        public IActionResult Logout()
+        {
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    LogActivity(Convert.ToInt32(userId), "Logout", "User logged out");
+                }
+
+                HttpContext.Session.Clear();
+                return Json(new { success = true, redirectUrl = Url.Action("LoginView", "Auth") });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // ============================================
+        // HELPER METHODS
+        // ============================================
+
+        private void LogActivity(int userId, string action, string description)
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Check if activity_logs table exists, if not, silently fail
+                    string checkTable = @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'activity_logs')
+                                        BEGIN
+                                            CREATE TABLE activity_logs (
+                                                log_id INT IDENTITY(1,1) PRIMARY KEY,
+                                                log_user_id INT NOT NULL,
+                                                log_action NVARCHAR(100) NOT NULL,
+                                                log_description NVARCHAR(500),
+                                                log_created_at DATETIME2 DEFAULT GETDATE(),
+                                                FOREIGN KEY (log_user_id) REFERENCES users(user_id)
+                                            )
+                                        END";
+                    
+                    using (SqlCommand cmdCheck = new SqlCommand(checkTable, conn))
+                    {
+                        cmdCheck.ExecuteNonQuery();
+                    }
+
+                    string query = @"INSERT INTO activity_logs (log_user_id, log_action, log_description, log_created_at)
+                                   VALUES (@UserId, @Action, @Description, GETDATE())";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.Parameters.AddWithValue("@Action", action);
+                        cmd.Parameters.AddWithValue("@Description", description);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch
+            {
+                // Silent fail for logging
+            }
+        }
+    }
+}
+
+--------------------------------------------------------------------------
+
 // Controllers\AdminController.cs
 
 using Microsoft.AspNetCore.Mvc;
@@ -1481,6 +1662,1147 @@ namespace RoomWise.Controllers
                 }
             }
             return locations;
+        }
+    }
+}
+
+--------------------------------------------------------------------------
+
+// Controllers\EmployeeController.cs
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using IhsanRoomWise.Functions;
+using IhsanRoomWise.Models;
+using System.Data;
+
+namespace RoomWise.Controllers
+{
+    public class EmployeeController : Controller
+    {
+        private readonly string _connectionString;
+
+        public EmployeeController()
+        {
+            _connectionString = new DbAccessFunction().GetConnectionString();
+        }
+
+        // ============================================
+        // AUTHORIZATION CHECK
+        // ============================================
+        private bool CheckEmployeeAuth()
+        {
+            var role = HttpContext.Session.GetString("UserRole");
+            return role == "Employee";
+        }
+
+        // ============================================
+        // Employee Dashboard
+        // ============================================
+        [HttpGet]
+        public IActionResult DashboardView()
+        {
+            if (!CheckEmployeeAuth())
+                return RedirectToAction("LoginView", "Auth");
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    // Get user statistics
+                    ViewBag.MyBookingsToday = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_date = CAST(GETDATE() AS DATE)");
+                    ViewBag.MyUpcomingBookings = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_date >= CAST(GETDATE() AS DATE) AND booking_status IN ('Pending', 'Confirmed')");
+                    ViewBag.MyPastBookings = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_date < CAST(GETDATE() AS DATE)");
+                    ViewBag.MyFeedbacksGiven = GetCount(conn, $"SELECT COUNT(*) FROM feedbacks WHERE feedback_user_id = {userId}");
+                    ViewBag.AvailableRoomsNow = GetCount(conn, "SELECT COUNT(*) FROM rooms WHERE room_status = 'Available' AND room_is_active = 1");
+
+                    // Get upcoming bookings
+                    ViewBag.UpcomingBookings = GetUserUpcomingBookings(conn, userId!);
+
+                    // Get recent activity
+                    ViewBag.RecentActivity = GetUserRecentActivity(conn, userId!);
+                }
+
+                return View();
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Error loading dashboard: " + ex.Message;
+                return View();
+            }
+        }
+
+        // ============================================
+        // KF-15, KF-16, KF-22: Find Room View (Search and Filter)
+        // ============================================
+        [HttpGet]
+        public IActionResult FindRoomView()
+        {
+            if (!CheckEmployeeAuth())
+                return RedirectToAction("LoginView", "Auth");
+
+            try
+            {
+                // Get all locations for filter
+                ViewBag.Locations = GetActiveLocations();
+
+                // Get all available rooms
+                List<dynamic> rooms = new List<dynamic>();
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = @"SELECT r.*, l.location_code, l.location_plant_name, l.location_block, l.location_floor
+                                   FROM rooms r
+                                   LEFT JOIN locations l ON r.room_location_id = l.location_id
+                                   WHERE r.room_is_active = 1
+                                   ORDER BY r.room_name";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                rooms.Add(new
+                                {
+                                    room_id = Convert.ToInt32(reader["room_id"]),
+                                    room_code = reader["room_code"].ToString(),
+                                    room_name = reader["room_name"].ToString(),
+                                    room_capacity = Convert.ToInt32(reader["room_capacity"]),
+                                    room_facilities = reader["room_facilities"]?.ToString(),
+                                    room_status = reader["room_status"].ToString(),
+                                    location_code = reader["location_code"]?.ToString(),
+                                    location_plant_name = reader["location_plant_name"]?.ToString(),
+                                    location_block = reader["location_block"] != DBNull.Value ? Convert.ToInt32(reader["location_block"]) : 0,
+                                    location_floor = reader["location_floor"] != DBNull.Value ? Convert.ToInt32(reader["location_floor"]) : 0,
+                                    room_location_id = Convert.ToInt32(reader["room_location_id"])
+                                });
+                            }
+                        }
+                    }
+                }
+
+                return View(rooms);
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Error loading rooms: " + ex.Message;
+                return View(new List<dynamic>());
+            }
+        }
+
+        // KF-16: Search and Filter Rooms
+        [HttpGet]
+        public IActionResult SearchRooms(int? locationId, int? minCapacity, string? facilities, string? status, DateTime? date, TimeSpan? startTime, TimeSpan? endTime)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                List<dynamic> rooms = new List<dynamic>();
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    string query = @"SELECT r.*, l.location_code, l.location_plant_name, l.location_block, l.location_floor
+                                   FROM rooms r
+                                   LEFT JOIN locations l ON r.room_location_id = l.location_id
+                                   WHERE r.room_is_active = 1";
+
+                    // Build dynamic query based on filters
+                    if (locationId.HasValue)
+                        query += " AND r.room_location_id = @LocationId";
+                    
+                    if (minCapacity.HasValue)
+                        query += " AND r.room_capacity >= @MinCapacity";
+                    
+                    if (!string.IsNullOrEmpty(facilities))
+                        query += " AND r.room_facilities LIKE @Facilities";
+                    
+                    if (!string.IsNullOrEmpty(status))
+                        query += " AND r.room_status = @Status";
+
+                    query += " ORDER BY r.room_name";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        if (locationId.HasValue)
+                            cmd.Parameters.AddWithValue("@LocationId", locationId.Value);
+                        
+                        if (minCapacity.HasValue)
+                            cmd.Parameters.AddWithValue("@MinCapacity", minCapacity.Value);
+                        
+                        if (!string.IsNullOrEmpty(facilities))
+                            cmd.Parameters.AddWithValue("@Facilities", "%" + facilities + "%");
+                        
+                        if (!string.IsNullOrEmpty(status))
+                            cmd.Parameters.AddWithValue("@Status", status);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                int roomId = Convert.ToInt32(reader["room_id"]);
+                                
+                                // Check availability if date and time are provided
+                                bool isAvailable = true;
+                                if (date.HasValue && startTime.HasValue && endTime.HasValue)
+                                {
+                                    isAvailable = CheckRoomAvailability(roomId, date.Value, startTime.Value, endTime.Value);
+                                }
+
+                                rooms.Add(new
+                                {
+                                    room_id = roomId,
+                                    room_code = reader["room_code"].ToString(),
+                                    room_name = reader["room_name"].ToString(),
+                                    room_capacity = Convert.ToInt32(reader["room_capacity"]),
+                                    room_facilities = reader["room_facilities"]?.ToString(),
+                                    room_status = reader["room_status"].ToString(),
+                                    location_code = reader["location_code"]?.ToString(),
+                                    location_plant_name = reader["location_plant_name"]?.ToString(),
+                                    location_block = reader["location_block"] != DBNull.Value ? Convert.ToInt32(reader["location_block"]) : 0,
+                                    location_floor = reader["location_floor"] != DBNull.Value ? Convert.ToInt32(reader["location_floor"]) : 0,
+                                    is_available = isAvailable
+                                });
+                            }
+                        }
+                    }
+                }
+
+                return Json(new { success = true, rooms = rooms });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        // Check room availability for specific date and time
+        [HttpGet]
+        public IActionResult CheckAvailability(int roomId, DateTime date, string startTime, string endTime)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                TimeSpan start = TimeSpan.Parse(startTime);
+                TimeSpan end = TimeSpan.Parse(endTime);
+
+                bool isAvailable = CheckRoomAvailability(roomId, date, start, end);
+
+                return Json(new { success = true, available = isAvailable });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        // ============================================
+        // KF-17: Create Booking
+        // ============================================
+        [HttpPost]
+        public IActionResult CreateBooking(int roomId, string title, string description, DateTime date, string startTime, string endTime)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+                TimeSpan start = TimeSpan.Parse(startTime);
+                TimeSpan end = TimeSpan.Parse(endTime);
+
+                // Validate time
+                if (start >= end)
+                    return Json(new { success = false, message = "End time must be after start time" });
+
+                // Check if date is not in the past
+                if (date.Date < DateTime.Now.Date)
+                    return Json(new { success = false, message = "Cannot book for past dates" });
+
+                // Check room availability
+                if (!CheckRoomAvailability(roomId, date, start, end))
+                    return Json(new { success = false, message = "Room is not available for the selected time slot" });
+
+                // Check room status
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    string checkRoomQuery = "SELECT room_status FROM rooms WHERE room_id = @RoomId AND room_is_active = 1";
+                    using (SqlCommand checkCmd = new SqlCommand(checkRoomQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@RoomId", roomId);
+                        var roomStatus = checkCmd.ExecuteScalar()?.ToString();
+                        
+                        if (roomStatus != "Available")
+                            return Json(new { success = false, message = $"Room is currently {roomStatus}" });
+                    }
+
+                    // Generate booking code
+                    string bookingCode = GenerateBookingCode();
+
+                    // Create booking
+                    string query = @"INSERT INTO bookings (booking_code, booking_user_id, booking_room_id, booking_title, 
+                                   booking_description, booking_date, booking_start_time, booking_end_time, 
+                                   booking_status, booking_created_at, booking_updated_at)
+                                   VALUES (@Code, @UserId, @RoomId, @Title, @Description, @Date, @StartTime, 
+                                   @EndTime, 'Pending', GETDATE(), GETDATE())";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Code", bookingCode);
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.Parameters.AddWithValue("@RoomId", roomId);
+                        cmd.Parameters.AddWithValue("@Title", title);
+                        cmd.Parameters.AddWithValue("@Description", string.IsNullOrEmpty(description) ? (object)DBNull.Value : description);
+                        cmd.Parameters.AddWithValue("@Date", date.Date);
+                        cmd.Parameters.AddWithValue("@StartTime", start);
+                        cmd.Parameters.AddWithValue("@EndTime", end);
+
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Create Booking", $"Created booking: {bookingCode}");
+
+                        return Json(new { success = true, message = "Booking created successfully. Waiting for admin approval.", bookingCode = bookingCode });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        // ============================================
+        // KF-19: My Bookings View
+        // ============================================
+        [HttpGet]
+        public IActionResult MyBookingsView()
+        {
+            if (!CheckEmployeeAuth())
+                return RedirectToAction("LoginView", "Auth");
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+                List<dynamic> bookings = new List<dynamic>();
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = @"SELECT b.*, r.room_code, r.room_name, l.location_plant_name
+                                   FROM bookings b
+                                   LEFT JOIN rooms r ON b.booking_room_id = r.room_id
+                                   LEFT JOIN locations l ON r.room_location_id = l.location_id
+                                   WHERE b.booking_user_id = @UserId
+                                   ORDER BY b.booking_date DESC, b.booking_start_time DESC";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                bookings.Add(new
+                                {
+                                    booking_id = Convert.ToInt32(reader["booking_id"]),
+                                    booking_code = reader["booking_code"].ToString(),
+                                    booking_title = reader["booking_title"].ToString(),
+                                    booking_description = reader["booking_description"]?.ToString(),
+                                    booking_date = Convert.ToDateTime(reader["booking_date"]),
+                                    booking_start_time = TimeSpan.Parse(reader["booking_start_time"].ToString()!),
+                                    booking_end_time = TimeSpan.Parse(reader["booking_end_time"].ToString()!),
+                                    booking_status = reader["booking_status"].ToString(),
+                                    booking_cancel_reason = reader["booking_cancel_reason"]?.ToString(),
+                                    room_code = reader["room_code"]?.ToString(),
+                                    room_name = reader["room_name"]?.ToString(),
+                                    location_plant_name = reader["location_plant_name"]?.ToString()
+                                });
+                            }
+                        }
+                    }
+                }
+
+                return View(bookings);
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Error loading bookings: " + ex.Message;
+                return View(new List<dynamic>());
+            }
+        }
+
+        // ============================================
+        // KF-18: Update/Cancel Booking
+        // ============================================
+        [HttpPost]
+        public IActionResult UpdateBooking(int bookingId, string title, string description, DateTime date, string startTime, string endTime)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+                TimeSpan start = TimeSpan.Parse(startTime);
+                TimeSpan end = TimeSpan.Parse(endTime);
+
+                // Validate ownership and status
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    string checkQuery = "SELECT booking_user_id, booking_status, booking_room_id FROM bookings WHERE booking_id = @BookingId";
+                    int ownerId = 0;
+                    string status = "";
+                    int roomId = 0;
+
+                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        using (SqlDataReader reader = checkCmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                ownerId = Convert.ToInt32(reader["booking_user_id"]);
+                                status = reader["booking_status"].ToString()!;
+                                roomId = Convert.ToInt32(reader["booking_room_id"]);
+                            }
+                        }
+                    }
+
+                    if (ownerId.ToString() != userId)
+                        return Json(new { success = false, message = "You can only modify your own bookings" });
+
+                    if (status == "Completed" || status == "Cancelled")
+                        return Json(new { success = false, message = "Cannot modify completed or cancelled bookings" });
+
+                    // Check availability for new time slot (excluding current booking)
+                    if (!CheckRoomAvailability(roomId, date, start, end, bookingId))
+                        return Json(new { success = false, message = "Room is not available for the selected time slot" });
+
+                    // Update booking
+                    string query = @"UPDATE bookings 
+                                   SET booking_title = @Title,
+                                       booking_description = @Description,
+                                       booking_date = @Date,
+                                       booking_start_time = @StartTime,
+                                       booking_end_time = @EndTime,
+                                       booking_status = 'Pending',
+                                       booking_updated_at = GETDATE()
+                                   WHERE booking_id = @BookingId";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Title", title);
+                        cmd.Parameters.AddWithValue("@Description", string.IsNullOrEmpty(description) ? (object)DBNull.Value : description);
+                        cmd.Parameters.AddWithValue("@Date", date.Date);
+                        cmd.Parameters.AddWithValue("@StartTime", start);
+                        cmd.Parameters.AddWithValue("@EndTime", end);
+                        cmd.Parameters.AddWithValue("@BookingId", bookingId);
+
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Update Booking", $"Updated booking ID: {bookingId}");
+
+                        return Json(new { success = true, message = "Booking updated successfully. Waiting for admin re-approval." });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public IActionResult CancelBooking(int bookingId, string reason)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    // Validate ownership
+                    string checkQuery = "SELECT booking_user_id, booking_status FROM bookings WHERE booking_id = @BookingId";
+                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        using (SqlDataReader reader = checkCmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                if (reader["booking_user_id"].ToString() != userId)
+                                    return Json(new { success = false, message = "You can only cancel your own bookings" });
+
+                                string status = reader["booking_status"].ToString()!;
+                                if (status == "Completed" || status == "Cancelled")
+                                    return Json(new { success = false, message = "Cannot cancel completed or already cancelled bookings" });
+                            }
+                            else
+                            {
+                                return Json(new { success = false, message = "Booking not found" });
+                            }
+                        }
+                    }
+
+                    // Cancel booking
+                    string query = @"UPDATE bookings 
+                                   SET booking_status = 'Cancelled',
+                                       booking_cancel_reason = @Reason,
+                                       booking_cancelled_by = @CancelledBy,
+                                       booking_updated_at = GETDATE()
+                                   WHERE booking_id = @BookingId";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Reason", reason);
+                        cmd.Parameters.AddWithValue("@CancelledBy", userId);
+                        cmd.Parameters.AddWithValue("@BookingId", bookingId);
+
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Cancel Booking", $"Cancelled booking ID: {bookingId}");
+
+                        return Json(new { success = true, message = "Booking cancelled successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        // ============================================
+        // KF-20: My Feedbacks View
+        // ============================================
+        [HttpGet]
+        public IActionResult MyFeedbacksView()
+        {
+            if (!CheckEmployeeAuth())
+                return RedirectToAction("LoginView", "Auth");
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+                List<dynamic> feedbacks = new List<dynamic>();
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = @"SELECT f.*, b.booking_code, b.booking_title, b.booking_date, r.room_name
+                                   FROM feedbacks f
+                                   LEFT JOIN bookings b ON f.feedback_booking_id = b.booking_id
+                                   LEFT JOIN rooms r ON b.booking_room_id = r.room_id
+                                   WHERE f.feedback_user_id = @UserId
+                                   ORDER BY f.feedback_created_at DESC";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                feedbacks.Add(new
+                                {
+                                    feedback_id = Convert.ToInt32(reader["feedback_id"]),
+                                    feedback_rating = Convert.ToInt32(reader["feedback_rating"]),
+                                    feedback_comments = reader["feedback_comments"]?.ToString(),
+                                    feedback_admin_response = reader["feedback_admin_response"]?.ToString(),
+                                    feedback_created_at = Convert.ToDateTime(reader["feedback_created_at"]),
+                                    booking_code = reader["booking_code"]?.ToString(),
+                                    booking_title = reader["booking_title"]?.ToString(),
+                                    booking_date = reader["booking_date"] != DBNull.Value ? Convert.ToDateTime(reader["booking_date"]) : (DateTime?)null,
+                                    room_name = reader["room_name"]?.ToString()
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // Get completed bookings without feedback
+                ViewBag.BookingsWithoutFeedback = GetCompletedBookingsWithoutFeedback(userId!);
+
+                return View(feedbacks);
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Error loading feedbacks: " + ex.Message;
+                return View(new List<dynamic>());
+            }
+        }
+
+        // KF-20: Submit Feedback
+        [HttpPost]
+        public IActionResult SubmitFeedback(int bookingId, int rating, string comments)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    // Validate booking ownership and status
+                    string checkQuery = @"SELECT booking_user_id, booking_status 
+                                        FROM bookings 
+                                        WHERE booking_id = @BookingId";
+
+                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        using (SqlDataReader reader = checkCmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                if (reader["booking_user_id"].ToString() != userId)
+                                    return Json(new { success = false, message = "You can only provide feedback for your own bookings" });
+
+                                string status = reader["booking_status"].ToString()!;
+                                if (status != "Completed")
+                                    return Json(new { success = false, message = "Can only provide feedback for completed bookings" });
+                            }
+                            else
+                            {
+                                return Json(new { success = false, message = "Booking not found" });
+                            }
+                        }
+                    }
+
+                    // Check if feedback already exists
+                    string checkFeedbackQuery = "SELECT COUNT(*) FROM feedbacks WHERE feedback_booking_id = @BookingId";
+                    using (SqlCommand checkFeedbackCmd = new SqlCommand(checkFeedbackQuery, conn))
+                    {
+                        checkFeedbackCmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        int count = (int)checkFeedbackCmd.ExecuteScalar();
+                        if (count > 0)
+                            return Json(new { success = false, message = "Feedback already submitted for this booking" });
+                    }
+
+                    // Insert feedback
+                    string query = @"INSERT INTO feedbacks (feedback_booking_id, feedback_user_id, feedback_rating, 
+                                   feedback_comments, feedback_created_at)
+                                   VALUES (@BookingId, @UserId, @Rating, @Comments, GETDATE())";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.Parameters.AddWithValue("@Rating", rating);
+                        cmd.Parameters.AddWithValue("@Comments", string.IsNullOrEmpty(comments) ? (object)DBNull.Value : comments);
+
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Submit Feedback", $"Submitted feedback for booking ID: {bookingId}");
+
+                        return Json(new { success = true, message = "Feedback submitted successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        // ============================================
+        // KF-21: Notifications View
+        // ============================================
+        [HttpGet]
+        public IActionResult NotificationsView()
+        {
+            if (!CheckEmployeeAuth())
+                return RedirectToAction("LoginView", "Auth");
+
+            // Placeholder for notifications feature
+            return View();
+        }
+
+        // ============================================
+        // My Activity Logs View
+        // ============================================
+        [HttpGet]
+        public IActionResult MyActivityLogsView()
+        {
+            if (!CheckEmployeeAuth())
+                return RedirectToAction("LoginView", "Auth");
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+                List<dynamic> logs = new List<dynamic>();
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Create table if not exists
+                    string createTable = @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'activity_logs')
+                                         BEGIN
+                                             CREATE TABLE activity_logs (
+                                                 log_id INT IDENTITY(1,1) PRIMARY KEY,
+                                                 log_user_id INT NOT NULL,
+                                                 log_action NVARCHAR(100) NOT NULL,
+                                                 log_description NVARCHAR(500),
+                                                 log_created_at DATETIME2 DEFAULT GETDATE(),
+                                                 FOREIGN KEY (log_user_id) REFERENCES users(user_id)
+                                             )
+                                         END";
+                    
+                    using (SqlCommand createCmd = new SqlCommand(createTable, conn))
+                    {
+                        createCmd.ExecuteNonQuery();
+                    }
+
+                    string query = @"SELECT * FROM activity_logs 
+                                   WHERE log_user_id = @UserId 
+                                   ORDER BY log_created_at DESC";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                logs.Add(new
+                                {
+                                    log_id = Convert.ToInt32(reader["log_id"]),
+                                    log_action = reader["log_action"].ToString(),
+                                    log_description = reader["log_description"]?.ToString(),
+                                    log_created_at = Convert.ToDateTime(reader["log_created_at"])
+                                });
+                            }
+                        }
+                    }
+                }
+
+                return View(logs);
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Error loading activity logs: " + ex.Message;
+                return View(new List<dynamic>());
+            }
+        }
+
+        // ============================================
+        // KF-03: Profile Management (Shared with Auth)
+        // ============================================
+        [HttpGet]
+        public IActionResult ProfileView()
+        {
+            if (!CheckEmployeeAuth())
+                return RedirectToAction("LoginView", "Auth");
+
+            var userId = HttpContext.Session.GetString("UserId");
+
+            try
+            {
+                User user = new User();
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = "SELECT * FROM users WHERE user_id = @UserId";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                user.user_id = Convert.ToInt32(reader["user_id"]);
+                                user.user_employee_id = reader["user_employee_id"].ToString()!;
+                                user.user_email = reader["user_email"].ToString()!;
+                                user.user_full_name = reader["user_full_name"].ToString()!;
+                                user.user_role = reader["user_role"].ToString()!;
+                                user.user_dept_name = reader["user_dept_name"]?.ToString();
+                                user.user_is_active = Convert.ToBoolean(reader["user_is_active"]);
+                                user.user_created_at = Convert.ToDateTime(reader["user_created_at"]);
+                            }
+                        }
+                    }
+                }
+
+                return View(user);
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Error loading profile: " + ex.Message;
+                return RedirectToAction("DashboardView");
+            }
+        }
+
+        [HttpPost]
+        public IActionResult UpdateProfile(string fullName, string deptName, string email)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            var userId = HttpContext.Session.GetString("UserId");
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = @"UPDATE users 
+                                   SET user_full_name = @FullName, 
+                                       user_dept_name = @DeptName,
+                                       user_email = @Email,
+                                       user_updated_at = GETDATE()
+                                   WHERE user_id = @UserId";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@FullName", fullName);
+                        cmd.Parameters.AddWithValue("@DeptName", string.IsNullOrEmpty(deptName) ? (object)DBNull.Value : deptName);
+                        cmd.Parameters.AddWithValue("@Email", email);
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+
+                        cmd.ExecuteNonQuery();
+
+                        // Update session
+                        HttpContext.Session.SetString("UserFullName", fullName);
+                        HttpContext.Session.SetString("UserEmail", email);
+                        if (!string.IsNullOrEmpty(deptName))
+                            HttpContext.Session.SetString("UserDeptName", deptName);
+
+                        LogActivity("Update Profile", "Updated own profile information");
+
+                        return Json(new { success = true, message = "Profile updated successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public IActionResult ChangePassword(string currentPassword, string newPassword)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            var userId = HttpContext.Session.GetString("UserId");
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    // Verify current password
+                    string queryVerify = "SELECT user_password FROM users WHERE user_id = @UserId";
+                    using (SqlCommand cmdVerify = new SqlCommand(queryVerify, conn))
+                    {
+                        cmdVerify.Parameters.AddWithValue("@UserId", userId);
+                        string storedPassword = cmdVerify.ExecuteScalar()?.ToString() ?? "";
+
+                        if (!SecHelperFunction.VerifyPassword(currentPassword, storedPassword))
+                        {
+                            return Json(new { success = false, message = "Current password is incorrect" });
+                        }
+                    }
+
+                    // Update password
+                    string hashedNewPassword = SecHelperFunction.HashPasswordMD5(newPassword);
+                    string queryUpdate = @"UPDATE users 
+                                         SET user_password = @NewPassword,
+                                             user_updated_at = GETDATE()
+                                         WHERE user_id = @UserId";
+
+                    using (SqlCommand cmdUpdate = new SqlCommand(queryUpdate, conn))
+                    {
+                        cmdUpdate.Parameters.AddWithValue("@NewPassword", hashedNewPassword);
+                        cmdUpdate.Parameters.AddWithValue("@UserId", userId);
+                        cmdUpdate.ExecuteNonQuery();
+
+                        LogActivity("Change Password", "Changed own password");
+
+                        return Json(new { success = true, message = "Password changed successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        // ============================================
+        // HELPER METHODS
+        // ============================================
+
+        private void LogActivity(string action, string description)
+        {
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+                if (string.IsNullOrEmpty(userId)) return;
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    // Create table if not exists
+                    string createTable = @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'activity_logs')
+                                         BEGIN
+                                             CREATE TABLE activity_logs (
+                                                 log_id INT IDENTITY(1,1) PRIMARY KEY,
+                                                 log_user_id INT NOT NULL,
+                                                 log_action NVARCHAR(100) NOT NULL,
+                                                 log_description NVARCHAR(500),
+                                                 log_created_at DATETIME2 DEFAULT GETDATE(),
+                                                 FOREIGN KEY (log_user_id) REFERENCES users(user_id)
+                                             )
+                                         END";
+                    
+                    using (SqlCommand createCmd = new SqlCommand(createTable, conn))
+                    {
+                        createCmd.ExecuteNonQuery();
+                    }
+
+                    string query = @"INSERT INTO activity_logs (log_user_id, log_action, log_description, log_created_at)
+                                   VALUES (@UserId, @Action, @Description, GETDATE())";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.Parameters.AddWithValue("@Action", action);
+                        cmd.Parameters.AddWithValue("@Description", description);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch
+            {
+                // Silent fail
+            }
+        }
+
+        private int GetCount(SqlConnection conn, string query)
+        {
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            {
+                var result = cmd.ExecuteScalar();
+                return result != null ? Convert.ToInt32(result) : 0;
+            }
+        }
+
+        private bool CheckRoomAvailability(int roomId, DateTime date, TimeSpan startTime, TimeSpan endTime, int? excludeBookingId = null)
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    
+                    string query = @"SELECT COUNT(*) FROM bookings 
+                                   WHERE booking_room_id = @RoomId 
+                                   AND booking_date = @Date
+                                   AND booking_status IN ('Pending', 'Confirmed', 'InProgress')
+                                   AND (
+                                       (booking_start_time < @EndTime AND booking_end_time > @StartTime)
+                                   )";
+                    
+                    if (excludeBookingId.HasValue)
+                        query += " AND booking_id != @ExcludeBookingId";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@RoomId", roomId);
+                        cmd.Parameters.AddWithValue("@Date", date.Date);
+                        cmd.Parameters.AddWithValue("@StartTime", startTime);
+                        cmd.Parameters.AddWithValue("@EndTime", endTime);
+                        
+                        if (excludeBookingId.HasValue)
+                            cmd.Parameters.AddWithValue("@ExcludeBookingId", excludeBookingId.Value);
+
+                        int conflictCount = (int)cmd.ExecuteScalar();
+                        return conflictCount == 0;
+                    }
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private string GenerateBookingCode()
+        {
+            return "BK" + DateTime.Now.ToString("yyyyMMddHHmmss") + new Random().Next(1000, 9999);
+        }
+
+        private List<Location> GetActiveLocations()
+        {
+            List<Location> locations = new List<Location>();
+            using (SqlConnection conn = new SqlConnection(_connectionString))
+            {
+                conn.Open();
+                string query = "SELECT * FROM locations WHERE location_is_active = 1 ORDER BY location_plant_name, location_block, location_floor";
+
+                using (SqlCommand cmd = new SqlCommand(query, conn))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            locations.Add(new Location
+                            {
+                                location_id = Convert.ToInt32(reader["location_id"]),
+                                location_code = reader["location_code"].ToString()!,
+                                location_plant_name = reader["location_plant_name"].ToString()!,
+                                location_block = Convert.ToByte(reader["location_block"]),
+                                location_floor = Convert.ToByte(reader["location_floor"])
+                            });
+                        }
+                    }
+                }
+            }
+            return locations;
+        }
+
+        private List<dynamic> GetUserUpcomingBookings(SqlConnection conn, string userId)
+        {
+            List<dynamic> bookings = new List<dynamic>();
+            string query = @"SELECT TOP 5 b.*, r.room_name
+                           FROM bookings b
+                           LEFT JOIN rooms r ON b.booking_room_id = r.room_id
+                           WHERE b.booking_user_id = @UserId 
+                           AND b.booking_date >= CAST(GETDATE() AS DATE)
+                           AND b.booking_status IN ('Pending', 'Confirmed')
+                           ORDER BY b.booking_date, b.booking_start_time";
+
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            {
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        bookings.Add(new
+                        {
+                            booking_title = reader["booking_title"].ToString(),
+                            room_name = reader["room_name"]?.ToString(),
+                            booking_date = Convert.ToDateTime(reader["booking_date"]),
+                            booking_start_time = TimeSpan.Parse(reader["booking_start_time"].ToString()!),
+                            booking_status = reader["booking_status"].ToString()
+                        });
+                    }
+                }
+            }
+            return bookings;
+        }
+
+        private List<dynamic> GetUserRecentActivity(SqlConnection conn, string userId)
+        {
+            List<dynamic> activities = new List<dynamic>();
+            
+            // Create table if not exists
+            string createTable = @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'activity_logs')
+                                 BEGIN
+                                     CREATE TABLE activity_logs (
+                                         log_id INT IDENTITY(1,1) PRIMARY KEY,
+                                         log_user_id INT NOT NULL,
+                                         log_action NVARCHAR(100) NOT NULL,
+                                         log_description NVARCHAR(500),
+                                         log_created_at DATETIME2 DEFAULT GETDATE(),
+                                         FOREIGN KEY (log_user_id) REFERENCES users(user_id)
+                                     )
+                                 END";
+            
+            using (SqlCommand createCmd = new SqlCommand(createTable, conn))
+            {
+                createCmd.ExecuteNonQuery();
+            }
+
+            string query = @"SELECT TOP 10 * FROM activity_logs 
+                           WHERE log_user_id = @UserId 
+                           ORDER BY log_created_at DESC";
+
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            {
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        activities.Add(new
+                        {
+                            log_action = reader["log_action"].ToString(),
+                            log_description = reader["log_description"]?.ToString(),
+                            log_created_at = Convert.ToDateTime(reader["log_created_at"])
+                        });
+                    }
+                }
+            }
+            return activities;
+        }
+
+        private List<dynamic> GetCompletedBookingsWithoutFeedback(string userId)
+        {
+            List<dynamic> bookings = new List<dynamic>();
+            
+            using (SqlConnection conn = new SqlConnection(_connectionString))
+            {
+                conn.Open();
+                string query = @"SELECT b.*, r.room_name
+                               FROM bookings b
+                               LEFT JOIN rooms r ON b.booking_room_id = r.room_id
+                               LEFT JOIN feedbacks f ON b.booking_id = f.feedback_booking_id
+                               WHERE b.booking_user_id = @UserId 
+                               AND b.booking_status = 'Completed'
+                               AND f.feedback_id IS NULL
+                               ORDER BY b.booking_date DESC";
+
+                using (SqlCommand cmd = new SqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@UserId", userId);
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            bookings.Add(new
+                            {
+                                booking_id = Convert.ToInt32(reader["booking_id"]),
+                                booking_code = reader["booking_code"].ToString(),
+                                booking_title = reader["booking_title"].ToString(),
+                                room_name = reader["room_name"]?.ToString(),
+                                booking_date = Convert.ToDateTime(reader["booking_date"])
+                            });
+                        }
+                    }
+                }
+            }
+            
+            return bookings;
         }
     }
 }

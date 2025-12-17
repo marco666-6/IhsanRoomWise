@@ -12,7 +12,7 @@ namespace IhsanRoomWise.Functions
         public DbAccessFunction()
         {
             // Your SQL Server connection string
-            connectionString = @"Data Source=localhost\SQLEXPRESS;Initial Catalog=roomwise;Integrated Security=True;TrustServerCertificate=True";
+            connectionString = @"Data Source=localhost\SQLEXPRESS;Initial Catalog=rwdb;Integrated Security=True;TrustServerCertificate=True";
         }
 
         // Method to get connection string - this is what your controller is looking for

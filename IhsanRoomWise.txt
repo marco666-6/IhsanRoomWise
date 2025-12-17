@@ -1,5 +1,15 @@
 ### Revised Project Context (Improved & AI-Readable)
 
+Politeknik Dalam dunia kerja yang profesional, ruang rapat merupakan salah satu fasilitas penting yang menunjang aktivitas operasional perusahaan. Ruang rapat digunakan untuk menyelenggarakan berbagai kegiatan, mulai dari diskusi internal, presentasi proyek, hingga pertemuan dengan pihak eksternal. Keberadaan ruang rapat yang memadai tidak hanya mencerminkan profesionalisme perusahaan, tetapi juga menjadi indikator kemampuan organisasi dalam mengelola sumber daya secara efektif. Di perusahaan berskala besar seperti PT XYZ Batam, tingkat kebutuhan akan ruang rapat sangat tinggi dan memerlukan sistem pengelolaan yang efisien dan terstruktur. Kompleksitas operasional yang melibatkan berbagai departemen dengan jadwal yang padat menuntut adanya mekanisme koordinasi yang solid untuk memastikan setiap unit kerja dapat mengakses fasilitas rapat sesuai kebutuhan tanpa menimbulkan hambatan operasional.
+Namun, pengelolaan ruang rapat secara manual atau menggunakan sistem sederhana seperti pencatatan melalui spreadsheet sering kali menimbulkan berbagai permasalahan, seperti bentrok jadwal peminjaman, informasi yang tidak akurat mengenai ketersediaan ruangan, serta kurangnya transparansi dalam pemanfaatan ruang. Dampaknya, tidak jarang terjadi situasi di mana beberapa tim memesan ruangan yang sama pada waktu yang bersamaan, atau ruangan yang sebenarnya tersedia tidak termanfaatkan karena informasi yang tidak terupdate dengan baik.
+Permasalahan ini dibuktikan oleh tidak adanya sistem terintegrasi untuk memesan ruang rapat yang menyebabkan pemesanan dilakukan secara manual melalui komunikasi verbal atau dokumen sederhana, yang sering kali menyebabkan konflik jadwal antar pengguna [1]. Peminjaman ruang meeting yang masih dilakukan secara konvensional mempunyai tingkat akurasi yang sangat minim dan penanganan yang memakan waktu dalam pencarian informasi [2]. Proses manual juga menimbulkan beban administratif yang signifikan bagi petugas pengelola ruangan, di mana mereka harus terus-menerus memperbarui catatan, merespons pertanyaan ketersediaan, dan menangani perubahan jadwal secara manual. Lebih lanjut, metode pencatatan manual rentan terhadap kesalahan manusia, di mana pembaruan jadwal dapat terabaikan atau tidak ada pengingat notifikasi, bahkan untuk pengguna yang telah memesan ruangan [3]. Ketergantungan pada memori dan catatan fisik membuat sistem ini sangat tidak andal, terutama ketika volume pemesanan meningkat pada periode-periode sibuk atau ketika terjadi pergantian petugas pengelola.
+Metode manual meningkatkan resiko kesalahan dalam masukan data dan pencatatan, sehingga perusahaan tidak dapat memanfaatkan sumber daya secara optimal [4]. Kendala-kendala tersebut tidak hanya menghambat operasional sehari-hari, tetapi juga dapat menyebabkan ketidakpuasan pengguna internal, baik dari sisi administrasi maupun para staf yang membutuhkan ruang. Ketidakefisienan ini pada akhirnya berdampak pada citra profesionalisme perusahaan, terutama ketika terjadi kekacauan jadwal yang melibatkan tamu atau klien eksternal. Hilangnya waktu produktif akibat mencari ruangan pengganti atau menunggu konfirmasi ketersediaan juga menimbulkan biaya tersembunyi yang cukup signifikan bagi organisasi dalam jangka panjang.
+Sistem informasi merupakan kombinasi dari teknologi, orang dan proses yang dirancang untuk mengumpulkan data, memproses, menyimpan, dan mendistribusikan informasi [1]. Tujuan utama dari hadirnya sistem informasi adalah untuk meningkatkan efisiensi, mendukung pengambilan keputusan, dan mengoptimalkan operasi dalam suatu organisasi dengan mengubah data menjadi informasi yang berguna. Dalam konteks modern, sistem informasi tidak lagi sekadar alat bantu administratif, melainkan telah menjadi backbone yang menentukan daya saing dan kelancaran operasional perusahaan. Management Information Systems (MIS) adalah sistem informasi yang berada pada level manajemen, yang menyediakan fungsi pengambilan keputusan, pemantauan, pengendalian, dan administrasi [1]. 
+Seiring berkembangnya teknologi informasi, penerapan sistem informasi berbasis web menjadi solusi yang tepat untuk mengatasi permasalahan tersebut. Framework ASP.NET MVC merupakan salah satu metode yang dikembangkan oleh Microsoft yang digunakan untuk pembangunan website dinamis, dengan kelebihan yaitu SEO (Search Engine Optimizer) friendly, artinya arsitektur ini dapat ter-index dengan mudah oleh search engine seperti Google, Yahoo, dan Bing [5]. Kemampuan ASP.NET MVC dalam memisahkan logika bisnis, tampilan, dan kontrol data membuat pengembangan dan pemeliharaan sistem menjadi lebih terstruktur dan mudah dikembangkan di masa mendatang. ASP.NET, sebagai framework pengembangan web yang dikembangkan oleh Microsoft, menyediakan berbagai fitur dan keunggulan dalam membangun aplikasi web yang dinamis, aman, dan terintegrasi [6]. Keamanan yang menjadi prioritas dalam ASP.NET sangat penting untuk melindungi data pemesanan dan informasi pengguna dari akses yang tidak berwenang.
+Solusi sistem berbasis web memungkinkan proses manajemen ruang rapat menjadi lebih terorganisasi dan transparan. Implementasi aplikasi berbasis web dapat meningkatkan pemanfaatan ruang rapat berkat fitur seperti pencatatan notula, pemantauan real-time, dan pengingat jadwal [3]. Transparansi yang tercipta melalui sistem berbasis web memungkinkan seluruh karyawan memiliki akses yang sama terhadap informasi ketersediaan ruangan, sehingga prinsip keadilan dalam pemanfaatan fasilitas dapat terwujud. Sementara itu, penggunaan sistem berbasis web secara signifikan mengurangi konflik jadwal yang sering terjadi akibat metode pencatatan manual [7].
+Sistem informasi peminjaman ruangan berbasis web yang dirancang dengan mengotomatisasi proses peminjaman dapat menyediakan akses informasi langsung terhadap ketersediaan ruang, memudahkan peminjaman, serta meminimalisir resiko kesalahan dalam pengelolaan jadwal [5]. Dengan fitur pencarian berdasarkan kriteria tertentu, sistem ini dapat meningkatkan efisiensi kerja dalam pengelolaan ruang. Karyawan dapat dengan mudah mencari ruangan berdasarkan kapasitas, lokasi, atau fasilitas yang tersedia, sehingga proses pemilihan ruangan menjadi lebih cepat dan tepat sasaran. Sistem ini meningkatkan efisiensi dalam pengelolaan ruang rapat, memungkinkan pengguna untuk melakukan reservasi secara real-time, serta mengurangi konflik jadwal akibat pencatatan manual [1]. Fitur notifikasi otomatis juga memastikan bahwa pengguna mendapatkan pengingat sebelum waktu pertemuan, mengurangi tingkat ketidakhadiran atau kelupaan yang dapat mengganggu jadwal perusahaan.
+Oleh karena itu, pemanfaatan ASP.NET dalam merancang sistem informasi ruang rapat dengan pendekatan metode Prototype dapat membantu perusahaan dalam mengelola jadwal penggunaan ruangan secara real-time, menampilkan status ruangan (tersedia, digunakan, dalam perbaikan), serta membantu/memudahkan proses booking oleh karyawan secara mandiri dan transparan. Kemandirian karyawan dalam melakukan pemesanan mengurangi ketergantungan pada petugas administrasi, sehingga beban kerja dapat terdistribusi dengan lebih baik. Sistem ini diharapkan mampu meningkatkan efisiensi penggunaan fasilitas rapat, meminimalkan konflik jadwal, serta memberikan kemudahan akses informasi kepada seluruh karyawan PT XYZ Batam.
+
 RoomWise is a web-based Meeting Room Management System developed for an internal corporate environment at PT XYZ. The application is designed to replace manual meeting room scheduling methods such as spreadsheets, emails, and informal communication, which often result in schedule conflicts, inaccurate room availability information, and reduced productivity. The system centralizes all meeting room data, booking activities, and room statuses into a single, reliable platform accessible to both administrators and employees.
 The application is built using ASP.NET MVC and follows a clean separation of concerns by implementing Models, Controllers, and Views. Models must remain simple and free from Data Annotations to maintain flexibility and readability. Authentication is handled through a centralized `AuthController`, while all other controllers follow a role-based naming convention using the `[Role]Controller` pattern (e.g., `AdminController`, `EmployeeController`) to enforce authorization boundaries clearly.
 RoomWise supports role-based access control with two primary roles: Admin and Employee. Admin users have full system control, including managing users, rooms, schedules, and operational room statuses. Employees are able to view room availability, create and manage their own bookings, and provide feedback after meetings. The system enforces real-time validation to prevent schedule conflicts and ensures that room capacity and operational status are respected during the booking process.
@@ -9,29 +19,31 @@ The system also supports documentation and academic artifacts, including Use Cas
 
 ---
 
-Admin Functionals and Requirements:
-- Admin Manage User (crud | personal information, deactivate/activate & profile photos, utilize modals)
-- Admin Manage Departments (crud | utilize this with a modal while inside user management while adding/editing departments field)
-- Admin Manage Rooms (crud | status & avaibality, room photos, capacity, facilities (Projector, Smart Screen/TV, ScreenBeam, CiscoBar), and others, utilize modals | apply view option -> normal table, cards)
-- Admin Manage Locations (crud | utilize this with a modal while inside room management while adding/editing locations field)
-- Admin Manage Bookings (crud | monitorings, can create, others | apply view option -> normal table, calendar)
-- Admin Manage Feedbacks (you know how , feedback photos, utilize modals)
-- Admin Manage Notifications (crud | you can also create some kind of announcement, just simple, utilize modals | mark as read/unread)
-- Admin Manage Personal Profile & Change Password
-- Admin with some of these features, inside them utilize excel importation & exportation, and make sure the excel look good, cool, and colorful if you could, and has filters set for exportation
-- Admin can see logs (activities, simply track record of stuffs)
-- Utilize filters, filterized everything that can use filters (maximum please date filters, everybody needs it)
-
-Employee Functionals and Requirements:
-- Employee Find Rooms (browse & search & book | filter by location, capacity, facilities, date/time availability | apply view option -> normal table, cards with real-time status)
-- Employee Create Booking (book meeting rooms | select date, time, duration, room, add meeting title, description, and make sure schedules will not clash, books dont crash)
-- Employee All Bookings (crud | modify/edit or even cancel upcoming or just booked meetings and also stop/finishify the meeting if they finish early, system validates availability for edits, view personal booking history, upcoming and past meetings | apply view option -> normal table, calendar)
-- Employee Submit Feedback (crud | rate room condition, facilities, cleanliness, report issues, attach photos if needed, cant delete/edit after admin replied, feedback photos | utilize modals)
-- Employee View Notifications (receive booking confirmations, reminders, cancellations, admin announcements | mark as read/unread)
-- Employee Manage Personal Profile & Change Password
-- Employee with some of these features, inside them utilize excel exportation, and make sure the excel look good, cool, and colorful if you could, and has filters set for exportation
-- Employee can see logs (activities of personal/one self, simply track record of personal stuffs)
-- Utilize filters, filterized everything that can use filters (maximum please date filters, everybody needs it)
+Functionals and Requirements:
+Kode	Kebutuhan Fungsional
+KF-01	Semua pengguna dapat mengakses halaman login
+KF-02	Semua pengguna dapat melakukan sign-in sesuai peran
+KF-03	Semua Pengguna dapat mengelola profil pribadi dan mengubah kata sandi
+KF-04	Admin dapat melihat halaman dashboard
+KF-05	Admin dapat mengelola data pengguna
+KF-06	Admin dapat mengaktifkan dan menonaktifkan akun pengguna
+KF-07	Admin dapat mengelola data departemen
+KF-08	Admin dapat mengelola data lokasi
+KF-09	Admin dapat mengelola data ruang rapat
+KF-10	Admin dapat mengelola fasilitas ruang rapat
+KF-11	Admin dapat melihat dan mengelola seluruh data pemesanan ruang rapat
+KF-12	Admin dapat mengelola notifikasi dan pengumuman
+KF-13	Admin dapat melihat log aktivitas sistem
+KF-14	Admin dapat mengekspor data dalam format Spreadsheet
+KF-15	Karyawan dapat melihat ketersediaan ruang rapat
+KF-16	Karyawan dapat mencari dan memfilter ruang rapat berdasarkan lokasi, kapasitas, dan fasilitas
+KF-17	Karyawan dapat melakukan pemesanan ruang rapat
+KF-18	Karyawan dapat mengubah atau membatalkan pemesanan yang masih aktif
+KF-19	Karyawan dapat melihat riwayat pemesanan pribadi
+KF-20	Karyawan dapat memberikan umpan balik setelah rapat
+KF-21	Karyawan dapat melihat notifikasi pemesanan
+KF-22	Karyawan dapat melihat ketersediaan ruang rapat
+KF-23	Semua pengguna dapat mengakses halaman logout
 
 ---
 
@@ -77,7 +89,7 @@ namespace IhsanRoomWise.Functions
         public DbAccessFunction()
         {
             // Your SQL Server connection string
-            connectionString = @"Data Source=localhost\SQLEXPRESS;Initial Catalog=roomwise;Integrated Security=True;TrustServerCertificate=True";
+            connectionString = @"Data Source=localhost\SQLEXPRESS;Initial Catalog=rwdb;Integrated Security=True;TrustServerCertificate=True";
         }
 
         // Method to get connection string - this is what your controller is looking for
@@ -191,156 +203,6 @@ namespace IhsanRoomWise.Function
 
 ---------------------------------------------------------------------------------
 
-// Functions\AbrvHelperFunction.cs
-
-using System;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-
-namespace IhsanRoomWise.Functions
-{
-    public static class AbrvHelperFunction
-    {
-        public static string GenerateRoomCode(string roomName, string plantName, int block, int floor)
-        {
-            string abbreviation = GenerateAbbreviation(roomName);
-            string plantNumber = ExtractPlantNumber(plantName);
-            
-            return $"{abbreviation}-P{plantNumber}-B{block}-F{floor}";
-        }
-
-        public static string GenerateAbbreviation(string roomName)
-        {
-            if (string.IsNullOrWhiteSpace(roomName))
-                return "MR"; // Default: Meeting Room
-
-            // Remove common words that don't add value to abbreviation
-            string[] wordsToRemove = { "Room", "Meeting", "Conference", "The", "A", "An" };
-            string cleanedName = roomName;
-
-            foreach (string word in wordsToRemove)
-            {
-                cleanedName = Regex.Replace(cleanedName, $@"\b{word}\b", "", RegexOptions.IgnoreCase);
-            }
-
-            // Split by spaces and take first letter of each word
-            string[] words = cleanedName.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            StringBuilder abbreviation = new StringBuilder();
-
-            foreach (string word in words)
-            {
-                if (!string.IsNullOrWhiteSpace(word))
-                {
-                    abbreviation.Append(char.ToUpper(word[0]));
-                }
-            }
-
-            // If abbreviation is empty or too short, use first 2-4 letters of original name
-            if (abbreviation.Length == 0)
-            {
-                string alphanumeric = Regex.Replace(roomName, @"[^a-zA-Z0-9]", "");
-                return alphanumeric.Length > 4 
-                    ? alphanumeric.Substring(0, 4).ToUpper() 
-                    : alphanumeric.ToUpper();
-            }
-
-            return abbreviation.ToString();
-        }
-
-        public static string ExtractPlantNumber(string plantName)
-        {
-            if (string.IsNullOrWhiteSpace(plantName))
-                return "0";
-
-            // Extract digits from plant name
-            string digits = Regex.Replace(plantName, @"[^\d]", "");
-            
-            return string.IsNullOrEmpty(digits) ? "0" : digits;
-        }
-
-        public static string GenerateBookingCode(DateTime bookingDate, int sequenceNumber)
-        {
-            string dateStr = bookingDate.ToString("yyyyMMdd");
-            string sequence = sequenceNumber.ToString("D3"); // Pad with zeros to 3 digits
-            
-            return $"BK-{dateStr}-{sequence}";
-        }
-
-        public static bool IsValidRoomCodeFormat(string roomCode)
-        {
-            if (string.IsNullOrWhiteSpace(roomCode))
-                return false;
-
-            // Pattern: ABBREVIATION-P[digit(s)]-B[digit(s)]-F[digit(s)]
-            string pattern = @"^[A-Z0-9]+-P\d+-B\d+-F\d+$";
-            return Regex.IsMatch(roomCode, pattern);
-        }
-
-        public static bool IsValidBookingCodeFormat(string bookingCode)
-        {
-            if (string.IsNullOrWhiteSpace(bookingCode))
-                return false;
-
-            // Pattern: BK-YYYYMMDD-XXX
-            string pattern = @"^BK-\d{8}-\d{3}$";
-            return Regex.IsMatch(bookingCode, pattern);
-        }
-
-        public static string GenerateCleanFilename(string input)
-        {
-            if (string.IsNullOrWhiteSpace(input))
-                return "file";
-
-            // Convert to lowercase and replace spaces with hyphens
-            string clean = input.ToLower().Trim();
-            clean = Regex.Replace(clean, @"[^a-z0-9\s-]", ""); // Remove special chars
-            clean = Regex.Replace(clean, @"\s+", "-"); // Replace spaces with hyphens
-            clean = Regex.Replace(clean, @"-+", "-"); // Remove duplicate hyphens
-            
-            return clean;
-        }
-
-        public static string GenerateInitials(string fullName)
-        {
-            if (string.IsNullOrWhiteSpace(fullName))
-                return "??";
-
-            string[] words = fullName.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            
-            if (words.Length == 0)
-                return "??";
-            
-            if (words.Length == 1)
-                return words[0].Length > 1 
-                    ? words[0].Substring(0, 2).ToUpper() 
-                    : words[0].ToUpper();
-
-            // Take first letter of first word and first letter of last word
-            return $"{char.ToUpper(words[0][0])}{char.ToUpper(words[words.Length - 1][0])}";
-        }
-
-        public static string GeneratePreview(string text, int maxLength = 100)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return string.Empty;
-
-            if (text.Length <= maxLength)
-                return text;
-
-            // Find the last space before maxLength to avoid cutting words
-            int lastSpace = text.LastIndexOf(' ', maxLength);
-            
-            if (lastSpace > 0)
-                return text.Substring(0, lastSpace) + "...";
-            
-            return text.Substring(0, maxLength) + "...";
-        }
-    }
-}
-
----------------------------------------------------------------------------------
-
 // Program.cs
 
 using System;
@@ -356,7 +218,7 @@ builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromHours(8); // Set to 8 hours or any desired duration
     options.Cookie.HttpOnly = true;
-    options.Cookie.Name = ".IhsanRoomWise.Session"; // <--- Add line
+    options.Cookie.Name = ".IhsanRoomWise.Session"; 
     options.Cookie.IsEssential = true;
 });
 
@@ -386,3 +248,85 @@ app.MapControllerRoute(
     pattern: "{controller=Auth}/{action=LoginView}/{id?}");
 
 app.Run();
+
+---------------------------------------------------------------------------------
+
+// Controllers\AuthController.cs
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using IhsanRoomWise.Functions;
+using IhsanRoomWise.Models;
+
+namespace RoomWise.Controllers
+{
+    public class AuthController : Controller
+    {
+        private readonly string _connectionString;
+
+        public AuthController()
+        {
+            _connectionString = new DbAccessFunction().GetConnectionString();
+        }
+
+        // continue...
+    }
+}
+
+---------------------------------------------------------------------------------
+
+// Controllers\AdminController.cs
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using ClosedXML.Excel;
+using IhsanRoomWise.Functions;
+using IhsanRoomWise.Models;
+using System.Data;
+using System.Text;
+using Microsoft.AspNetCore.Http;
+using System.IO;
+
+namespace RoomWise.Controllers
+{
+    public class AdminController : Controller
+    {
+        private readonly string _connectionString;
+
+        public AdminController()
+        {
+            _connectionString = new DbAccessFunction().GetConnectionString();
+        }
+
+        // continue...
+    }
+}
+
+---------------------------------------------------------------------------------
+
+// Controllers\EmployeeController.cs
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using ClosedXML.Excel;
+using IhsanRoomWise.Functions;
+using IhsanRoomWise.Models;
+using System.Data;
+using System.Text;
+using Microsoft.AspNetCore.Http;
+using System.IO;
+
+namespace RoomWise.Controllers
+{
+    public class EmployeeController : Controller
+    {
+        private readonly string _connectionString;
+
+        public EmployeeController()
+        {
+            _connectionString = new DbAccessFunction().GetConnectionString();
+        }
+
+        // continue...
+    }
+}
