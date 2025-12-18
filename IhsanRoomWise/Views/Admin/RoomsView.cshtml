@@ -11,6 +11,14 @@
         <p class="page-description">Manage meeting rooms and their facilities</p>
     </div>
     <div class="page-actions">
+        <div class="view-toggle">
+            <button class="view-btn active" data-view="table">
+                <i class="fas fa-table"></i>
+            </button>
+            <button class="view-btn" data-view="card">
+                <i class="fas fa-th-large"></i>
+            </button>
+        </div>
         <button class="btn btn-success" onclick="window.location.href='@Url.Action("ExportRooms", "Admin")'">
             <i class="fas fa-file-excel me-2"></i> Export
         </button>

@@ -12,154 +12,343 @@
     </div>
 </div>
 
+<!-- Quick Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-primary">
+                <i class="fas fa-comments"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count</div>
+                <div class="stat-label-sm">Total Feedbacks</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-warning">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count(f => string.IsNullOrEmpty(f.feedback_admin_response))</div>
+                <div class="stat-label-sm">Pending Response</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count(f => !string.IsNullOrEmpty(f.feedback_admin_response))</div>
+                <div class="stat-label-sm">Responded</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-info">
+                <i class="fas fa-star"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@(Model.Any() ? Model.Average(f => f.feedback_rating).ToString("F1") : "0.0")</div>
+                <div class="stat-label-sm">Avg Rating</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="filter-section d-flex justify-content-center align-items-center">
+    <div class="filter-group d-flex justify-content-start align-items-center gap-3">
+        <div class="d-flex flex-column">
+            <label>Rating</label>
+            <select id="ratingFilter" class="filter-select" style="min-width:200px !important;">
+                <option value="">All Ratings</option>
+                <option value="5">5 Stars</option>
+                <option value="4">4 Stars</option>
+                <option value="3">3 Stars</option>
+                <option value="2">2 Stars</option>
+                <option value="1">1 Star</option>
+            </select>
+        </div>
+        <div class="d-flex flex-column">
+            <label>Status</label>
+            <select id="statusFilter" class="filter-select" style="min-width:200px !important;">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="responded">Responded</option>
+            </select>
+        </div>
+        <div class="d-flex flex-column">
+            <label>Room</label>
+            <select id="roomFilter" class="filter-select" style="min-width:200px !important;">
+                <option value="">All Rooms</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="filter-actions">
+        <button class="btn-primary" onclick="clearFilters()">
+            <i class="fas fa-undo"></i> Reset
+        </button>
+    </div>
+</div>
+
+<!-- Feedbacks Table Card -->
 <div class="card">
     <div class="card-body">
-        <table id="feedbacksTable" class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Booking</th>
-                    <th>Room</th>
-                    <th>User</th>
-                    <th>Rating</th>
-                    <th>Comments</th>
-                    <th>Admin Response</th>
-                    <th>Date</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var feedback in Model)
-                {
+        <div class="table-responsive">
+            <table id="feedbacksTable" class="table table-hover text-nowrap align-middle">
+                <thead>
                     <tr>
-                        <td>
-                            @feedback.booking_code<br />
-                            <small class="text-muted">@feedback.booking_title</small>
-                        </td>
-                        <td>@feedback.room_name</td>
-                        <td>@feedback.user_full_name</td>
-                        <td>
-                            @for (int i = 1; i <= 5; i++)
-                            {
-                                if (i <= feedback.feedback_rating)
+                        <th>
+                            <div class="th-content">
+                                <i class="fas fa-hashtag me-2"></i>Booking
+                            </div>
+                        </th>
+                        <th>
+                            <div class="th-content">
+                                <i class="fas fa-door-open me-2"></i>Room
+                            </div>
+                        </th>
+                        <th>
+                            <div class="th-content">
+                                <i class="fas fa-user me-2"></i>User
+                            </div>
+                        </th>
+                        <th class="text-center">
+                            <div class="th-content justify-content-center">
+                                <i class="fas fa-star me-2"></i>Rating
+                            </div>
+                        </th>
+                        <th>
+                            <div class="th-content">
+                                <i class="fas fa-comment-dots me-2"></i>Comments
+                            </div>
+                        </th>
+                        <th class="text-center">
+                            <div class="th-content justify-content-center">
+                                <i class="fas fa-reply me-2"></i>Status
+                            </div>
+                        </th>
+                        <th>
+                            <div class="th-content">
+                                <i class="fas fa-calendar me-2"></i>Date
+                            </div>
+                        </th>
+                        <th class="text-center">
+                            <div class="th-content justify-content-center">
+                                <i class="fas fa-cog me-2"></i>Actions
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var feedback in Model)
+                    {
+                        <tr data-rating="@feedback.feedback_rating" 
+                            data-status="@(string.IsNullOrEmpty(feedback.feedback_admin_response) ? "pending" : "responded")"
+                            data-room="@feedback.room_name">
+                            <td>
+                                <div class="booking-cell">
+                                    <span class="booking-code">@feedback.booking_code</span>
+                                    <small class="booking-title">@feedback.booking_title</small>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="room-badge">
+                                    <i class="fas fa-door-open me-1"></i>
+                                    @feedback.room_name
+                                </span>
+                            </td>
+                            <td>
+                                <div class="user-info-cell">
+                                    <div class="user-avatar-sm">
+                                        @feedback.user_full_name.Substring(0, 1).ToUpper()
+                                    </div>
+                                    <span class="fw-semibold">@feedback.user_full_name</span>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <div class="rating-display">
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        if (i <= feedback.feedback_rating)
+                                        {
+                                            <i class="fas fa-star"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="far fa-star"></i>
+                                        }
+                                    }
+                                    <span class="rating-value">@feedback.feedback_rating</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="comment-preview">
+                                    @if (!string.IsNullOrEmpty(feedback.feedback_comments))
+                                    {
+                                        <span>@(feedback.feedback_comments.Length > 60 ? feedback.feedback_comments.Substring(0, 60) + "..." : feedback.feedback_comments)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted fst-italic">No comments</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                @if (!string.IsNullOrEmpty(feedback.feedback_admin_response))
                                 {
-                                    <i class="fas fa-star text-warning"></i>
+                                    <span class="status-badge status-responded">
+                                        <i class="fas fa-check-circle"></i> Responded
+                                    </span>
                                 }
                                 else
                                 {
-                                    <i class="far fa-star text-warning"></i>
+                                    <span class="status-badge status-pending">
+                                        <i class="fas fa-clock"></i> Pending
+                                    </span>
                                 }
-                            }
-                            <br />
-                            <small>@feedback.feedback_rating / 5</small>
-                        </td>
-                        <td>
-                            @if (!string.IsNullOrEmpty(feedback.feedback_comments))
-                            {
-                                <span>@(feedback.feedback_comments.Length > 50 ? feedback.feedback_comments.Substring(0, 50) + "..." : feedback.feedback_comments)</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">No comments</span>
-                            }
-                        </td>
-                        <td>
-                            @if (!string.IsNullOrEmpty(feedback.feedback_admin_response))
-                            {
-                                <span class="badge bg-success">Responded</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-warning">Pending</span>
-                            }
-                        </td>
-                        <td>@feedback.feedback_created_at.ToString("MMM dd, yyyy")</td>
-                        <td>
-                            <button class="btn btn-sm btn-info" onclick='viewFeedback(@feedback.feedback_id, "@feedback.booking_code", "@feedback.booking_title", "@feedback.room_name", "@feedback.user_full_name", @feedback.feedback_rating, "@Html.Raw(feedback.feedback_comments?.ToString().Replace("\"", "\\\"") ?? "")", "@Html.Raw(feedback.feedback_admin_response?.ToString().Replace("\"", "\\\"") ?? "")")'>
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            @if (string.IsNullOrEmpty(feedback.feedback_admin_response))
-                            {
-                                <button class="btn btn-sm btn-primary" onclick='respondToFeedback(@feedback.feedback_id, "@Html.Raw(feedback.feedback_comments?.ToString().Replace("\"", "\\\"") ?? "")")'>
-                                    <i class="fas fa-reply"></i>
-                                </button>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                            </td>
+                            <td>
+                                <span class="date-text">@feedback.feedback_created_at.ToString("MMM dd, yyyy")</span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-action btn-action-view" 
+                                            onclick='viewFeedback(@feedback.feedback_id, "@feedback.booking_code", "@feedback.booking_title", "@feedback.room_name", "@feedback.user_full_name", @feedback.feedback_rating, "@Html.Raw(feedback.feedback_comments?.ToString().Replace("\"", "\\\"").Replace("\n", "\\n") ?? "")", "@Html.Raw(feedback.feedback_admin_response?.ToString().Replace("\"", "\\\"").Replace("\n", "\\n") ?? "")")'
+                                            title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    @if (string.IsNullOrEmpty(feedback.feedback_admin_response))
+                                    {
+                                        <button class="btn-action btn-action-reply" 
+                                                onclick='respondToFeedback(@feedback.feedback_id, "@Html.Raw(feedback.feedback_comments?.ToString().Replace("\"", "\\\"").Replace("\n", "\\n") ?? "")", "@feedback.user_full_name", "@feedback.booking_code")'
+                                                title="Respond">
+                                            <i class="fas fa-reply"></i>
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
 @section Modals {
 <!-- View Feedback Modal -->
 <div class="modal fade" id="viewFeedbackModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Feedback Details</h5>
+                <div class="modal-header-content">
+                    <div class="modal-icon bg-info">
+                        <i class="fas fa-eye"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title">Feedback Details</h5>
+                        <p class="modal-subtitle">Complete feedback information</p>
+                    </div>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <strong>Booking:</strong>
-                        <p id="viewBookingCode"></p>
-                        <p id="viewBookingTitle" class="text-muted"></p>
+                <div class="feedback-detail-section">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="detail-item">
+                                <label><i class="fas fa-hashtag me-2"></i>Booking Code</label>
+                                <p id="viewBookingCode" class="detail-value"></p>
+                            </div>
+                            <div class="detail-item">
+                                <label><i class="fas fa-bookmark me-2"></i>Booking Title</label>
+                                <p id="viewBookingTitle" class="detail-value"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="detail-item">
+                                <label><i class="fas fa-door-open me-2"></i>Room</label>
+                                <p id="viewRoomName" class="detail-value"></p>
+                            </div>
+                            <div class="detail-item">
+                                <label><i class="fas fa-user me-2"></i>User</label>
+                                <p id="viewUserName" class="detail-value"></p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <strong>Room:</strong>
-                        <p id="viewRoomName"></p>
+                    
+                    <div class="rating-section mb-4">
+                        <label><i class="fas fa-star me-2"></i>Rating</label>
+                        <div id="viewRating" class="rating-display-large"></div>
                     </div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <strong>User:</strong>
-                        <p id="viewUserName"></p>
+                    
+                    <div class="comments-section mb-4">
+                        <label><i class="fas fa-comment-dots me-2"></i>User Comments</label>
+                        <div id="viewComments" class="comment-box"></div>
                     </div>
-                    <div class="col-md-6">
-                        <strong>Rating:</strong>
-                        <p id="viewRating"></p>
+                    
+                    <div id="responseSection" class="response-section" style="display:none;">
+                        <label><i class="fas fa-reply me-2"></i>Admin Response</label>
+                        <div id="viewResponse" class="response-box"></div>
                     </div>
-                </div>
-                <div class="mb-3">
-                    <strong>User Comments:</strong>
-                    <p id="viewComments" class="p-3 bg-light rounded"></p>
-                </div>
-                <div class="mb-3" id="responseSection" style="display:none;">
-                    <strong>Admin Response:</strong>
-                    <p id="viewResponse" class="p-3 bg-success bg-opacity-10 rounded"></p>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Close
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Respond to Feedback Modal -->
+<!-- Respond Modal -->
 <div class="modal fade" id="respondModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Respond to Feedback</h5>
+                <div class="modal-header-content">
+                    <div class="modal-icon">
+                        <i class="fas fa-reply"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title">Respond to Feedback</h5>
+                        <p class="modal-subtitle" id="respondSubtitle"></p>
+                    </div>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="respondFeedbackId" />
-                <div class="mb-3">
-                    <strong>User Comments:</strong>
-                    <p id="respondComments" class="p-3 bg-light rounded"></p>
+                
+                <div class="user-feedback-section mb-4">
+                    <label><i class="fas fa-comment-dots me-2"></i>User's Feedback</label>
+                    <div id="respondComments" class="comment-box"></div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Your Response *</label>
-                    <textarea class="form-control" id="adminResponse" rows="4" placeholder="Enter your response to the user's feedback" required></textarea>
+                
+                <div>
+                    <label class="form-label">
+                        <i class="fas fa-pen me-2"></i>Your Response <span class="text-danger">*</span>
+                    </label>
+                    <textarea class="form-control" id="adminResponse" rows="5" 
+                              placeholder="Write your response to address the user's feedback..." required></textarea>
+                    <small class="text-muted">Be professional and helpful in your response</small>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="submitResponse()">Submit Response</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-primary" onclick="submitResponse()">
+                    <i class="fas fa-paper-plane me-2"></i>Send Response
+                </button>
             </div>
         </div>
     </div>
@@ -168,12 +357,76 @@
 
 @section Scripts {
     <script>
-        $(document).ready(function() {
-            $('#feedbacksTable').DataTable({
+        let feedbacksTable;
+
+        function initializeDataTable() {
+            feedbacksTable = $('#feedbacksTable').DataTable({
+                responsive: false,
+                scrollX: true,
+                pageLength: 25,
                 order: [[6, 'desc']],
-                pageLength: 25
+                language: {
+                    search: "",
+                    searchPlaceholder: "🔍 Search feedbacks...",
+                    lengthMenu: "Show _MENU_",
+                    info: "Showing _START_ to _END_ of _TOTAL_ feedbacks",
+                    emptyTable: "No feedbacks found",
+                    paginate: {
+                        previous: "‹",
+                        next: "›"
+                    }
+                },
+                dom:
+                    "<'row mb-3'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+                    "<'row'<'col-sm-12'tr>>" +
+                    "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
             });
+
+            // Populate room filter
+            const rooms = new Set();
+            @foreach (var feedback in Model)
+            {
+                <text>rooms.add('@feedback.room_name');</text>
+            }
+            rooms.forEach(room => {
+                $('#roomFilter').append(`<option value="${room}">${room}</option>`);
+            });
+        }
+
+        $(document).ready(function() {
+            initializeDataTable();
+            setupFilters();
         });
+
+        function setupFilters() {
+            $('#ratingFilter, #statusFilter, #roomFilter').on('change', function() {
+                applyFilters();
+            });
+        }
+
+        function applyFilters() {
+            const rating = $('#ratingFilter').val();
+            const status = $('#statusFilter').val();
+            const room = $('#roomFilter').val();
+
+            feedbacksTable.rows().every(function() {
+                const row = $(this.node());
+                let show = true;
+
+                if (rating && row.data('rating') != rating) show = false;
+                if (status && row.data('status') !== status) show = false;
+                if (room && row.data('room') !== room) show = false;
+
+                row.toggle(show);
+            });
+        }
+
+        function clearFilters() {
+            $('#ratingFilter, #statusFilter, #roomFilter').val('');
+            feedbacksTable.rows().every(function() {
+                $(this.node()).show();
+            });
+        }
         
         function viewFeedback(id, bookingCode, bookingTitle, roomName, userName, rating, comments, response) {
             $('#viewBookingCode').text(bookingCode);
@@ -183,13 +436,11 @@
             
             let ratingHtml = '';
             for (let i = 1; i <= 5; i++) {
-                if (i <= rating) {
-                    ratingHtml += '<i class="fas fa-star text-warning"></i> ';
-                } else {
-                    ratingHtml += '<i class="far fa-star text-warning"></i> ';
-                }
+                ratingHtml += i <= rating 
+                    ? '<i class="fas fa-star"></i> ' 
+                    : '<i class="far fa-star"></i> ';
             }
-            ratingHtml += `<span class="ms-2">${rating} / 5</span>`;
+            ratingHtml += `<span class="rating-number">${rating} / 5</span>`;
             $('#viewRating').html(ratingHtml);
             
             $('#viewComments').text(comments || 'No comments provided');
@@ -204,8 +455,9 @@
             $('#viewFeedbackModal').modal('show');
         }
         
-        function respondToFeedback(feedbackId, comments) {
+        function respondToFeedback(feedbackId, comments, userName, bookingCode) {
             $('#respondFeedbackId').val(feedbackId);
+            $('#respondSubtitle').text(`Responding to ${userName} - ${bookingCode}`);
             $('#respondComments').text(comments || 'No comments provided');
             $('#adminResponse').val('');
             $('#respondModal').modal('show');
@@ -216,28 +468,593 @@
             const response = $('#adminResponse').val().trim();
             
             if (!response) {
-                Swal.fire('Error', 'Please enter a response', 'error');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Missing Response',
+                    text: 'Please enter your response',
+                    confirmButtonColor: '#7aa22e'
+                });
                 return;
             }
             
             $.ajax({
                 url: '@Url.Action("RespondToFeedback", "Admin")',
                 type: 'POST',
-                data: {
-                    feedbackId: feedbackId,
-                    response: response
-                },
+                data: { feedbackId: feedbackId, response: response },
                 success: function(result) {
                     if (result.success) {
                         $('#respondModal').modal('hide');
-                        Swal.fire('Success', result.message, 'success').then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: result.message,
+                            confirmButtonColor: '#7aa22e'
+                        }).then(() => {
                             location.reload();
                         });
                     } else {
-                        Swal.fire('Error', result.message, 'error');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: result.message,
+                            confirmButtonColor: '#7aa22e'
+                        });
                     }
                 }
             });
         }
     </script>
+}
+
+@section Styles {
+    <style>
+    /* ============================================
+       BASE STYLES FROM USERSVIEW
+       ============================================ */
+    /* From UsersView */
+
+    /* Page Header Enhancements */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 2rem;
+    }
+
+    .page-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    /* Small Stat Cards */
+    .stat-card-sm {
+        background: var(--white);
+        border-radius: var(--radius-md);
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid rgba(122,162,46,0.08);
+        transition: all 0.2s;
+    }
+
+    .stat-card-sm:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .stat-icon-sm {
+        width: 48px;
+        height: 48px;
+        min-width: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: var(--white);
+    }
+
+    .stat-icon-sm.bg-primary { background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%); }
+    .stat-icon-sm.bg-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .stat-icon-sm.bg-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+    .stat-icon-sm.bg-info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+
+    .stat-details-sm {
+        flex: 1;
+    }
+
+    .stat-value-sm {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--gray-800);
+        line-height: 1;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .stat-label-sm {
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+        margin-top: 0.25rem;
+        font-weight: 500;
+    }
+
+    /* Table Header Enhancements */
+    .th-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8125rem;
+        white-space: nowrap;
+    }
+
+    .th-content i {
+        opacity: 0.6;
+        font-size: 0.875rem;
+    }
+
+    /* User Info Cell */
+    .user-info-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .user-avatar-sm {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--white);
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .user-id {
+        font-family: 'Courier New', monospace;
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        background: var(--gray-50);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+
+    .email-link {
+        color: var(--info);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .email-link:hover {
+        text-decoration: underline;
+    }
+
+    /* Role Badges */
+    .badge-role {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .badge-admin {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .badge-employee {
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563eb;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    /* Department Badge */
+    .dept-badge {
+        font-size: 0.875rem;
+        color: var(--gray-700);
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .status-badge i {
+        font-size: 0.5rem;
+    }
+
+    .status-active {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status-active i {
+        color: #059669;
+        animation: pulse 2s infinite;
+    }
+
+    @@keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .status-inactive {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+        border: 1px solid rgba(107, 114, 128, 0.2);
+    }
+
+    /* Date Text */
+    .date-text {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 0.375rem;
+        justify-content: center;
+    }
+
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.875rem;
+    }
+
+    .btn-action-edit {
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563eb;
+    }
+
+    .btn-action-edit:hover {
+        background: rgba(59, 130, 246, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-action-toggle {
+        background: rgba(245, 158, 11, 0.1);
+        color: #d97706;
+    }
+
+    .btn-action-toggle:hover {
+        background: rgba(245, 158, 11, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-action-key {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+    }
+
+    .btn-action-key:hover {
+        background: rgba(107, 114, 128, 0.2);
+        transform: translateY(-2px);
+    }
+
+    /* Modal Enhancements */
+    .modal-header-content {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .modal-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--white);
+        font-size: 1.25rem;
+    }
+
+    .modal-icon.bg-info {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+
+    .modal-subtitle {
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+        margin: 0.25rem 0 0 0;
+    }
+
+    .form-label {
+        font-weight: 500;
+        font-size: 0.8125rem;
+        color: var(--gray-700);
+        margin-bottom: 0.25rem;
+    }
+
+    /* Form Controls */
+    .form-control,
+    .form-select {
+        font-size: 0.875rem;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--gray-300);
+        transition: all 0.2s ease;
+    }
+
+    .form-control::placeholder {
+        color: var(--gray-400);
+        font-size: 0.8125rem;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 0.2rem rgba(122, 162, 46, 0.15);
+    }
+
+    /* Modal Footer Buttons */
+    .modal-footer {
+        border-top: 1px solid var(--gray-200);
+        padding-top: 1rem;
+    }
+
+    .modal-footer .btn {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+    }
+
+    /* Table Row Hover */
+    .table-hover tbody tr:hover {
+        background-color: rgba(122, 162, 46, 0.04);
+    }
+
+    /* Responsive Tweaks */
+    @@media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .page-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .stat-card-sm {
+            padding: 1rem;
+        }
+
+        .stat-value-sm {
+            font-size: 1.5rem;
+        }
+
+        .action-buttons {
+            gap: 0.25rem;
+        }
+    }
+
+    /* ============================================
+       FEEDBACKS SPECIFIC STYLES
+       ============================================ */
+    
+    /* Filter Section */
+    .filter-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--gray-700);
+        margin-bottom: 0.375rem;
+        display: block;
+    }
+
+    .filter-label i {
+        opacity: 0.7;
+    }
+
+    /* Booking Cell */
+    .booking-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .booking-code {
+        font-family: 'Courier New', monospace;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--gray-800);
+    }
+
+    .booking-title {
+        font-size: 0.75rem;
+        color: var(--gray-600);
+        display: block;
+    }
+
+    /* Room Badge */
+    .room-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.75rem;
+        background: rgba(122, 162, 46, 0.1);
+        color: var(--primary-dark);
+        border-radius: 6px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        border: 1px solid rgba(122, 162, 46, 0.2);
+    }
+
+    /* Rating Display */
+    .rating-display {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+
+    .rating-display i {
+        color: #f59e0b;
+        font-size: 0.875rem;
+    }
+
+    .rating-value {
+        margin-left: 0.375rem;
+        font-weight: 600;
+        color: var(--gray-700);
+        font-size: 0.8125rem;
+    }
+
+    /* Comment Preview */
+    .comment-preview {
+        font-size: 0.875rem;
+        color: var(--gray-700);
+        line-height: 1.4;
+    }
+
+    /* Status Badges */
+    .status-pending {
+        background: rgba(245, 158, 11, 0.1);
+        color: #d97706;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .status-responded {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    /* Action Buttons */
+    .btn-action-view {
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563eb;
+    }
+
+    .btn-action-view:hover {
+        background: rgba(59, 130, 246, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-action-reply {
+        background: rgba(122, 162, 46, 0.1);
+        color: var(--primary-dark);
+    }
+
+    .btn-action-reply:hover {
+        background: rgba(122, 162, 46, 0.2);
+        transform: translateY(-2px);
+    }
+
+    /* Modal Feedback Details */
+    .feedback-detail-section label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--gray-600);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .detail-item {
+        margin-bottom: 1.25rem;
+    }
+
+    .detail-value {
+        font-size: 0.9375rem;
+        color: var(--gray-800);
+        font-weight: 500;
+        margin: 0;
+    }
+
+    .rating-section label,
+    .comments-section label,
+    .response-section label,
+    .user-feedback-section label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--gray-700);
+        margin-bottom: 0.75rem;
+        display: block;
+    }
+
+    .rating-display-large {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 1rem;
+        background: var(--gray-50);
+        border-radius: 8px;
+        border: 1px solid var(--gray-200);
+    }
+
+    .rating-display-large i {
+        color: #f59e0b;
+        font-size: 1.5rem;
+    }
+
+    .rating-number {
+        margin-left: 0.75rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--gray-800);
+    }
+
+    .comment-box {
+        padding: 1.25rem;
+        background: var(--gray-50);
+        border-radius: 8px;
+        border: 1px solid var(--gray-200);
+        color: var(--gray-800);
+        line-height: 1.6;
+        font-size: 0.9375rem;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    .response-box {
+        padding: 1.25rem;
+        background: rgba(16, 185, 129, 0.05);
+        border-radius: 8px;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        color: var(--gray-800);
+        line-height: 1.6;
+        font-size: 0.9375rem;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .booking-cell {
+            min-width: 150px;
+        }
+
+        .rating-display {
+            flex-wrap: wrap;
+        }
+    }
+    </style>
 }

@@ -1,0 +1,243 @@
+@model List<dynamic>
+
+@{
+    ViewData["Title"] = "Feedbacks Management";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Feedbacks Management</h1>
+        <p class="page-description">View and respond to user feedbacks</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table id="feedbacksTable" class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Booking</th>
+                    <th>Room</th>
+                    <th>User</th>
+                    <th>Rating</th>
+                    <th>Comments</th>
+                    <th>Admin Response</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var feedback in Model)
+                {
+                    <tr>
+                        <td>
+                            @feedback.booking_code<br />
+                            <small class="text-muted">@feedback.booking_title</small>
+                        </td>
+                        <td>@feedback.room_name</td>
+                        <td>@feedback.user_full_name</td>
+                        <td>
+                            @for (int i = 1; i <= 5; i++)
+                            {
+                                if (i <= feedback.feedback_rating)
+                                {
+                                    <i class="fas fa-star text-warning"></i>
+                                }
+                                else
+                                {
+                                    <i class="far fa-star text-warning"></i>
+                                }
+                            }
+                            <br />
+                            <small>@feedback.feedback_rating / 5</small>
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(feedback.feedback_comments))
+                            {
+                                <span>@(feedback.feedback_comments.Length > 50 ? feedback.feedback_comments.Substring(0, 50) + "..." : feedback.feedback_comments)</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">No comments</span>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(feedback.feedback_admin_response))
+                            {
+                                <span class="badge bg-success">Responded</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning">Pending</span>
+                            }
+                        </td>
+                        <td>@feedback.feedback_created_at.ToString("MMM dd, yyyy")</td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick='viewFeedback(@feedback.feedback_id, "@feedback.booking_code", "@feedback.booking_title", "@feedback.room_name", "@feedback.user_full_name", @feedback.feedback_rating, "@Html.Raw(feedback.feedback_comments?.ToString().Replace("\"", "\\\"") ?? "")", "@Html.Raw(feedback.feedback_admin_response?.ToString().Replace("\"", "\\\"") ?? "")")'>
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            @if (string.IsNullOrEmpty(feedback.feedback_admin_response))
+                            {
+                                <button class="btn btn-sm btn-primary" onclick='respondToFeedback(@feedback.feedback_id, "@Html.Raw(feedback.feedback_comments?.ToString().Replace("\"", "\\\"") ?? "")")'>
+                                    <i class="fas fa-reply"></i>
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Modals {
+<!-- View Feedback Modal -->
+<div class="modal fade" id="viewFeedbackModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Feedback Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Booking:</strong>
+                        <p id="viewBookingCode"></p>
+                        <p id="viewBookingTitle" class="text-muted"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Room:</strong>
+                        <p id="viewRoomName"></p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>User:</strong>
+                        <p id="viewUserName"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Rating:</strong>
+                        <p id="viewRating"></p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <strong>User Comments:</strong>
+                    <p id="viewComments" class="p-3 bg-light rounded"></p>
+                </div>
+                <div class="mb-3" id="responseSection" style="display:none;">
+                    <strong>Admin Response:</strong>
+                    <p id="viewResponse" class="p-3 bg-success bg-opacity-10 rounded"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Respond to Feedback Modal -->
+<div class="modal fade" id="respondModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Respond to Feedback</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="respondFeedbackId" />
+                <div class="mb-3">
+                    <strong>User Comments:</strong>
+                    <p id="respondComments" class="p-3 bg-light rounded"></p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Your Response *</label>
+                    <textarea class="form-control" id="adminResponse" rows="4" placeholder="Enter your response to the user's feedback" required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitResponse()">Submit Response</button>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            $('#feedbacksTable').DataTable({
+                order: [[6, 'desc']],
+                pageLength: 25
+            });
+        });
+        
+        function viewFeedback(id, bookingCode, bookingTitle, roomName, userName, rating, comments, response) {
+            $('#viewBookingCode').text(bookingCode);
+            $('#viewBookingTitle').text(bookingTitle);
+            $('#viewRoomName').text(roomName);
+            $('#viewUserName').text(userName);
+            
+            let ratingHtml = '';
+            for (let i = 1; i <= 5; i++) {
+                if (i <= rating) {
+                    ratingHtml += '<i class="fas fa-star text-warning"></i> ';
+                } else {
+                    ratingHtml += '<i class="far fa-star text-warning"></i> ';
+                }
+            }
+            ratingHtml += `<span class="ms-2">${rating} / 5</span>`;
+            $('#viewRating').html(ratingHtml);
+            
+            $('#viewComments').text(comments || 'No comments provided');
+            
+            if (response) {
+                $('#viewResponse').text(response);
+                $('#responseSection').show();
+            } else {
+                $('#responseSection').hide();
+            }
+            
+            $('#viewFeedbackModal').modal('show');
+        }
+        
+        function respondToFeedback(feedbackId, comments) {
+            $('#respondFeedbackId').val(feedbackId);
+            $('#respondComments').text(comments || 'No comments provided');
+            $('#adminResponse').val('');
+            $('#respondModal').modal('show');
+        }
+        
+        function submitResponse() {
+            const feedbackId = $('#respondFeedbackId').val();
+            const response = $('#adminResponse').val().trim();
+            
+            if (!response) {
+                Swal.fire('Error', 'Please enter a response', 'error');
+                return;
+            }
+            
+            $.ajax({
+                url: '@Url.Action("RespondToFeedback", "Admin")',
+                type: 'POST',
+                data: {
+                    feedbackId: feedbackId,
+                    response: response
+                },
+                success: function(result) {
+                    if (result.success) {
+                        $('#respondModal').modal('hide');
+                        Swal.fire('Success', result.message, 'success').then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error', result.message, 'error');
+                    }
+                }
+            });
+        }
+    </script>
+}
