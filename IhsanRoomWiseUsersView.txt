@@ -1,4 +1,4 @@
-﻿@model List<IhsanRoomWise.Models.User>
+@model List<IhsanRoomWise.Models.User>
 
 @{
     ViewData["Title"] = "Users Management";

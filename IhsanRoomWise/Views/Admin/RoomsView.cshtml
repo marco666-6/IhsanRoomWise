@@ -1,0 +1,1306 @@
+﻿@model List<dynamic>
+
+@{
+    ViewData["Title"] = "Rooms Management";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Rooms Management</h1>
+        <p class="page-description">Manage meeting rooms and their facilities</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-success" onclick="window.location.href='@Url.Action("ExportRooms", "Admin")'">
+            <i class="fas fa-file-excel me-2"></i> Export
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createRoomModal">
+            <i class="fas fa-plus me-2"></i> Add Room
+        </button>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-primary">
+                <i class="fas fa-door-open"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count</div>
+                <div class="stat-label-sm">Total Rooms</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count(r => r.room_status == "Available")</div>
+                <div class="stat-label-sm">Available</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-warning">
+                <i class="fas fa-tools"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count(r => r.room_status == "Maintenance")</div>
+                <div class="stat-label-sm">Maintenance</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-info">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@(Model.Any() ? Model.Average(r => (int)r.room_capacity).ToString("0.####") : 0)</div>
+                <div class="stat-label-sm">Avg Capacity</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="filter-section d-flex justify-content-center align-items-center">
+    <div class="filter-group d-flex justify-content-start align-items-center gap-3">
+        <div class="d-flex flex-column">
+            <label>Location</label>
+            <select class="filter-select" id="filterLocation" style="min-width:200px !important;">
+                <option value="">All Locations</option>
+                @foreach (var loc in ViewBag.Locations)
+                {
+                    <option value="@loc.location_id">@loc.location_plant_name - Block @loc.location_block, Floor @loc.location_floor</option>
+                }
+            </select>
+        </div>
+        <div class="d-flex flex-column">
+            <label>Status</label>
+            <select class="filter-select" id="filterStatus" style="min-width:200px !important;">
+                <option value="">All Status</option>
+                <option value="Available">Available</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="OutOfService">Out of Service</option>
+            </select>
+        </div>
+        <div class="d-flex flex-column">
+            <label>Capacity</label>
+            <select class="filter-select" id="filterCapacity" style="min-width:200px !important;">
+                <option value="">Any Capacity</option>
+                <option value="1-10">1-10 people</option>
+                <option value="11-20">11-20 people</option>
+                <option value="21-50">21-50 people</option>
+                <option value="51+">51+ people</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="filter-actions">
+        <button class="btn-primary" onclick="resetFilters()">
+            <i class="fas fa-undo"></i> Reset
+        </button>
+    </div>
+</div>
+
+<!-- Table View -->
+<div class="card" id="tableView">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="roomsTable" class="table table-hover text-nowrap text-center align-middle">
+                <thead>
+                    <tr>
+                        <th><div class="th-content"><i class="fas fa-barcode me-2"></i>Code</div></th>
+                        <th><div class="th-content"><i class="fas fa-door-open me-2"></i>Room Name</div></th>
+                        <th><div class="th-content"><i class="fas fa-map-marker-alt me-2"></i>Location</div></th>
+                        <th><div class="th-content"><i class="fas fa-users me-2"></i>Capacity</div></th>
+                        <th><div class="th-content"><i class="fas fa-cogs me-2"></i>Facilities</div></th>
+                        <th><div class="th-content"><i class="fas fa-circle-dot me-2"></i>Status</div></th>
+                        <th><div class="th-content"><i class="fas fa-toggle-on me-2"></i>Active</div></th>
+                        <th class="text-center"><div class="th-content justify-content-center"><i class="fas fa-tools me-2"></i>Actions</div></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var room in Model)
+                    {
+                        <tr data-location="@room.room_location_id" data-status="@room.room_status" data-capacity="@room.room_capacity">
+                            <td><span class="room-code">@room.room_code</span></td>
+                            <td>
+                                <div class="room-name-cell">
+                                    <div class="room-icon-sm">
+                                        <i class="fas fa-door-open"></i>
+                                    </div>
+                                    <span class="fw-semibold">@room.room_name</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="location-info">
+                                    <div class="location-name">@room.location_plant_name</div>
+                                    <div class="location-detail">Block @room.location_block, Floor @room.location_floor</div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="capacity-badge">
+                                    <i class="fas fa-users"></i> @room.room_capacity
+                                </span>
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(room.room_facilities))
+                                {
+
+                                    var facilities = ((string)room.room_facilities)
+                                        .Split(',')
+                                        .Select(f => f.Trim())
+                                        .ToList();
+                                    
+                                    <div class="facilities-list">
+                                        @foreach (var facility in facilities.Take(4))
+                                        {
+                                            <span class="facility-tag">@facility</span>
+                                        }
+
+                                        @if (facilities.Count > 4)
+                                        {
+                                            <span class="facility-more">+@(facilities.Count - 4)</span>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (room.room_status == "Available")
+                                {
+                                    <span class="status-badge status-available">
+                                        <i class="fas fa-circle"></i> Available
+                                    </span>
+                                }
+                                else if (room.room_status == "Maintenance")
+                                {
+                                    <span class="status-badge status-maintenance">
+                                        <i class="fas fa-circle"></i> Maintenance
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="status-badge status-out">
+                                        <i class="fas fa-circle"></i> Out of Service
+                                    </span>
+                                }
+                            </td>
+                            <td>
+                                @if (room.room_is_active)
+                                {
+                                    <span class="status-badge status-active">
+                                        <i class="fas fa-circle"></i> Active
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="status-badge status-inactive">
+                                        <i class="fas fa-circle"></i> Inactive
+                                    </span>
+                                }
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-action btn-action-edit" 
+                                            onclick='editRoom(@room.room_id, "@room.room_name", @room.room_location_id, @room.room_capacity, "@room.room_facilities", "@room.room_status")'
+                                            title="Edit Room">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn-action btn-action-status" 
+                                            onclick='changeRoomStatus(@room.room_id, "@room.room_status")'
+                                            title="Change Status">
+                                        <i class="fas fa-exchange-alt"></i>
+                                    </button>
+                                    <button class="btn-action btn-action-toggle" 
+                                            onclick="toggleRoomStatus(@room.room_id, @room.room_is_active.ToString().ToLower())"
+                                            title="@(room.room_is_active ? "Deactivate" : "Activate")">
+                                        <i class="fas fa-@(room.room_is_active ? "ban" : "check-circle")"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Card View -->
+<div class="rooms-grid" id="cardView" style="display: none;">
+    @foreach (var room in Model)
+    {
+        <div class="room-card-item" data-location="@room.room_location_id" data-status="@room.room_status" data-capacity="@room.room_capacity">
+            <div class="room-card-header">
+                <div class="room-card-title">
+                    <h5>@room.room_name</h5>
+                    <span class="room-code">@room.room_code</span>
+                </div>
+                @if (room.room_status == "Available")
+                {
+                    <span class="status-badge status-available">
+                        <i class="fas fa-circle"></i> Available
+                    </span>
+                }
+                else if (room.room_status == "Maintenance")
+                {
+                    <span class="status-badge status-maintenance">
+                        <i class="fas fa-circle"></i> Maintenance
+                    </span>
+                }
+                else
+                {
+                    <span class="status-badge status-out">
+                        <i class="fas fa-circle"></i> Out of Service
+                    </span>
+                }
+            </div>
+            <div class="room-card-body">
+                <div class="room-card-info">
+                    <div class="info-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <div>
+                            <div class="info-label">Location</div>
+                            <div class="info-value">@room.location_plant_name</div>
+                            <div class="info-sub">Block @room.location_block, Floor @room.location_floor</div>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-users"></i>
+                        <div>
+                            <div class="info-label">Capacity</div>
+                            <div class="info-value">@room.room_capacity people</div>
+                        </div>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(room.room_facilities))
+                {
+                    <div class="room-card-facilities">
+                        <div class="facilities-label">Facilities:</div>
+                        <div class="facilities-tags">
+                            @foreach (var facility in room.room_facilities.ToString().Split(','))
+                            {
+                                <span class="facility-tag">@facility.Trim()</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="room-card-footer">
+                <div class="active-status">
+                    @if (room.room_is_active)
+                    {
+                        <span class="status-badge status-active">
+                            <i class="fas fa-circle"></i> Active
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="status-badge status-inactive">
+                            <i class="fas fa-circle"></i> Inactive
+                        </span>
+                    }
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-action btn-action-edit" 
+                            onclick='editRoom(@room.room_id, "@room.room_name", @room.room_location_id, @room.room_capacity, "@room.room_facilities", "@room.room_status")'
+                            title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-action btn-action-status" 
+                            onclick='changeRoomStatus(@room.room_id, "@room.room_status")'
+                            title="Status">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                    <button class="btn-action btn-action-toggle" 
+                            onclick="toggleRoomStatus(@room.room_id, @room.room_is_active.ToString().ToLower())"
+                            title="Toggle">
+                        <i class="fas fa-@(room.room_is_active ? "ban" : "check-circle")"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Modals {
+<!-- Create Room Modal -->
+<div class="modal fade" id="createRoomModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-header-content">
+                    <div class="modal-icon">
+                        <i class="fas fa-plus"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title">Add New Room</h5>
+                        <p class="modal-subtitle">Create a new meeting room</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createRoomForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Room Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="createCode" placeholder="e.g., RM-001" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Room Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="createName" placeholder="e.g., Conference Room A" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Location <span class="text-danger">*</span></label>
+                            <select class="form-control" id="createLocation" required>
+                                <option value="">Select Location</option>
+                                @foreach (var loc in ViewBag.Locations)
+                                {
+                                    <option value="@loc.location_id">@loc.location_plant_name - Block @loc.location_block, Floor @loc.location_floor</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Capacity <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="createCapacity" min="1" placeholder="Number of people" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status <span class="text-danger">*</span></label>
+                            <select class="form-control" id="createStatus" required>
+                                <option value="Available">Available</option>
+                                <option value="Maintenance">Maintenance</option>
+                                <option value="OutOfService">Out of Service</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Facilities</label>
+                            <input type="text" class="form-control" id="createFacilities" placeholder="e.g., Projector, SmartScreen" />
+                            <small class="text-muted">Separate with commas</small>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-primary" onclick="createRoom()">
+                    <i class="fas fa-check me-2"></i>Create Room
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Room Modal -->
+<div class="modal fade" id="editRoomModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-header-content">
+                    <div class="modal-icon bg-info">
+                        <i class="fas fa-edit"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title">Edit Room</h5>
+                        <p class="modal-subtitle">Update room information</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editRoomForm">
+                    <input type="hidden" id="editRoomId" />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Room Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editName" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Location <span class="text-danger">*</span></label>
+                            <select class="form-control" id="editLocation" required>
+                                @foreach (var loc in ViewBag.Locations)
+                                {
+                                    <option value="@loc.location_id">@loc.location_plant_name - Block @loc.location_block, Floor @loc.location_floor</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Capacity <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="editCapacity" min="1" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status <span class="text-danger">*</span></label>
+                            <select class="form-control" id="editStatus" required>
+                                <option value="Available">Available</option>
+                                <option value="Maintenance">Maintenance</option>
+                                <option value="OutOfService">Out of Service</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Facilities</label>
+                            <input type="text" class="form-control" id="editFacilities" />
+                            <small class="text-muted">Separate with commas</small>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-primary" onclick="updateRoom()">
+                    <i class="fas fa-save me-2"></i>Update Room
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Status Modal -->
+<div class="modal fade" id="changeStatusModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-header-content">
+                    <div class="modal-icon bg-warning">
+                        <i class="fas fa-exchange-alt"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title">Change Room Status</h5>
+                        <p class="modal-subtitle">Update operational status</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="statusRoomId" />
+                <div class="mb-3">
+                    <label class="form-label">New Status <span class="text-danger">*</span></label>
+                    <select class="form-control" id="newStatus" required>
+                        <option value="Available">Available</option>
+                        <option value="Maintenance">Maintenance</option>
+                        <option value="OutOfService">Out of Service</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-primary" onclick="updateRoomOperationalStatus()">
+                    <i class="fas fa-check me-2"></i>Update Status
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+@section Scripts {
+    <script>
+        let roomsTable;
+        let currentView = 'table';
+
+        $(document).ready(function() {
+            initializeDataTable();
+            initializeFilters();
+            initializeViewToggle();
+        });
+
+        function initializeDataTable() {
+            roomsTable = $('#roomsTable').DataTable({
+                responsive: false,
+                scrollX: true,
+                pageLength: 25,
+                order: [[6, 'desc']], // Sort by created date
+                language: {
+                    search: "",
+                    searchPlaceholder: "🔍 Search rooms...",
+                    lengthMenu: "Show _MENU_",
+                    info: "Showing _START_ to _END_ of _TOTAL_ users",
+                    emptyTable: "No users found",
+                    paginate: {
+                        previous: "‹",
+                        next: "›"
+                    }
+                },
+                dom:
+                    "<'row mb-3'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+                    "<'row'<'col-sm-12'tr>>" +
+                    "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+            });
+        }
+
+        function initializeFilters() {
+            $('#filterLocation, #filterStatus, #filterCapacity').on('change', applyFilters);
+        }
+
+        function initializeViewToggle() {
+            $('.view-btn').on('click', function() {
+                const view = $(this).data('view');
+                switchView(view);
+            });
+        }
+
+        function switchView(view) {
+            currentView = view;
+            $('.view-btn').removeClass('active');
+            $(`.view-btn[data-view="${view}"]`).addClass('active');
+
+            if (view === 'table') {
+                $('#tableView').show();
+                $('#cardView').hide();
+            } else {
+                $('#tableView').hide();
+                $('#cardView').show();
+            }
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const location = $('#filterLocation').val();
+            const status = $('#filterStatus').val();
+            const capacity = $('#filterCapacity').val();
+
+            if (currentView === 'table') {
+                roomsTable.rows().every(function() {
+                    const row = $(this.node());
+                    let show = true;
+
+                    if (location && row.data('location') != location) show = false;
+                    if (status && row.data('status') !== status) show = false;
+                    if (capacity) {
+                        const cap = parseInt(row.data('capacity'));
+                        if (capacity === '1-10' && (cap < 1 || cap > 10)) show = false;
+                        if (capacity === '11-20' && (cap < 11 || cap > 20)) show = false;
+                        if (capacity === '21-50' && (cap < 21 || cap > 50)) show = false;
+                        if (capacity === '51+' && cap < 51) show = false;
+                    }
+
+                    if (show) {
+                        row.show();
+                    } else {
+                        row.hide();
+                    }
+                });
+            } else {
+                $('.room-card-item').each(function() {
+                    const card = $(this);
+                    let show = true;
+
+                    if (location && card.data('location') != location) show = false;
+                    if (status && card.data('status') !== status) show = false;
+                    if (capacity) {
+                        const cap = parseInt(card.data('capacity'));
+                        if (capacity === '1-10' && (cap < 1 || cap > 10)) show = false;
+                        if (capacity === '11-20' && (cap < 11 || cap > 20)) show = false;
+                        if (capacity === '21-50' && (cap < 21 || cap > 50)) show = false;
+                        if (capacity === '51+' && cap < 51) show = false;
+                    }
+
+                    card.toggle(show);
+                });
+            }
+        }
+
+        function resetFilters() {
+            $('#filterLocation, #filterStatus, #filterCapacity').val('');
+            if (currentView === 'table') {
+                roomsTable.rows().every(function() {
+                    $(this.node()).show();
+                });
+            } else {
+                $('.room-card-item').show();
+            }
+        }
+
+        function createRoom() {
+            const data = {
+                code: $('#createCode').val().trim(),
+                name: $('#createName').val().trim(),
+                locationId: $('#createLocation').val(),
+                capacity: $('#createCapacity').val(),
+                facilities: $('#createFacilities').val().trim(),
+                status: $('#createStatus').val()
+            };
+            
+            if (!data.code || !data.name || !data.locationId || !data.capacity || !data.status) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Missing Information',
+                    text: 'Please fill in all required fields',
+                    confirmButtonColor: '#7aa22e'
+                });
+                return;
+            }
+            
+            $.ajax({
+                url: '@Url.Action("CreateRoom", "Admin")',
+                type: 'POST',
+                data: data,
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: response.message,
+                            confirmButtonColor: '#7aa22e'
+                        }).then(() => location.reload());
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.message,
+                            confirmButtonColor: '#7aa22e'
+                        });
+                    }
+                }
+            });
+        }
+
+        function editRoom(id, name, locationId, capacity, facilities, status) {
+            $('#editRoomId').val(id);
+            $('#editName').val(name);
+            $('#editLocation').val(locationId);
+            $('#editCapacity').val(capacity);
+            $('#editFacilities').val(facilities || '');
+            $('#editStatus').val(status);
+            
+            const modal = new bootstrap.Modal(document.getElementById('editRoomModal'));
+            modal.show();
+        }
+
+        function updateRoom() {
+            const data = {
+                roomId: $('#editRoomId').val(),
+                name: $('#editName').val().trim(),
+                locationId: $('#editLocation').val(),
+                capacity: $('#editCapacity').val(),
+                facilities: $('#editFacilities').val().trim(),
+                status: $('#editStatus').val()
+            };
+            
+            $.ajax({
+                url: '@Url.Action("UpdateRoom", "Admin")',
+                type: 'POST',
+                data: data,
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: response.message,
+                            confirmButtonColor: '#7aa22e'
+                        }).then(() => location.reload());
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.message,
+                            confirmButtonColor: '#7aa22e'
+                        });
+                    }
+                }
+            });
+        }
+
+        function changeRoomStatus(roomId, currentStatus) {
+            $('#statusRoomId').val(roomId);
+            $('#newStatus').val(currentStatus);
+            
+            const modal = new bootstrap.Modal(document.getElementById('changeStatusModal'));
+            modal.show();
+        }
+
+        function updateRoomOperationalStatus() {
+            const data = {
+                roomId: $('#statusRoomId').val(),
+                status: $('#newStatus').val()
+            };
+            
+            $.ajax({
+                url: '@Url.Action("UpdateRoomOperationalStatus", "Admin")',
+                type: 'POST',
+                data: data,
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: response.message,
+                            confirmButtonColor: '#7aa22e'
+                        }).then(() => location.reload());
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.message,
+                            confirmButtonColor: '#7aa22e'
+                        });
+                    }
+                }
+            });
+        }
+
+        function toggleRoomStatus(roomId, isActive) {
+            const action = isActive ? 'deactivate' : 'activate';
+            Swal.fire({
+                title: 'Confirm Action',
+                text: `Do you want to ${action} this room?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#7aa22e',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: `Yes, ${action}`,
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '@Url.Action("ToggleRoomStatus", "Admin")',
+                        type: 'POST',
+                        data: { roomId: roomId, isActive: !isActive },
+                        success: function(response) {
+                            if (response.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Success!',
+                                    text: response.message,
+                                    confirmButtonColor: '#7aa22e'
+                                }).then(() => location.reload());
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: response.message,
+                                    confirmButtonColor: '#7aa22e'
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        }
+    </script>
+}
+
+@section Styles {
+    <style>
+    /* Page Header Enhancements */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 2rem;
+    }
+
+    .page-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    /* Small Stat Cards */
+    .stat-card-sm {
+        background: var(--white);
+        border-radius: var(--radius-md);
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid rgba(122,162,46,0.08);
+        transition: all 0.2s;
+    }
+
+    .stat-card-sm:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .stat-icon-sm {
+        width: 48px;
+        height: 48px;
+        min-width: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: var(--white);
+    }
+
+    .stat-icon-sm.bg-primary { background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%); }
+    .stat-icon-sm.bg-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .stat-icon-sm.bg-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+    .stat-icon-sm.bg-info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+
+    .stat-details-sm {
+        flex: 1;
+    }
+
+    .stat-value-sm {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--gray-800);
+        line-height: 1;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .stat-label-sm {
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+        margin-top: 0.25rem;
+        font-weight: 500;
+    }
+
+    /* Table Header Enhancements */
+    .th-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8125rem;
+        white-space: nowrap;
+    }
+
+    .th-content i {
+        opacity: 0.6;
+        font-size: 0.875rem;
+    }
+
+    .view-toggle {
+        display: flex;
+        gap: 0.5rem;
+        background: var(--gray-100);
+        padding: 0.25rem;
+        border-radius: 8px;
+    }
+
+    .view-btn {
+        padding: 0.5rem 0.75rem;
+        border: none;
+        background: transparent;
+        color: var(--gray-600);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 1rem;
+    }
+
+    .view-btn:hover {
+        color: var(--primary);
+        background: rgba(122, 162, 46, 0.1);
+    }
+
+    .view-btn.active {
+        background: var(--white);
+        color: var(--primary);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* Room Name Cell */
+    .room-name-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .room-icon-sm {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--white);
+        font-size: 0.875rem;
+    }
+
+    .room-code {
+        font-family: 'Courier New', monospace;
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        background: var(--gray-50);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+
+    /* Location Info */
+    .location-info {
+        line-height: 1.4;
+    }
+
+    .location-name {
+        font-weight: 500;
+        color: var(--gray-800);
+    }
+
+    .location-detail {
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+    }
+
+    /* Capacity Badge */
+    .capacity-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563eb;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    /* Facilities */
+    .facilities-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.375rem;
+    }
+
+    .facility-tag {
+        padding: 0.25rem 0.5rem;
+        background: rgba(122, 162, 46, 0.1);
+        color: var(--primary-dark);
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border: 1px solid rgba(122, 162, 46, 0.2);
+    }
+
+    .facility-more {
+        padding: 0.25rem 0.5rem;
+        background: var(--gray-100);
+        color: var(--gray-600);
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    /* Card View */
+    .rooms-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.25rem;
+    }
+
+    .room-card-item {
+        background: var(--white);
+        border-radius: var(--radius-lg);
+        padding: 1.25rem;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--gray-200);
+        transition: all 0.2s;
+    }
+
+    .room-card-item:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-md);
+        border-color: rgba(122, 162, 46, 0.3);
+    }
+
+    .room-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--gray-200);
+    }
+
+    .room-card-title h5 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--gray-800);
+        margin: 0 0 0.25rem 0;
+    }
+
+    .room-card-body {
+        margin-bottom: 1rem;
+    }
+
+    .room-card-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .info-item {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .info-item i {
+        width: 20px;
+        color: var(--primary);
+        font-size: 1rem;
+        margin-top: 0.125rem;
+    }
+
+    .info-label {
+        font-size: 0.75rem;
+        color: var(--gray-600);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+    }
+
+    .info-value {
+        font-size: 0.9375rem;
+        color: var(--gray-800);
+        font-weight: 600;
+    }
+
+    .info-sub {
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+    }
+
+    .room-card-facilities {
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--gray-200);
+    }
+
+    .facilities-label {
+        font-size: 0.75rem;
+        color: var(--gray-600);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+    }
+
+    .facilities-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.375rem;
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .status-badge i {
+        font-size: 0.5rem;
+    }
+
+    .status-available {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status-available i {
+        color: #059669;
+        animation: pulse 2s infinite;
+    }
+
+    .status-maintenance {
+        background: rgba(245, 158, 11, 0.1);
+        color: #d97706;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .status-out {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .status-active {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status-active i {
+        animation: pulse 2s infinite;
+    }
+
+    .status-inactive {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+        border: 1px solid rgba(107, 114, 128, 0.2);
+    }
+
+    .room-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gray-200);
+    }
+
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.875rem;
+    }
+
+    .btn-action-edit {
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563eb;
+    }
+
+    .btn-action-edit:hover {
+        background: rgba(59, 130, 246, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-action-toggle {
+        background: rgba(245, 158, 11, 0.1);
+        color: #d97706;
+    }
+
+    .btn-action-toggle:hover {
+        background: rgba(245, 158, 11, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-action-key {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+    }
+
+    .btn-action-key:hover {
+        background: rgba(107, 114, 128, 0.2);
+        transform: translateY(-2px);
+    }
+
+    @@keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    /* Modal Enhancements */
+    .modal-header-content {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .modal-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--white);
+        font-size: 1.25rem;
+    }
+
+    .modal-icon.bg-info {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+
+    .modal-subtitle {
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+        margin: 0.25rem 0 0 0;
+    }
+
+    .form-label {
+        font-weight: 500;
+        font-size: 0.8125rem;
+        color: var(--gray-700);
+        margin-bottom: 0.25rem;
+    }
+
+    /* Form Controls */
+    .form-control,
+    .form-select {
+        font-size: 0.875rem;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--gray-300);
+        transition: all 0.2s ease;
+    }
+
+    .form-control::placeholder {
+        color: var(--gray-400);
+        font-size: 0.8125rem;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 0.2rem rgba(122, 162, 46, 0.15);
+    }
+
+    /* Modal Footer Buttons */
+    .modal-footer {
+        border-top: 1px solid var(--gray-200);
+        padding-top: 1rem;
+    }
+
+    .modal-footer .btn {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+    }
+
+    /* Table Row Hover */
+    .table-hover tbody tr:hover {
+        background-color: rgba(122, 162, 46, 0.04);
+    }
+
+    /* Responsive Tweaks */
+    @@media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .page-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .stat-card-sm {
+            padding: 1rem;
+        }
+
+        .stat-value-sm {
+            font-size: 1.5rem;
+        }
+
+        .action-buttons {
+            gap: 0.25rem;
+        }
+    }
+    </style>
+}

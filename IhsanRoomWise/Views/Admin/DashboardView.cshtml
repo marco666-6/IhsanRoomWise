@@ -5,7 +5,32 @@
 
 <div class="page-header">
     <h1 class="page-title">Admin Dashboard</h1>
-    <p class="page-description">Overview of system statistics and activities</p>
+    <p class="page-description">Real-time system overview and analytics</p>
+</div>
+
+<!-- Quick Actions Bar -->
+<div class="row g-3 mb-4">
+    <div class="col-auto">
+        <a asp-action="BookingsView" class="btn btn-primary">
+            <i class="fas fa-calendar-plus"></i> Manage Bookings
+        </a>
+    </div>
+    <div class="col-auto">
+        <a asp-action="RoomsView" class="btn btn-success">
+            <i class="fas fa-door-open"></i> Manage Rooms
+        </a>
+    </div>
+    <div class="col-auto">
+        <a asp-action="UsersView" class="btn btn-info">
+            <i class="fas fa-users"></i> Manage Users
+        </a>
+    </div>
+    
+    <div class="col-auto ms-auto">
+        <button class="btn btn-sm btn-primary" onclick="refreshRoomStatus()">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
 </div>
 
 <!-- Statistics Cards -->
@@ -18,6 +43,7 @@
             <div class="stat-details">
                 <h3 class="stat-value">@ViewBag.TotalUsers</h3>
                 <p class="stat-label">Total Users</p>
+                <small class="text-muted">@ViewBag.ActiveUsers active</small>
             </div>
         </div>
     </div>
@@ -30,6 +56,7 @@
             <div class="stat-details">
                 <h3 class="stat-value">@ViewBag.TotalRooms</h3>
                 <p class="stat-label">Total Rooms</p>
+                <small class="text-muted">@ViewBag.AvailableRooms available now</small>
             </div>
         </div>
     </div>
@@ -42,6 +69,7 @@
             <div class="stat-details">
                 <h3 class="stat-value">@ViewBag.TotalBookingsToday</h3>
                 <p class="stat-label">Today's Bookings</p>
+                <small class="text-muted">@ViewBag.ActiveBookingsNow in progress</small>
             </div>
         </div>
     </div>
@@ -54,39 +82,318 @@
             <div class="stat-details">
                 <h3 class="stat-value">@ViewBag.PendingBookings</h3>
                 <p class="stat-label">Pending Approvals</p>
+                <small class="text-muted">Action required</small>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Room Status Cards -->
-<div class="row g-4 mb-4">
-    <div class="col-md-6">
-        <div class="stat-card">
-            <div class="stat-icon bg-success">
-                <i class="fas fa-check-circle"></i>
+<!-- Real-Time Room Status -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-broadcast-tower text-danger me-2"></i>
+            Real-Time Room Status
+        </h5>
+        <div class="filter-group d-flex justify-content-end align-items-center gap-3">
+            <div class="d-flex flex-column">
+                <small class="text-muted">Plant</small>
+                <select id="plantFilter" class="filter-select">
+                    <option value="">All Plants</option>
+                </select>
             </div>
-            <div class="stat-details">
-                <h3 class="stat-value">@ViewBag.AvailableRooms</h3>
-                <p class="stat-label">Available Rooms</p>
+
+            <div class="d-flex flex-column">
+                <small class="text-muted">Block</small>
+                <select id="blockFilter" class="filter-select" disabled>
+                    <option value="">All Blocks</option>
+                </select>
+            </div>
+
+            <div class="d-flex flex-column">
+                <small class="text-muted">Floor</small>
+                <select id="floorFilter" class="filter-select" disabled>
+                    <option value="">All Floors</option>
+                </select>
             </div>
         </div>
     </div>
-    
-    <div class="col-md-6">
-        <div class="stat-card">
-            <div class="stat-icon bg-danger">
-                <i class="fas fa-tools"></i>
+    <div class="card-body">
+        <div class="row g-3" id="roomStatusContainer">
+            @if (ViewBag.RoomStatusList != null)
+            {
+                @foreach (var room in ViewBag.RoomStatusList)
+                {
+                    var statusClass = "border-success";
+                    var statusIcon = "check-circle";
+                    var statusText = "Available";
+                    var statusBadge = "success";
+                    var cardBg = "";
+                    
+                    if (room.current_booking_id != null)
+                    {
+                        statusClass = "border-danger";
+                        statusIcon = "user-clock";
+                        statusText = "In Use";
+                        statusBadge = "danger";
+                        cardBg = "bg-danger bg-opacity-10";
+                    }
+                    else if (room.room_status == "Maintenance")
+                    {
+                        statusClass = "border-warning";
+                        statusIcon = "tools";
+                        statusText = "Maintenance";
+                        statusBadge = "warning";
+                        cardBg = "bg-warning bg-opacity-10";
+                    }
+                    else if (room.next_booking_start != null)
+                    {
+                        statusClass = "border-info";
+                        statusIcon = "clock";
+                        statusText = "Reserved At Below Time";
+                        statusBadge = "info";
+                    }
+                    
+                    <div class="col-md-4 col-lg-4 room-card-item" 
+                        data-plant="@room.location_plant_name"
+                        data-block="@room.location_block"
+                        data-floor="@room.location_floor">
+                        <div class="card border-start border-4 @statusClass @cardBg h-100 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div class="d-flex flex-column">
+                                        <h6 class="mb-1 fw-bold">@room.room_name</h6>
+                                        <small class="text-muted">@room.room_code</small>
+                                        <span class="badge bg-@statusBadge px-2 py-1">
+                                        <i class="fas fa-@statusIcon me-1"></i>@statusText
+                                    </span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="d-flex flex-column align-items-center my-3">
+                                        <div>
+                                            <i class="fas fa-map-marker-alt text-muted me-1 mb-1" style="width: 14px;"></i> <small>Location</small>
+                                        </div>
+                                        <small class="text-muted">@room.location_plant_name - Block @room.location_block, Floor @room.location_floor</small>
+                                    </div>
+                                    <div class="d-flex flex-column align-items-center mb-5">
+                                        <div>
+                                            <i class="fas fa-users text-muted me-1 mb-1" style="width: 14px;"></i> <small>Capacity</small>
+                                        </div>
+                                        <small class="text-muted"><strong>@room.room_capacity people</strong></small>
+                                    </div>
+                                </div>
+                                
+                                @if (room.current_booking_id != null)
+                                {
+                                    <div class="border-start border-danger border-3 ps-3 py-2 mb-2">
+                                        <div class="d-flex align-items-center mb-1">
+                                            <i class="fas fa-clock text-danger me-2"></i>
+                                            <strong class="text-danger">Until @room.current_booking_end</strong>
+                                        </div>
+                                        <small class="text-muted d-block mb-1">
+                                            <i class="fas fa-user me-1"></i>@room.current_user_name
+                                        </small>
+                                        <small class="text-muted fst-italic">@room.current_booking_title</small>
+                                    </div>
+                                }
+                                else if (room.next_booking_start != null)
+                                {
+                                    <div class="border-start border-info border-3 ps-3 py-2 mb-2">
+                                        <div class="d-flex align-items-center mb-1">
+                                            <i class="fas fa-clock text-info me-2"></i>
+                                            <strong class="text-info">Next: @room.next_booking_start</strong>
+                                        </div>
+                                        <small class="text-muted">
+                                            <i class="fas fa-user me-1"></i>@room.next_user_name
+                                        </small>
+                                    </div>
+                                }
+                                else if (room.room_status == "Available")
+                                {
+                                    <div class="border-start border-success border-3 ps-3 py-2 mb-2">
+                                        <div class="d-flex align-items-center text-success">
+                                            <i class="fas fa-check-circle me-2"></i>
+                                            <strong>Free all day</strong>
+                                        </div>
+                                    </div>
+                                }
+                                else if (room.room_status == "Maintenance")
+                                {
+                                    <div class="border-start border-warning border-3 ps-3 py-2 mb-2">
+                                        <div class="d-flex align-items-center text-warning">
+                                            <i class="fas fa-check-circle me-2"></i>
+                                            <strong>Yep.. under maintenance</strong>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Today's Schedule Timeline -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-calendar-day"></i> Today's Schedule
+        </h5>
+        <div class="filter-group d-flex justify-content-end align-items-center gap-3">
+            <div class="d-flex flex-column">
+                <small class="text-muted">Room</small>
+                <select id="roomFilterSchedule" class="filter-select" style="min-width:300px !important;">
+                    <option value="">All Rooms</option>
+                    @if (ViewBag.AllRooms != null)
+                    {
+                        @foreach (var room in ViewBag.AllRooms)
+                        {
+                            <option value="@room.room_id">@room.room_name</option>
+                        }
+                    }
+                </select>
             </div>
-            <div class="stat-details">
-                <h3 class="stat-value">@ViewBag.MaintenanceRooms</h3>
-                <p class="stat-label">Under Maintenance</p>
+            <div class="d-flex flex-column">
+                <small class="text-muted">Status</small>
+                <select id="statusFilterSchedule" class="filter-select">
+                    <option value="">All Status</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="InProgress">In Progress</option>
+                </select>
             </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover text-nowrap text-center" id="scheduleTable">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Room</th>
+                        <th>Title</th>
+                        <th>Organizer</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (ViewBag.TodaySchedule != null && ViewBag.TodaySchedule.Count > 0)
+                    {
+                        @foreach (var booking in ViewBag.TodaySchedule)
+                        {
+                            var rowClass = "";
+                            if (booking.is_current) rowClass = "table-danger";
+                            else if (booking.booking_status == "Pending") rowClass = "table-warning";
+                            
+                            <tr class="@rowClass schedule-row" 
+                                data-room="@booking.booking_room_id" 
+                                data-status="@booking.booking_status">
+                                <td>
+                                    <strong>@booking.booking_start_time - @booking.booking_end_time</strong>
+                                    @if (booking.is_current)
+                                    {
+                                        <br><span class="badge bg-danger">NOW</span>
+                                    }
+                                </td>
+                                <td>
+                                    <strong>@booking.room_name</strong><br>
+                                    <small class="text-muted">@booking.location_info</small>
+                                </td>
+                                <td>
+                                    <strong>@booking.booking_title</strong>
+                                    @if (!string.IsNullOrEmpty(booking.booking_description))
+                                    {
+                                        <br><small class="text-muted">@booking.booking_description</small>
+                                    }
+                                </td>
+                                <td>@booking.user_full_name</td>
+                                <td>
+                                    @if (booking.booking_status == "Pending")
+                                    {
+                                        <span class="badge bg-warning">Pending</span>
+                                    }
+                                    else if (booking.booking_status == "Confirmed")
+                                    {
+                                        <span class="badge bg-success">Confirmed</span>
+                                    }
+                                    else if (booking.booking_status == "InProgress")
+                                    {
+                                        <span class="badge bg-primary">In Progress</span>
+                                    }
+                                    else if (booking.booking_status == "Cancelled")
+                                    {
+                                        <span class="badge bg-danger">Cancelled</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">@booking.booking_status</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (booking.booking_status == "Pending")
+                                    {
+                                        <button class="btn btn-sm btn-success" 
+                                                onclick="quickApprove(@booking.booking_id)">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" 
+                                                onclick="quickReject(@booking.booking_id)">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    }
+                                    <a asp-action="BookingDetails" asp-route-id="@booking.booking_id" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-4">
+                                <i class="fas fa-calendar-times fa-2x text-muted mb-2"></i>
+                                <p class="text-muted mb-0">No bookings scheduled for today</p>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
 <!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Booking Trends (Last 7 Days)</h5>
+            </div>
+            <div class="card-body">
+                <div id="bookingTrendsChart"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Room Utilization Rate</h5>
+            </div>
+            <div class="card-body">
+                <div id="utilizationChart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4 mb-4">
     <div class="col-md-6">
         <div class="card">
@@ -102,119 +409,381 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title mb-0">Top Booked Rooms</h5>
+                <h5 class="card-title mb-0">Peak Booking Hours</h5>
             </div>
             <div class="card-body">
-                <div id="topRoomsChart"></div>
+                <div id="peakHoursChart"></div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Recent Bookings -->
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Recent Bookings</h5>
-        <a asp-action="BookingsView" class="btn btn-sm btn-primary">View All</a>
+<!-- Upcoming Week Overview -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-calendar-week"></i> Upcoming Week Overview
+        </h5>
     </div>
     <div class="card-body">
-        @if (ViewBag.RecentBookings != null && ViewBag.RecentBookings.Count > 0)
-        {
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Title</th>
-                            <th>Room</th>
-                            <th>User</th>
-                            <th>Date</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var booking in ViewBag.RecentBookings)
+        <div class="row g-3">
+            @if (ViewBag.WeekOverview != null)
+            {
+                @foreach (var day in ViewBag.WeekOverview)
+                {
+                    var isToday = day.is_today;
+                    var cardClass = isToday ? "border-primary" : "";
+                    
+                    <div class="col-md-4 col-lg">
+                        <div class="card @cardClass h-100">
+                            <div class="card-body text-center">
+                                @if (isToday)
+                                {
+                                    <span class="badge bg-primary mb-2">Today</span>
+                                }
+                                <h6 class="mb-1">@day.day_name</h6>
+                                <small class="text-muted d-block mb-2">@day.date_str</small>
+                                <h4 class="mb-0 text-primary">@day.booking_count</h4>
+                                <small class="text-muted">bookings</small>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Pending Actions & Alerts -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-warning text-dark" style="border-radius:10px;">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> Pending Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                @if (ViewBag.PendingActions != null && ViewBag.PendingActions.Count > 0)
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var action in ViewBag.PendingActions)
                         {
-                            <tr>
-                                <td>@booking.booking_title</td>
-                                <td>@booking.room_name</td>
-                                <td>@booking.user_full_name</td>
-                                <td>@booking.booking_date.ToString("MMM dd, yyyy")</td>
-                                <td>
-                                    @if (booking.booking_status == "Pending")
-                                    {
-                                        <span class="badge bg-warning">Pending</span>
-                                    }
-                                    else if (booking.booking_status == "Confirmed")
-                                    {
-                                        <span class="badge bg-success">Confirmed</span>
-                                    }
-                                    else if (booking.booking_status == "Cancelled")
-                                    {
-                                        <span class="badge bg-danger">Cancelled</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary">@booking.booking_status</span>
-                                    }
-                                </td>
-                            </tr>
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong>@action.booking_title</strong><br>
+                                        <small class="text-muted">
+                                            @action.user_full_name - @action.booking_date_str @action.time_range
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-sm btn-success" 
+                                                onclick="quickApprove(@action.booking_id)">
+                                            Approve
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         }
-                    </tbody>
-                </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">No pending approvals</p>
+                }
             </div>
-        }
-        else
-        {
-            <div class="text-center py-4">
-                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                <p class="text-muted">No recent bookings</p>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white" style="border-radius:10px;">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-star"></i> Top Users (This Month)
+                </h5>
             </div>
-        }
+            <div class="card-body">
+                @if (ViewBag.TopUsers != null && ViewBag.TopUsers.Count > 0)
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var user in ViewBag.TopUsers)
+                        {
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>@user.user_full_name</strong><br>
+                                    <small class="text-muted">@user.user_dept_name</small>
+                                </div>
+                                <span class="badge bg-primary rounded-pill">@user.booking_count bookings</span>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">No data available</p>
+                }
+            </div>
+        </div>
     </div>
 </div>
 
 @section Scripts {
     <script>
-        $(document).ready(function () {
+        // Rela-time room status filter
+        const rooms = $('.room-card-item');
 
-            const hasStatusData = @(ViewBag.BookingsByStatus != null ? "true" : "false");
-            const hasRoomsData  = @(ViewBag.TopRooms != null ? "true" : "false");
-
-            if (hasStatusData) {
-                const statusData = @Html.Raw(
-                                    Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.BookingsByStatus ?? new { })
-                            );
-
-            Highcharts.chart('bookingsStatusChart', {
-                chart: { type: 'pie' },
-                title: { text: null },
-                series: [{
-                    data: Object.keys(statusData).map(k => ({
-                        name: k,
-                        y: statusData[k]
-                    }))
-                }]
+        function populateSelect($select, values) {
+            $select.find('option:not(:first)').remove();
+            [...new Set(values)].sort().forEach(v => {
+                $select.append(`<option value="${v}">${v}</option>`);
             });
         }
 
-            if (hasRoomsData) {
-                const roomsData = @Html.Raw(
-                                Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.TopRooms ?? new object[] { })
-                        );
+        const plants = rooms
+            .map((_, el) => $(el).data('plant'))
+            .get();
 
-            Highcharts.chart('topRoomsChart', {
-                chart: { type: 'bar' },
-                title: { text: null },
-                xAxis: {
-                    categories: roomsData.map(r => r.room_name)
+            populateSelect($('#plantFilter'), plants);
+
+        /* ===========================
+        SET DEFAULT RANDOM PLANT
+        =========================== */
+
+        // Plant change
+        $('#plantFilter').on('change', function () {
+            const plant = $(this).val();
+
+            if (!plant) {
+                rooms.show();
+                // RESET block & floor setiap plant berubah
+                $('#blockFilter')
+                    .val('')
+                    .prop('disabled', true)
+                    .empty()
+                    
+                $('#floorFilter')
+                    .val('')
+                    .prop('disabled', true)
+                    .empty()
+                    
+                return;
+            }
+
+            const blocks = rooms
+                .filter(`[data-plant="${plant}"]`)
+                .map((_, el) => $(el).data('block'))
+                .get();
+
+            populateSelect($('#blockFilter'), blocks);
+            $('#blockFilter').prop('disabled', false);
+            $('#floorFilter').prop('disabled', true);
+
+            rooms.hide().filter(`[data-plant="${plant}"]`).show();
+        });
+
+        if (plants.length) {
+            const randomPlant = plants[Math.floor(Math.random() * plants.length)];
+            $('#plantFilter').val(randomPlant).trigger('change');
+        }
+
+        // Block change
+        $('#blockFilter').on('change', function () {
+            const plant = $('#plantFilter').val();
+            const block = $(this).val();
+
+            const floors = rooms
+                .filter(`[data-plant="${plant}"][data-block="${block}"]`)
+                .map((_, el) => $(el).data('floor'))
+                .get();
+
+            populateSelect($('#floorFilter'), floors);
+            $('#floorFilter').prop('disabled', false);
+
+            rooms.hide()
+                .filter(`[data-plant="${plant}"][data-block="${block}"]`)
+                .show();
+        });
+
+        // Floor change
+        $('#floorFilter').on('change', function () {
+            const plant = $('#plantFilter').val();
+            const block = $('#blockFilter').val();
+            const floor = $(this).val();
+
+            rooms.hide()
+                .filter(`[data-plant="${plant}"][data-block="${block}"][data-floor="${floor}"]`)
+                .show();
+        });
+
+        // Schedule filters
+        $('#roomFilterSchedule, #statusFilterSchedule').on('change', function() {
+            const room = $('#roomFilterSchedule').val();
+            const status = $('#statusFilterSchedule').val();
+            
+            $('.schedule-row').each(function() {
+                const $row = $(this);
+                let show = true;
+                
+                if (room && $row.data('room') != room) show = false;
+                if (status && $row.data('status') != status) show = false;
+                
+                $row.toggle(show);
+            });
+        });
+
+        // Quick approve/reject
+        function quickApprove(bookingId) {
+            if (confirm('Approve this booking?')) {
+                $.post('@Url.Action("QApproveBooking", "Admin")', { id: bookingId }, function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        alert(response.message || 'Failed to approve booking');
+                    }
+                });
+            }
+        }
+
+        function quickReject(bookingId) {
+            const reason = prompt('Enter rejection reason:');
+            if (reason) {
+                $.post('@Url.Action("QRejectBooking", "Admin")', { id: bookingId, reason: reason }, function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        alert(response.message || 'Failed to reject booking');
+                    }
+                });
+            }
+        }
+
+        function refreshRoomStatus() {
+            location.reload();
+        }
+
+        function initializeDataTable() {
+            Table1 = $('#scheduleTable').DataTable({
+                responsive: false, // IMPORTANT: disable responsive to allow horizontal scroll
+                scrollX: true,
+                pageLength: 25,
+                language: {
+                    search: "",
+                    searchPlaceholder: "🔍 Search users...",
+                    lengthMenu: "Show _MENU_ users",
+                    info: "Showing _START_ to _END_ of _TOTAL_ users",
+                    emptyTable: "No users found",
+                    paginate: {
+                        previous: "«",
+                        next: "»"
+                    }
                 },
-                series: [{
-                    data: roomsData.map(r => r.booking_count)
-                }]
+                dom:
+                    "<'row mb-2'<'col-md-6'l><'col-md-6 text-end'f>>" +
+                    "<'row'<'col-12'tr>>" +
+                    "<'row mt-2'<'col-md-6'i><'col-md-6 text-end'p>>",
             });
         }
 
+        // Charts
+        $(document).ready(function () {
+            initializeDataTable();
+            // Booking Trends
+            const hasTrendsData = @(ViewBag.BookingTrends != null ? "true" : "false");
+            if (hasTrendsData) {
+                const trendsData = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.BookingTrends ?? new object[] { }));
+                
+                Highcharts.chart('bookingTrendsChart', {
+                    chart: { type: 'line' },
+                    title: { text: null },
+                    xAxis: { categories: trendsData.map(d => d.date_str) },
+                    yAxis: { title: { text: 'Bookings' }, allowDecimals: false },
+                    series: [{ 
+                        name: 'Bookings',
+                        data: trendsData.map(d => d.count),
+                        color: '#0d6efd'
+                    }],
+                    legend: { enabled: false }
+                });
+            }
+
+            // Utilization Rate
+            const hasUtilData = @(ViewBag.RoomUtilization != null ? "true" : "false");
+            if (hasUtilData) {
+                const utilData = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.RoomUtilization ?? new object[] { }));
+                
+                Highcharts.chart('utilizationChart', {
+                    chart: { type: 'bar' },
+                    title: { text: null },
+                    xAxis: { categories: utilData.map(r => r.room_name) },
+                    yAxis: { 
+                        title: { text: 'Utilization %' },
+                        max: 100
+                    },
+                    series: [{ 
+                        name: 'Utilization',
+                        data: utilData.map(r => parseFloat(r.utilization_rate)),
+                        colorByPoint: true
+                    }],
+                    legend: { enabled: false },
+                    plotOptions: {
+                        bar: {
+                            dataLabels: {
+                                enabled: true,
+                                format: '{y}%'
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Bookings by Status
+            const hasStatusData = @(ViewBag.BookingsByStatus != null ? "true" : "false");
+            if (hasStatusData) {
+                const statusData = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.BookingsByStatus ?? new { }));
+                
+                Highcharts.chart('bookingsStatusChart', {
+                    chart: { type: 'pie' },
+                    title: { text: null },
+                    series: [{
+                        name: 'Bookings',
+                        data: Object.keys(statusData).map(k => ({
+                            name: k,
+                            y: statusData[k]
+                        }))
+                    }],
+                    plotOptions: {
+                        pie: {
+                            dataLabels: {
+                                enabled: true,
+                                format: '{point.name}: {point.y}'
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Peak Hours
+            const hasPeakData = @(ViewBag.PeakHours != null ? "true" : "false");
+            if (hasPeakData) {
+                const peakData = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.PeakHours ?? new object[] { }));
+                
+                Highcharts.chart('peakHoursChart', {
+                    chart: { type: 'column' },
+                    title: { text: null },
+                    xAxis: { categories: peakData.map(h => h.hour_str) },
+                    yAxis: { 
+                        title: { text: 'Bookings' },
+                        allowDecimals: false
+                    },
+                    series: [{ 
+                        name: 'Bookings',
+                        data: peakData.map(h => h.booking_count),
+                        color: '#198754'
+                    }],
+                    legend: { enabled: false }
+                });
+            }
         });
     </script>
-
 }

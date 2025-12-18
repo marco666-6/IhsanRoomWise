@@ -1,0 +1,54 @@
+﻿@model List<dynamic>
+
+@{
+    ViewData["Title"] = "Activity Logs";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Activity Logs</h1>
+        <p class="page-description">System-wide activity monitoring</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table id="logsTable" class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>User</th>
+                    <th>Employee ID</th>
+                    <th>Action</th>
+                    <th>Description</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in Model)
+                {
+                    <tr>
+                        <td>@log.log_id</td>
+                        <td>@log.user_full_name</td>
+                        <td>@log.user_employee_id</td>
+                        <td><span class="badge bg-primary">@log.log_action</span></td>
+                        <td>@log.log_description</td>
+                        <td>@log.log_created_at.ToString("MMM dd, yyyy HH:mm:ss")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            $('#logsTable').DataTable({
+                order: [[5, 'desc']],
+                pageLength: 50
+            });
+        });
+    </script>
+}

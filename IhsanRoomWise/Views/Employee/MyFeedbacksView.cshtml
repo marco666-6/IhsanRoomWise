@@ -1,0 +1,366 @@
+﻿@model List<dynamic>
+
+@{
+    ViewData["Title"] = "My Feedbacks";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">My Feedbacks</h1>
+        <p class="page-description">View your feedback history and submit new feedback</p>
+    </div>
+</div>
+
+<!-- Bookings Without Feedback -->
+@if (ViewBag.BookingsWithoutFeedback != null && ViewBag.BookingsWithoutFeedback.Count > 0)
+{
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-star me-2"></i> Pending Feedback
+            </h5>
+        </div>
+        <div class="card-body">
+            <p class="mb-3">You have completed bookings that need your feedback:</p>
+            <div class="list-group">
+                @foreach (var booking in ViewBag.BookingsWithoutFeedback)
+                {
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">@booking.booking_title</h6>
+                                <small class="text-muted">
+                                    @booking.room_name | @booking.booking_date.ToString("MMM dd, yyyy")
+                                </small>
+                            </div>
+                            <button class="btn btn-primary btn-sm" onclick="openFeedbackModal(@booking.booking_id, '@booking.booking_code', '@booking.booking_title', '@booking.room_name')">
+                                <i class="fas fa-comment-dots me-2"></i> Give Feedback
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<!-- My Feedbacks -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">My Feedback History</h5>
+    </div>
+    <div class="card-body">
+        @if (Model != null && Model.Count > 0)
+        {
+            <div class="table-responsive">
+                <table id="feedbacksTable" class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Booking</th>
+                            <th>Room</th>
+                            <th>Date</th>
+                            <th>Rating</th>
+                            <th>Comments</th>
+                            <th>Admin Response</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var feedback in Model)
+                        {
+                            <tr>
+                                <td>
+                                    @feedback.booking_code<br />
+                                    <small class="text-muted">@feedback.booking_title</small>
+                                </td>
+                                <td>@feedback.room_name</td>
+                                <td>@(feedback.booking_date != null ? ((DateTime)feedback.booking_date).ToString("MMM dd, yyyy") : "N/A")</td>
+                                <td>
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        if (i <= feedback.feedback_rating)
+                                        {
+                                            <i class="fas fa-star text-warning"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="far fa-star text-warning"></i>
+                                        }
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(feedback.feedback_comments))
+                                    {
+                                        <span>@(feedback.feedback_comments.Length > 30 ? feedback.feedback_comments.Substring(0, 30) + "..." : feedback.feedback_comments)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No comments</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(feedback.feedback_admin_response))
+                                    {
+                                        <span class="badge bg-success">Responded</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">No response yet</span>
+                                    }
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-info" onclick='viewFeedbackDetail(@feedback.feedback_id, "@feedback.booking_code", "@feedback.booking_title", "@feedback.room_name", @feedback.feedback_rating, "@Html.Raw(feedback.feedback_comments?.ToString().Replace("\"", "\\\"") ?? "")", "@Html.Raw(feedback.feedback_admin_response?.ToString().Replace("\"", "\\\"") ?? "")", "@feedback.feedback_created_at.ToString("MMM dd, yyyy")")'>
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-5">
+                <i class="fas fa-comment-slash fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">No Feedbacks Yet</h4>
+                <p class="text-muted">Complete your bookings to provide feedback</p>
+            </div>
+        }
+    </div>
+</div>
+
+@section Modals{
+<!-- Submit Feedback Modal -->
+<div class="modal fade" id="feedbackModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Submit Feedback</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="feedbackForm">
+                    <input type="hidden" id="feedbackBookingId" />
+                    <div class="alert alert-info">
+                        <strong>Booking:</strong> <span id="feedbackBookingCode"></span><br />
+                        <strong>Title:</strong> <span id="feedbackBookingTitle"></span><br />
+                        <strong>Room:</strong> <span id="feedbackRoomName"></span>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Rating *</label>
+                        <div class="rating-input">
+                            <i class="far fa-star rating-star" data-rating="1"></i>
+                            <i class="far fa-star rating-star" data-rating="2"></i>
+                            <i class="far fa-star rating-star" data-rating="3"></i>
+                            <i class="far fa-star rating-star" data-rating="4"></i>
+                            <i class="far fa-star rating-star" data-rating="5"></i>
+                        </div>
+                        <input type="hidden" id="feedbackRating" required />
+                        <small class="text-muted">Click to rate from 1 to 5 stars</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Comments (Optional)</label>
+                        <textarea class="form-control" id="feedbackComments" rows="4" placeholder="Share your experience with this meeting room..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitFeedback()">
+                    <i class="fas fa-paper-plane me-2"></i> Submit Feedback
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Feedback Detail Modal -->
+<div class="modal fade" id="viewFeedbackModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Feedback Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Booking:</strong>
+                        <p id="viewFeedbackBookingCode"></p>
+                        <p id="viewFeedbackBookingTitle" class="text-muted"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Room:</strong>
+                        <p id="viewFeedbackRoomName"></p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <strong>Your Rating:</strong>
+                    <p id="viewFeedbackRating"></p>
+                </div>
+                <div class="mb-3">
+                    <strong>Your Comments:</strong>
+                    <p id="viewFeedbackComments" class="p-3 bg-light rounded"></p>
+                </div>
+                <div class="mb-3" id="adminResponseSection" style="display: none;">
+                    <strong>Admin Response:</strong>
+                    <p id="viewFeedbackAdminResponse" class="p-3 bg-success bg-opacity-10 rounded"></p>
+                </div>
+                <div>
+                    <small class="text-muted">Submitted on: <span id="viewFeedbackDate"></span></small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+@section Styles {
+    <style>
+        .rating-input {
+            font-size: 2rem;
+            cursor: pointer;
+        }
+        
+        .rating-star {
+            color: #ffc107;
+            transition: all 0.2s ease;
+        }
+        
+        .rating-star:hover {
+            transform: scale(1.2);
+        }
+        
+        .rating-star.active {
+            color: #ffc107;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            if ($('#feedbacksTable').length) {
+                $('#feedbacksTable').DataTable({
+                    order: [[2, 'desc']]
+                });
+            }
+            
+            // Rating interaction
+            $(document).on('click', '.rating-star', function() {
+                const rating = $(this).data('rating');
+                $('#feedbackRating').val(rating);
+                
+                $('.rating-star').removeClass('fas').addClass('far');
+                $('.rating-star').each(function() {
+                    if ($(this).data('rating') <= rating) {
+                        $(this).removeClass('far').addClass('fas');
+                    }
+                });
+            });
+            
+            // Rating hover effect
+            $(document).on('mouseenter', '.rating-star', function() {
+                const rating = $(this).data('rating');
+                $('.rating-star').each(function() {
+                    if ($(this).data('rating') <= rating) {
+                        $(this).removeClass('far').addClass('fas');
+                    } else {
+                        $(this).removeClass('fas').addClass('far');
+                    }
+                });
+            });
+            
+            $(document).on('mouseleave', '.rating-input', function() {
+                const currentRating = $('#feedbackRating').val();
+                if (currentRating) {
+                    $('.rating-star').each(function() {
+                        if ($(this).data('rating') <= currentRating) {
+                            $(this).removeClass('far').addClass('fas');
+                        } else {
+                            $(this).removeClass('fas').addClass('far');
+                        }
+                    });
+                } else {
+                    $('.rating-star').removeClass('fas').addClass('far');
+                }
+            });
+        });
+        
+        function openFeedbackModal(bookingId, bookingCode, bookingTitle, roomName) {
+            $('#feedbackBookingId').val(bookingId);
+            $('#feedbackBookingCode').text(bookingCode);
+            $('#feedbackBookingTitle').text(bookingTitle);
+            $('#feedbackRoomName').text(roomName);
+            $('#feedbackRating').val('');
+            $('#feedbackComments').val('');
+            $('.rating-star').removeClass('fas').addClass('far');
+            $('#feedbackModal').modal('show');
+        }
+        
+        function submitFeedback() {
+            const bookingId = $('#feedbackBookingId').val();
+            const rating = $('#feedbackRating').val();
+            const comments = $('#feedbackComments').val();
+            
+            if (!rating) {
+                Swal.fire('Error', 'Please select a rating', 'error');
+                return;
+            }
+            
+            $.ajax({
+                url: '@Url.Action("SubmitFeedback", "Employee")',
+                type: 'POST',
+                data: {
+                    bookingId: bookingId,
+                    rating: rating,
+                    comments: comments
+                },
+                success: function(response) {
+                    if (response.success) {
+                        $('#feedbackModal').modal('hide');
+                        Swal.fire('Success', response.message, 'success').then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error', response.message, 'error');
+                    }
+                }
+            });
+        }
+        
+        function viewFeedbackDetail(id, bookingCode, bookingTitle, roomName, rating, comments, adminResponse, date) {
+            $('#viewFeedbackBookingCode').text(bookingCode);
+            $('#viewFeedbackBookingTitle').text(bookingTitle);
+            $('#viewFeedbackRoomName').text(roomName);
+            
+            let ratingHtml = '';
+            for (let i = 1; i <= 5; i++) {
+                if (i <= rating) {
+                    ratingHtml += '<i class="fas fa-star text-warning"></i> ';
+                } else {
+                    ratingHtml += '<i class="far fa-star text-warning"></i> ';
+                }
+            }
+            ratingHtml += `<span class="ms-2">${rating} / 5</span>`;
+            $('#viewFeedbackRating').html(ratingHtml);
+            
+            $('#viewFeedbackComments').text(comments || 'No comments provided');
+            $('#viewFeedbackDate').text(date);
+            
+            if (adminResponse) {
+                $('#viewFeedbackAdminResponse').text(adminResponse);
+                $('#adminResponseSection').show();
+            } else {
+                $('#adminResponseSection').hide();
+            }
+            
+            $('#viewFeedbackModal').modal('show');
+        }
+    </script>
+}

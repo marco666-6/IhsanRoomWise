@@ -124,8 +124,24 @@ const logoutLinkDropdown = document.getElementById('logoutLinkDropdown');
 
 function handleLogout(e) {
     e.preventDefault();
-    
-    // Use SweetAlert2 if available, otherwise use confirm
+
+    const doLogout = function () {
+        $.ajax({
+            url: '/Auth/Logout',
+            type: 'POST',
+            success: function (res) {
+                if (res.success) {
+                    window.location.href = res.redirectUrl;
+                } else {
+                    alert(res.message || 'Logout failed');
+                }
+            },
+            error: function () {
+                alert('Logout error');
+            }
+        });
+    };
+
     if (typeof Swal !== 'undefined') {
         Swal.fire({
             title: 'Logout?',
@@ -139,22 +155,24 @@ function handleLogout(e) {
             reverseButtons: true
         }).then((result) => {
             if (result.isConfirmed) {
-                window.location.href = '/Auth/LogoutGet';
+                doLogout();
             }
         });
     } else {
         if (confirm('Are you sure you want to logout?')) {
-            window.location.href = '/Auth/LogoutGet';
+            doLogout();
         }
     }
 }
 
-if (logoutLink) {
-    logoutLink.addEventListener('click', handleLogout);
-}
+if (typeof $ !== 'undefined') {
+    if (logoutLink) {
+        $(logoutLink).on('click', handleLogout);
+    }
 
-if (logoutLinkDropdown) {
-    logoutLinkDropdown.addEventListener('click', handleLogout);
+    if (logoutLinkDropdown) {
+        $(logoutLinkDropdown).on('click', handleLogout);
+    }
 }
 
 // ============================================
