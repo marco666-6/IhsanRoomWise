@@ -1601,7 +1601,7 @@ namespace RoomWise.Controllers
                         cmdVerify.Parameters.AddWithValue("@UserId", userId);
                         string storedPassword = cmdVerify.ExecuteScalar()?.ToString() ?? "";
 
-                        if (!SecHelperFunction.VerifyPassword(currentPassword, storedPassword))
+                        if (!SecHelperFunction.VerifyPassword(SecHelperFunction.HashPasswordMD5(currentPassword), storedPassword))
                         {
                             return Json(new { success = false, message = "Current password is incorrect" });
                         }

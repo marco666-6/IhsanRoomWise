@@ -11,6 +11,14 @@
         <p class="page-description">Manage meeting rooms and their facilities</p>
     </div>
     <div class="page-actions">
+        <div class="view-toggle">
+            <button class="view-btn active" data-view="table">
+                <i class="fas fa-table"></i>
+            </button>
+            <button class="view-btn" data-view="card">
+                <i class="fas fa-th-large"></i>
+            </button>
+        </div>
         <button class="btn btn-success" onclick="window.location.href='@Url.Action("ExportRooms", "Admin")'">
             <i class="fas fa-file-excel me-2"></i> Export
         </button>
@@ -518,7 +526,51 @@
             initializeDataTable();
             initializeFilters();
             initializeViewToggle();
+            reInitializeSelect2();
         });
+
+        function reInitializeSelect2() {
+            $('#createLocation').select2('destroy');
+            $('#editLocation').select2('destroy');
+            $('#createStatus').select2('destroy');
+            $('#editStatus').select2('destroy');
+            $('#newStatus').select2('destroy');
+
+            $('#createLocation').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#createRoomModal'),
+                allowClear: true
+            });
+
+            $('#editLocation').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#editRoomModal'),
+                allowClear: true
+            });
+
+            $('#createStatus').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#createRoomModal'),
+                allowClear: true
+            });
+
+            $('#editStatus').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#editRoomModal'),
+                allowClear: true
+            });
+
+            $('#newStatus').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#changeStatusModal'),
+                allowClear: true
+            });
+        }
 
         function initializeDataTable() {
             roomsTable = $('#roomsTable').DataTable({
@@ -617,7 +669,8 @@
         }
 
         function resetFilters() {
-            $('#filterLocation, #filterStatus, #filterCapacity').val('');
+            $('#filterLocation, #filterStatus, #filterCapacity').val('').trigger('change');
+            $('#filterLocation, #filterStatus, #filterCapacity').empty();
             if (currentView === 'table') {
                 roomsTable.rows().every(function() {
                     $(this.node()).show();
@@ -674,10 +727,10 @@
         function editRoom(id, name, locationId, capacity, facilities, status) {
             $('#editRoomId').val(id);
             $('#editName').val(name);
-            $('#editLocation').val(locationId);
+            $('#editLocation').val(locationId).trigger('change');
             $('#editCapacity').val(capacity);
             $('#editFacilities').val(facilities || '');
-            $('#editStatus').val(status);
+            $('#editStatus').val(status).trigger('change');
             
             const modal = new bootstrap.Modal(document.getElementById('editRoomModal'));
             modal.show();
@@ -719,7 +772,7 @@
 
         function changeRoomStatus(roomId, currentStatus) {
             $('#statusRoomId').val(roomId);
-            $('#newStatus').val(currentStatus);
+            $('#newStatus').val(currentStatus).trigger('change');
             
             const modal = new bootstrap.Modal(document.getElementById('changeStatusModal'));
             modal.show();

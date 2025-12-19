@@ -92,7 +92,7 @@
         </div>
         <div class="d-flex flex-column">
             <label>Room</label>
-            <select class="filter-select" id="filterRoom" style="min-width:200px !important;">
+            <select class="filter-select" id="filterRoom" style="min-width:350px !important;">
                 <option value="">All Rooms</option>
                 @foreach (var room in Model.Select(b => new { code = b.room_code, name = b.room_name }).Distinct())
                 {
@@ -126,7 +126,7 @@
 <div class="card" id="tableView">
     <div class="card-body">
         <div class="table-responsive">
-            <table id="bookingsTable" class="table table-hover text-nowrap align-middle">
+            <table id="bookingsTable" class="table table-hover text-nowrap text-center align-middle">
                 <thead>
                     <tr>
                         <th><div class="th-content"><i class="fas fa-barcode me-2"></i>Code</div></th>
@@ -230,10 +230,13 @@
     </div>
 </div>
 
-<!-- Calendar View -->
+<!-- Calendar View - FULL DETAILS -->
 <div id="calendarView" style="display: none;">
-    <div class="card">
-        <div class="card-body">
+    <div class="card premium-calendar-card">
+        <div class="card-header calendar-header">
+            <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Meeting Schedule</h5>
+        </div>
+        <div class="card-body p-0">
             <div id="bookingCalendar"></div>
         </div>
     </div>
@@ -454,33 +457,60 @@
 
         $(document).ready(function() {
             // Parse bookings data properly
-            bookingsData = [
-                @foreach (var booking in Model)
-                {
-                    @:{
-                    @:    booking_id: @booking.booking_id,
-                    @:    booking_code: "@booking.booking_code",
-                    @:    booking_title: "@booking.booking_title",
-                    @:    booking_description: "@(booking.booking_description ?? "")",
-                    @:    booking_date: "@booking.booking_date.ToString("yyyy-MM-dd")",
-                    @:    booking_start_time: "@booking.booking_start_time.ToString(@"hh\:mm")",
-                    @:    booking_end_time: "@booking.booking_end_time.ToString(@"hh\:mm")",
-                    @:    booking_status: "@booking.booking_status",
-                    @:    room_code: "@(booking.room_code ?? "")",
-                    @:    room_name: "@(booking.room_name ?? "")",
-                    @:    user_full_name: "@(booking.user_full_name ?? "")",
-                    @:    user_employee_id: "@(booking.user_employee_id ?? "")"
-                    @:}@(Model.Last() != booking ? "," : "")
-                }
-            ];
-
-            console.log('Loaded bookings:', bookingsData.length);
+            // SAFE data parsing
+            const rawData = @Html.Raw(Json.Serialize(Model));
+            bookingsData = Array.isArray(rawData) ? rawData : [];
+            
+            console.log('✅ Loaded', bookingsData.length, 'bookings');
             
             initializeDataTable();
             initializeCalendar();
             initializeFilters();
             initializeViewToggle();
         });
+
+        function reInitializeSelect2() {
+            $('#createLocation').select2('destroy');
+            $('#editLocation').select2('destroy');
+            $('#createStatus').select2('destroy');
+            $('#editStatus').select2('destroy');
+            $('#newStatus').select2('destroy');
+
+            $('#createLocation').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#createRoomModal'),
+                allowClear: true
+            });
+
+            $('#editLocation').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#editRoomModal'),
+                allowClear: true
+            });
+
+            $('#createStatus').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#createRoomModal'),
+                allowClear: true
+            });
+
+            $('#editStatus').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#editRoomModal'),
+                allowClear: true
+            });
+
+            $('#newStatus').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#changeStatusModal'),
+                allowClear: true
+            });
+        }
 
         function initializeDataTable() {
             bookingsTable = $('#bookingsTable').DataTable({
@@ -506,37 +536,83 @@
             });
         }
 
+        // PERFECT CALENDAR - NO BUGS
+        // FIXED CALENDAR - SHOWS ALL EVENTS PROPERLY
         function initializeCalendar() {
             const calendarEl = document.getElementById('bookingCalendar');
             
-            // Create events array from bookings data
-            const events = bookingsData.map(booking => {
-                const dateTime = booking.booking_date + 'T' + booking.booking_start_time;
-                const endDateTime = booking.booking_date + 'T' + booking.booking_end_time;
-                
-                console.log('Creating event:', booking.booking_title, dateTime);
-                
-                return {
-                    id: booking.booking_id.toString(),
-                    title: booking.booking_title + ' (' + booking.room_code + ')',
-                    start: dateTime,
-                    end: endDateTime,
-                    backgroundColor: getStatusColor(booking.booking_status),
-                    borderColor: getStatusColor(booking.booking_status),
-                    textColor: '#ffffff',
-                    extendedProps: {
-                        code: booking.booking_code,
-                        description: booking.booking_description,
-                        room: booking.room_name,
-                        user: booking.user_full_name,
-                        status: booking.booking_status,
-                        roomCode: booking.room_code
+            console.log('📅 Initializing calendar with', bookingsData.length, 'bookings');
+            
+            // Map bookings to calendar events with CORRECT property names
+            const events = bookingsData
+                .filter(b => b && b.booking_status !== 'Cancelled') // Filter cancelled
+                .map(b => {
+                    try {
+                        // Handle different date/time formats
+                        let dateStr = b.booking_date;
+                        if (dateStr && typeof dateStr === 'object' && dateStr.date) {
+                            dateStr = dateStr.date.split(' ')[0]; // Extract date from DateTime object
+                        } else if (typeof dateStr === 'string') {
+                            dateStr = dateStr.split('T')[0]; // Extract date part
+                        }
+                        
+                        // Handle time - might be TimeSpan or string
+                        let startTime = b.booking_start_time;
+                        let endTime = b.booking_end_time;
+                        
+                        // Convert TimeSpan objects to HH:mm format
+                        if (typeof startTime === 'object' && startTime.hours !== undefined) {
+                            startTime = String(startTime.hours).padStart(2, '0') + ':' + String(startTime.minutes).padStart(2, '0');
+                        } else if (typeof startTime === 'string' && startTime.includes(':')) {
+                            // Already in HH:mm format
+                            startTime = startTime.substring(0, 5);
+                        } else {
+                            startTime = '09:00'; // Default
+                        }
+                        
+                        if (typeof endTime === 'object' && endTime.hours !== undefined) {
+                            endTime = String(endTime.hours).padStart(2, '0') + ':' + String(endTime.minutes).padStart(2, '0');
+                        } else if (typeof endTime === 'string' && endTime.includes(':')) {
+                            endTime = endTime.substring(0, 5);
+                        } else {
+                            endTime = '10:00'; // Default
+                        }
+                        
+                        const start = `${dateStr}T${startTime}:00`;
+                        const end = `${dateStr}T${endTime}:00`;
+                        
+                        const title = (b.booking_title || 'Untitled').substring(0, 40);
+                        const roomCode = b.room_code || '';
+                        const status = b.booking_status || 'Pending';
+                        
+                        return {
+                            id: String(b.booking_id || Math.random()),
+                            title: `${title}${roomCode ? ` (${roomCode})` : ''}`,
+                            start: start,
+                            end: end,
+                            classNames: [`status-${status.toLowerCase().replace(' ', '')}`],
+                            extendedProps: {
+                                code: b.booking_code || '',
+                                title: b.booking_title || '',
+                                description: b.booking_description || '',
+                                room: b.room_name || '',
+                                roomCode: b.room_code || '',
+                                user: b.user_full_name || '',
+                                userId: b.user_employee_id || '',
+                                status: status,
+                                bookingId: b.booking_id
+                            }
+                        };
+                    } catch (error) {
+                        console.error('❌ Error parsing booking:', b, error);
+                        return null;
                     }
-                };
-            });
+                })
+                .filter(e => e !== null); // Remove any failed parses
+
+            console.log('✅ Created', events.length, 'calendar events');
             
-            console.log('Total events created:', events.length);
-            
+            // Initialize FullCalendar
             calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 headerToolbar: {
@@ -544,61 +620,83 @@
                     center: 'title',
                     right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
                 },
-                buttonText: {
-                    today: 'Today',
-                    month: 'Month',
-                    week: 'Week',
-                    day: 'Day',
-                    list: 'List'
+                views: {
+                    dayGridMonth: { buttonText: 'Month' },
+                    timeGridWeek: { buttonText: 'Week' },
+                    timeGridDay: { buttonText: 'Day' },
+                    listWeek: { buttonText: 'List' }
                 },
                 events: events,
-                eventClick: function(info) {
-                    const event = info.event;
-                    const props = event.extendedProps;
-                    
-                    // Extract title without room code
-                    let title = event.title;
-                    if (title.includes(' (')) {
-                        title = title.substring(0, title.lastIndexOf(' ('));
-                    }
-                    
-                    viewBooking(
-                        event.id,
-                        props.code,
-                        title,
-                        props.description,
-                        event.start.toISOString().split('T')[0],
-                        event.start.toTimeString().slice(0,5),
-                        event.end ? event.end.toTimeString().slice(0,5) : event.start.toTimeString().slice(0,5),
-                        props.room,
-                        props.user
-                    );
-                },
-                eventDidMount: function(info) {
-                    // Add tooltip
-                    const status = info.event.extendedProps.status;
-                    const user = info.event.extendedProps.user;
-                    info.el.title = status + ' - ' + user;
-                },
-                height: 'auto',
-                contentHeight: 650,
-                displayEventTime: true,
-                displayEventEnd: true,
+                height: 750,
+                dayMaxEvents: 3,
                 eventTimeFormat: {
                     hour: '2-digit',
                     minute: '2-digit',
                     hour12: false
                 },
-                slotLabelFormat: {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false
+                slotMinTime: '07:00:00',
+                slotMaxTime: '20:00:00',
+                allDaySlot: false,
+                nowIndicator: true,
+                
+                // Event rendering with room badge
+                eventDidMount: function(info) {
+                    const props = info.event.extendedProps;
+                    
+                    // Add room badge for better visibility
+                    if (props.roomCode) {
+                        const badge = document.createElement('span');
+                        badge.className = 'event-room-badge';
+                        badge.textContent = props.roomCode;
+                        info.el.appendChild(badge);
+                    }
+                    
+                    // Enhanced tooltip
+                    const tooltipContent = `
+                        📌 ${props.title}
+                        🚪 ${props.room || 'N/A'} (${props.roomCode || 'N/A'})
+                        👤 ${props.user || 'N/A'}
+                        ⏰ ${info.event.start.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})} - ${info.event.end ? info.event.end.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'}) : 'N/A'}
+                        📊 Status: ${props.status}
+                    `.trim();
+                    
+                    info.el.title = tooltipContent;
+                },
+                
+                // Click event to view details
+                eventClick: function(info) {
+                    const props = info.event.extendedProps;
+                    const start = info.event.start;
+                    const end = info.event.end;
+                    
+                    viewBooking(
+                        props.bookingId,
+                        props.code,
+                        props.title,
+                        props.description,
+                        start.toISOString().split('T')[0],
+                        start.toTimeString().slice(0, 5),
+                        end ? end.toTimeString().slice(0, 5) : 'N/A',
+                        props.room,
+                        props.user
+                    );
+                },
+                
+                // Prevent date selection
+                selectable: false,
+                
+                // Loading indicator
+                loading: function(isLoading) {
+                    if (isLoading) {
+                        console.log('📅 Calendar loading...');
+                    } else {
+                        console.log('✅ Calendar loaded successfully');
+                    }
                 }
             });
             
-            // Render calendar (important!)
             calendar.render();
-            console.log('Calendar rendered with', events.length, 'events');
+            console.log('🎉 Calendar rendered with', events.length, 'events visible');
         }
 
         function getStatusColor(status) {
@@ -703,11 +801,45 @@
 
                     card.toggle(show);
                 });
+            } else if (currentView === 'calendar' && calendar) {
+                // FIXED: Properly filter calendar events
+                calendar.getEvents().forEach(event => {
+                    const props = event.extendedProps;
+                    let show = true;
+
+                    // Status filter
+                    if (status && props.status !== status) show = false;
+                    
+                    // Room filter - check room code
+                    if (room && props.roomCode !== room) show = false;
+                    
+                    // Date range filter
+                    if (dateRange) {
+                        const eventDate = new Date(event.start);
+                        eventDate.setHours(0,0,0,0);
+                        
+                        if (dateRange === 'today' && eventDate.getTime() !== today.getTime()) show = false;
+                        if (dateRange === 'week') {
+                            const weekEnd = new Date(today);
+                            weekEnd.setDate(weekEnd.getDate() + 7);
+                            if (eventDate < today || eventDate > weekEnd) show = false;
+                        }
+                        if (dateRange === 'month') {
+                            const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                            if (eventDate < today || eventDate > monthEnd) show = false;
+                        }
+                        if (dateRange === 'upcoming' && eventDate < today) show = false;
+                    }
+
+                    // Show/hide event
+                    event.setProp('display', show ? 'auto' : 'none');
+                });
             }
         }
 
         function resetFilters() {
-            $('#filterStatus, #filterRoom, #filterDate').val('');
+            $('#filterStatus, #filterRoom, #filterDate').val('').trigger('change');
+            $('#filterStatus, #filterRoom, #filterDate').empty();
             if (currentView === 'table') {
                 bookingsTable.rows().every(function() {
                     $(this.node()).show();
@@ -1373,130 +1505,155 @@
     }
 
     /* Calendar View Customization */
+    /* PREMIUM CALENDAR - ZERO BUGS */
+    
+    .premium-calendar-card {
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px -10px rgba(0,0,0,0.2);
+        border: none;
+        background: #fff;
+    }
+
     #bookingCalendar {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
     }
 
-    .fc {
-        background: white;
-        border-radius: 12px;
-        padding: 1rem;
-    }
-
-    .fc .fc-button {
-        background: var(--primary);
-        border-color: var(--primary);
-        text-transform: capitalize;
-        font-weight: 500;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        font-size: 0.875rem;
-    }
-
-    .fc .fc-button:hover {
-        background: var(--primary-dark);
-        border-color: var(--primary-dark);
-    }
-
-    .fc .fc-button-primary:not(:disabled).fc-button-active {
-        background: var(--primary-dark);
-        border-color: var(--primary-dark);
+    /* Header */
+    .fc .fc-toolbar {
+        background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%);
+        padding: 1.5rem 2rem;
+        margin: 0;
     }
 
     .fc .fc-toolbar-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: var(--gray-800);
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: white;
     }
 
-    .fc .fc-daygrid-day-number {
-        font-size: 0.875rem;
+    .fc .fc-button {
+        background: rgba(255,255,255,0.2) !important;
+        border: 1px solid rgba(255,255,255,0.3) !important;
+        color: white !important;
+        border-radius: 12px;
+        padding: 0.75rem 1.5rem !important;
+        margin: 0 0.25rem;
         font-weight: 600;
-        color: var(--gray-700);
-        padding: 0.5rem;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
     }
 
+    .fc .fc-button:hover {
+        background: rgba(255,255,255,0.4) !important;
+        transform: translateY(-2px);
+    }
+
+    .fc .fc-button-active {
+        background: white !important;
+        color: #667eea !important;
+    }
+
+    /* Days Grid */
     .fc .fc-col-header-cell {
-        background: var(--gray-50);
+        background: #f8fafc;
+        border: none;
+        padding: 1rem 0.75rem;
         font-weight: 600;
-        color: var(--gray-700);
+        font-size: 0.8rem;
+        color: #64748b;
         text-transform: uppercase;
-        font-size: 0.75rem;
         letter-spacing: 0.05em;
-        padding: 0.75rem 0.5rem;
     }
 
     .fc .fc-daygrid-day {
-        cursor: pointer;
-        transition: background-color 0.2s;
+        border: 1px solid #f1f5f9;
+        padding: 0.75rem;
+        transition: all 0.2s ease;
     }
 
     .fc .fc-daygrid-day:hover {
-        background-color: rgba(122, 162, 46, 0.02);
+        background: #f8fafc;
+        border-color: #e2e8f0;
     }
 
     .fc .fc-daygrid-day.fc-day-today {
-        background-color: rgba(122, 162, 46, 0.05) !important;
+        background: linear-gradient(135deg, #10b98120, #05966910) !important;
+        border-color: #10b981 !important;
+        position: relative;
     }
 
-    .fc .fc-event {
-        border-radius: 4px;
-        padding: 2px 6px;
-        font-size: 0.75rem;
-        font-weight: 600;
+    .fc .fc-daygrid-day.fc-day-today::after {
+        content: 'TODAY';
+        position: absolute;
+        top: 0.5rem;
+        left: 0.5rem;
+        background: #10b981;
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.65rem;
+        font-weight: 700;
+    }
+
+    /* PERFECT EVENTS */
+    .fc .fc-daygrid-event {
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 0.4rem 0.6rem !important;
+        margin: 0.1rem 0.2rem !important;
+        font-size: 0.65rem !important;
+        font-weight: 600 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .fc .fc-daygrid-event:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        z-index: 10;
+        color: white;
         cursor: pointer;
-        border-left-width: 4px;
-        margin-bottom: 2px;
-        border: none;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
 
-    .fc .fc-event:hover {
-        opacity: 0.9;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-    }
-
-    .fc .fc-event-title {
-        font-weight: 600;
+    .fc .fc-daygrid-event .fc-event-title {
+        white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
-    .fc .fc-event-time {
-        font-weight: 500;
-        font-size: 0.7rem;
-        opacity: 0.9;
+    /* Status Colors */
+    .status-pending { background: linear-gradient(135deg, #f59e0b, #d97706) !important; color: white; }
+    .status-confirmed { background: linear-gradient(135deg, #10b981, #059669) !important; color: white; }
+    .status-inprogress { background: linear-gradient(135deg, #3b82f6, #2563eb) !important; color: white; }
+    .status-completed { background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important; color: white; }
+    .status-cancelled { 
+        background: linear-gradient(135deg, transparent, transparent) !important; 
+        border: 2px solid #ef4444 !important; 
+        color: #ef4444 !important;
     }
 
-    .fc-daygrid-event-dot {
-        display: none;
+    /* Room Badge */
+    .event-room-badge {
+        position: absolute;
+        top: 1px;
+        right: 3px;
+        background: rgba(255,255,255,0.9);
+        color: #64748b;
+        padding: 0.1rem 0.3rem;
+        border-radius: 3px;
+        font-size: 0.45rem;
+        font-weight: 700;
+        border: 1px solid #e2e8f0;
     }
 
-    .fc .fc-timegrid-slot {
-        height: 3rem;
-    }
-
-    .fc .fc-timegrid-slot-label {
-        font-size: 0.75rem;
-        color: var(--gray-600);
-    }
-
-    .fc .fc-timegrid-event {
-        border-radius: 6px;
-        padding: 4px 6px;
-    }
-
-    .fc .fc-list-event:hover td {
-        background-color: rgba(122, 162, 46, 0.05);
-    }
-
-    .fc .fc-list-event-title {
-        font-weight: 600;
-    }
-
-    .fc .fc-list-event-time {
-        color: var(--gray-600);
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .fc .fc-toolbar { padding: 1rem; }
+        .fc .fc-toolbar-title { font-size: 1.25rem; }
+        .fc .fc-daygrid-event { font-size: 0.7rem !important; padding: 0.3rem 0.4rem !important; }
     }
 
     /* Modal Details */

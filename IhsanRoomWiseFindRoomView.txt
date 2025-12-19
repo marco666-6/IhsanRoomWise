@@ -1,0 +1,431 @@
+@model List<dynamic>
+
+@{
+    ViewData["Title"] = "Find a Room";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Find a Room</h1>
+        <p class="page-description">Search and book meeting rooms</p>
+    </div>
+</div>
+
+<!-- Search & Filter Card -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-filter me-2"></i> Search & Filter
+        </h5>
+    </div>
+    <div class="card-body">
+        <form id="searchForm">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Location</label>
+                    <select class="form-control" id="filterLocation">
+                        <option value="">All Locations</option>
+                        @foreach (var loc in ViewBag.Locations)
+                        {
+                            <option value="@loc.location_id">@loc.location_plant_name - Block @loc.location_block, Floor @loc.location_floor</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Min Capacity</label>
+                    <input type="number" class="form-control" id="filterCapacity" min="1" placeholder="e.g., 10" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Facilities</label>
+                    <input type="text" class="form-control" id="filterFacilities" placeholder="e.g., Projector" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Date</label>
+                    <input type="date" class="form-control" id="filterDate" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Time Range</label>
+                    <div class="input-group">
+                        <input type="time" class="form-control" id="filterStartTime" />
+                        <input type="time" class="form-control" id="filterEndTime" />
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-2"></i> Search
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="resetFilters()">
+                    <i class="fas fa-undo me-2"></i> Reset
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Results -->
+<div id="roomsContainer">
+    @if (Model != null && Model.Count > 0)
+    {
+        <div class="row g-4">
+            @foreach (var room in Model)
+            {
+                <div class="col-md-6 col-lg-4 room-card-item">
+                    <div class="room-card">
+                        <div class="room-card-header">
+                            <h5 class="room-name">@room.room_name</h5>
+                            <span class="room-code">@room.room_code</span>
+                        </div>
+                        <div class="room-card-body">
+                            <div class="room-info-item">
+                                <i class="fas fa-map-marker-alt text-primary"></i>
+                                <span>@room.location_plant_name - Block @room.location_block, Floor @room.location_floor</span>
+                            </div>
+                            <div class="room-info-item">
+                                <i class="fas fa-users text-success"></i>
+                                <span>Capacity: @room.room_capacity people</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(room.room_facilities))
+                            {
+                                <div class="room-info-item">
+                                    <i class="fas fa-cogs text-info"></i>
+                                    <span>@room.room_facilities</span>
+                                </div>
+                            }
+                            <div class="room-status mt-3">
+                                @if (room.room_status == "Available")
+                                {
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-circle me-1"></i> Available
+                                    </span>
+                                }
+                                else if (room.room_status == "Maintenance")
+                                {
+                                    <span class="badge bg-warning">
+                                        <i class="fas fa-tools me-1"></i> Maintenance
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-times-circle me-1"></i> Out of Service
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                        <div class="room-card-footer">
+                            @if (room.room_status == "Available")
+                            {
+                                <button class="btn btn-primary btn-block" onclick="openBookingModal(@room.room_id, '@room.room_name', '@room.room_code')">
+                                    <i class="fas fa-calendar-plus me-2"></i> Book This Room
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-secondary btn-block" disabled>
+                                    <i class="fas fa-ban me-2"></i> Not Available
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">No rooms found</h4>
+                <p class="text-muted">Try adjusting your search filters</p>
+            </div>
+        </div>
+    }
+</div>
+
+@section Modals {
+<!-- Booking Modal -->
+<div class="modal fade" id="bookingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Book Meeting Room</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="bookingForm">
+                    <input type="hidden" id="bookingRoomId" />
+                    <div class="alert alert-info">
+                        <strong>Room:</strong> <span id="bookingRoomName"></span> (<span id="bookingRoomCode"></span>)
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Meeting Title *</label>
+                        <input type="text" class="form-control" id="bookingTitle" placeholder="e.g., Weekly Team Meeting" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="bookingDescription" rows="3" placeholder="Optional meeting description"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Date *</label>
+                            <input type="date" class="form-control" id="bookingDate" required />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Start Time *</label>
+                            <input type="time" class="form-control" id="bookingStartTime" required />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">End Time *</label>
+                            <input type="time" class="form-control" id="bookingEndTime" required />
+                        </div>
+                    </div>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Your booking will be pending until approved by an administrator.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitBooking()">
+                    <i class="fas fa-calendar-check me-2"></i> Submit Booking
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+@section Styles {
+    <style>
+        .room-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .room-card:hover {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .room-card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+        }
+        
+        .room-name {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        .room-code {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+        
+        .room-card-body {
+            padding: 20px;
+            flex-grow: 1;
+        }
+        
+        .room-info-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+        }
+        
+        .room-info-item i {
+            width: 24px;
+            margin-right: 10px;
+        }
+        
+        .room-status {
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .room-card-footer {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .btn-block {
+            width: 100%;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Set minimum date to today
+            const today = new Date().toISOString().split('T')[0];
+            $('#filterDate, #bookingDate').attr('min', today);
+        });
+        
+        $('#searchForm').submit(function(e) {
+            e.preventDefault();
+            performSearch();
+        });
+        
+        function performSearch() {
+            const data = {
+                locationId: $('#filterLocation').val() || null,
+                minCapacity: $('#filterCapacity').val() || null,
+                facilities: $('#filterFacilities').val() || null,
+                date: $('#filterDate').val() || null,
+                startTime: $('#filterStartTime').val() || null,
+                endTime: $('#filterEndTime').val() || null
+            };
+            
+            $.ajax({
+                url: '@Url.Action("SearchRooms", "Employee")',
+                type: 'GET',
+                data: data,
+                success: function(response) {
+                    if (response.success) {
+                        displayRooms(response.rooms);
+                    } else {
+                        Swal.fire('Error', response.message, 'error');
+                    }
+                }
+            });
+        }
+        
+        function displayRooms(rooms) {
+            if (rooms.length === 0) {
+                $('#roomsContainer').html(`
+                    <div class="card">
+                        <div class="card-body text-center py-5">
+                            <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                            <h4 class="text-muted">No rooms found</h4>
+                            <p class="text-muted">Try adjusting your search filters</p>
+                        </div>
+                    </div>
+                `);
+                return;
+            }
+            
+            let html = '<div class="row g-4">';
+            rooms.forEach(room => {
+                const statusBadge = room.room_status === 'Available' 
+                    ? '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> Available</span>'
+                    : room.room_status === 'Maintenance'
+                    ? '<span class="badge bg-warning"><i class="fas fa-tools me-1"></i> Maintenance</span>'
+                    : '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i> Out of Service</span>';
+                
+                const bookButton = room.room_status === 'Available'
+                    ? `<button class="btn btn-primary btn-block" onclick="openBookingModal(${room.room_id}, '${room.room_name}', '${room.room_code}')">
+                        <i class="fas fa-calendar-plus me-2"></i> Book This Room
+                       </button>`
+                    : `<button class="btn btn-secondary btn-block" disabled>
+                        <i class="fas fa-ban me-2"></i> Not Available
+                       </button>`;
+                
+                html += `
+                    <div class="col-md-6 col-lg-4 room-card-item">
+                        <div class="room-card">
+                            <div class="room-card-header">
+                                <h5 class="room-name">${room.room_name}</h5>
+                                <span class="room-code">${room.room_code}</span>
+                            </div>
+                            <div class="room-card-body">
+                                <div class="room-info-item">
+                                    <i class="fas fa-map-marker-alt text-primary"></i>
+                                    <span>${room.location_plant_name} - Block ${room.location_block}, Floor ${room.location_floor}</span>
+                                </div>
+                                <div class="room-info-item">
+                                    <i class="fas fa-users text-success"></i>
+                                    <span>Capacity: ${room.room_capacity} people</span>
+                                </div>
+                                ${room.room_facilities ? `
+                                <div class="room-info-item">
+                                    <i class="fas fa-cogs text-info"></i>
+                                    <span>${room.room_facilities}</span>
+                                </div>` : ''}
+                                <div class="room-status mt-3">
+                                    ${statusBadge}
+                                    ${room.is_available === false ? '<span class="badge bg-danger ms-2">Booked</span>' : ''}
+                                </div>
+                            </div>
+                            <div class="room-card-footer">
+                                ${bookButton}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            $('#roomsContainer').html(html);
+        }
+        
+        function resetFilters() {
+            $('#searchForm')[0].reset();
+            location.reload();
+        }
+        
+        function openBookingModal(roomId, roomName, roomCode) {
+            $('#bookingRoomId').val(roomId);
+            $('#bookingRoomName').text(roomName);
+            $('#bookingRoomCode').text(roomCode);
+            $('#bookingForm')[0].reset();
+            
+            // Pre-fill with filter values if available
+            if ($('#filterDate').val()) {
+                $('#bookingDate').val($('#filterDate').val());
+            }
+            if ($('#filterStartTime').val()) {
+                $('#bookingStartTime').val($('#filterStartTime').val());
+            }
+            if ($('#filterEndTime').val()) {
+                $('#bookingEndTime').val($('#filterEndTime').val());
+            }
+            
+            $('#bookingModal').modal('show');
+        }
+        
+        function submitBooking() {
+            const data = {
+                roomId: $('#bookingRoomId').val(),
+                title: $('#bookingTitle').val(),
+                description: $('#bookingDescription').val(),
+                date: $('#bookingDate').val(),
+                startTime: $('#bookingStartTime').val(),
+                endTime: $('#bookingEndTime').val()
+            };
+            
+            if (!data.title || !data.date || !data.startTime || !data.endTime) {
+                Swal.fire('Error', 'Please fill in all required fields', 'error');
+                return;
+            }
+            
+            $.ajax({
+                url: '@Url.Action("CreateBooking", "Employee")',
+                type: 'POST',
+                data: data,
+                success: function(response) {
+                    if (response.success) {
+                        $('#bookingModal').modal('hide');
+                        Swal.fire('Success', response.message, 'success').then(() => {
+                            window.location.href = '@Url.Action("MyBookingsView", "Employee")';
+                        });
+                    } else {
+                        Swal.fire('Error', response.message, 'error');
+                    }
+                }
+            });
+        }
+    </script>
+}

@@ -29,6 +29,7 @@ namespace RoomWise.Controllers
         // ============================================
         // Employee Dashboard
         // ============================================
+        // REPLACE the existing DashboardView method with this enhanced version:
         [HttpGet]
         public IActionResult DashboardView()
         {
@@ -43,18 +44,28 @@ namespace RoomWise.Controllers
                 {
                     conn.Open();
 
-                    // Get user statistics
+                    // Existing statistics
                     ViewBag.MyBookingsToday = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_date = CAST(GETDATE() AS DATE)");
                     ViewBag.MyUpcomingBookings = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_date >= CAST(GETDATE() AS DATE) AND booking_status IN ('Pending', 'Confirmed')");
                     ViewBag.MyPastBookings = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_date < CAST(GETDATE() AS DATE)");
                     ViewBag.MyFeedbacksGiven = GetCount(conn, $"SELECT COUNT(*) FROM feedbacks WHERE feedback_user_id = {userId}");
                     ViewBag.AvailableRoomsNow = GetCount(conn, "SELECT COUNT(*) FROM rooms WHERE room_status = 'Available' AND room_is_active = 1");
+                    
+                    // NEW: Additional statistics
+                    ViewBag.MyPendingBookings = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_status = 'Pending'");
+                    ViewBag.MyConfirmedBookings = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_status = 'Confirmed'");
+                    ViewBag.TotalRooms = GetCount(conn, "SELECT COUNT(*) FROM rooms WHERE room_is_active = 1");
 
-                    // Get upcoming bookings
+                    // Existing data
                     ViewBag.UpcomingBookings = GetUserUpcomingBookings(conn, userId!);
-
-                    // Get recent activity
                     ViewBag.RecentActivity = GetUserRecentActivity(conn, userId!);
+
+                    // NEW: Enhanced dashboard data
+                    ViewBag.WeeklySchedule = GetWeeklySchedule(conn, userId!);
+                    ViewBag.MyBookingTrends = GetMyBookingTrends(conn, userId!);
+                    ViewBag.AvailableRoomsNowList = GetAvailableRoomsNow(conn);
+                    ViewBag.PopularRooms = GetPopularRooms(conn);
+                    ViewBag.MyBookingsByStatus = GetMyBookingsByStatus(conn, userId!);
                 }
 
                 return View();
@@ -64,6 +75,214 @@ namespace RoomWise.Controllers
                 TempData["Error"] = "Error loading dashboard: " + ex.Message;
                 return View();
             }
+        }
+
+        // Add these methods to EmployeeController.cs after the existing DashboardView method
+
+        // Get weekly calendar data
+        private List<dynamic> GetWeeklySchedule(SqlConnection conn, string userId)
+        {
+            string query = @"
+                WITH DateRange AS (
+                    SELECT 0 as day_offset UNION ALL SELECT 1 UNION ALL SELECT 2 
+                    UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+                )
+                SELECT 
+                    CAST(DATEADD(day, dr.day_offset, GETDATE()) AS DATE) as booking_date,
+                    FORMAT(DATEADD(day, dr.day_offset, GETDATE()), 'ddd') as day_name,
+                    FORMAT(DATEADD(day, dr.day_offset, GETDATE()), 'MMM dd') as date_str,
+                    b.booking_id,
+                    b.booking_title,
+                    b.booking_status,
+                    CONVERT(VARCHAR(5), b.booking_start_time, 108) as start_time,
+                    CONVERT(VARCHAR(5), b.booking_end_time, 108) as end_time,
+                    r.room_name,
+                    r.room_code,
+                    CASE WHEN b.booking_user_id = @UserId THEN 1 ELSE 0 END as is_mine,
+                    CASE WHEN dr.day_offset = 0 THEN 1 ELSE 0 END as is_today
+                FROM DateRange dr
+                LEFT JOIN bookings b ON b.booking_date = CAST(DATEADD(day, dr.day_offset, GETDATE()) AS DATE)
+                    AND b.booking_status IN ('Pending', 'Confirmed', 'InProgress')
+                LEFT JOIN rooms r ON b.booking_room_id = r.room_id
+                ORDER BY dr.day_offset, b.booking_start_time";
+
+            var results = new List<dynamic>();
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            {
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(new
+                        {
+                            booking_date = reader["booking_date"],
+                            day_name = reader["day_name"],
+                            date_str = reader["date_str"],
+                            booking_id = reader["booking_id"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["booking_id"]),
+                            booking_title = reader["booking_title"] == DBNull.Value ? null : reader["booking_title"].ToString(),
+                            booking_status = reader["booking_status"] == DBNull.Value ? null : reader["booking_status"].ToString(),
+                            start_time = reader["start_time"] == DBNull.Value ? null : reader["start_time"].ToString(),
+                            end_time = reader["end_time"] == DBNull.Value ? null : reader["end_time"].ToString(),
+                            room_name = reader["room_name"] == DBNull.Value ? null : reader["room_name"].ToString(),
+                            room_code = reader["room_code"] == DBNull.Value ? null : reader["room_code"].ToString(),
+                            is_mine = reader["is_mine"] == DBNull.Value ? false : Convert.ToBoolean(reader["is_mine"]),
+                            is_today = Convert.ToBoolean(reader["is_today"])
+                        });
+                    }
+                }
+            }
+            return results;
+        }
+
+        // Get my booking trends (last 30 days)
+        private List<dynamic> GetMyBookingTrends(SqlConnection conn, string userId)
+        {
+            string query = @"
+                SELECT 
+                    FORMAT(booking_date, 'MMM dd') as date_str,
+                    COUNT(*) as count
+                FROM bookings
+                WHERE booking_user_id = @UserId
+                AND booking_date >= DATEADD(day, -30, GETDATE())
+                GROUP BY booking_date
+                ORDER BY booking_date";
+
+            var results = new List<dynamic>();
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            {
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(new
+                        {
+                            date_str = reader["date_str"],
+                            count = reader["count"]
+                        });
+                    }
+                }
+            }
+            return results;
+        }
+
+        // Get available rooms right now
+        private List<dynamic> GetAvailableRoomsNow(SqlConnection conn)
+        {
+            string query = @"
+                SELECT TOP 6
+                    r.room_id,
+                    r.room_name,
+                    r.room_code,
+                    r.room_capacity,
+                    r.room_facilities,
+                    l.location_plant_name,
+                    l.location_block,
+                    l.location_floor,
+                    (SELECT MIN(booking_start_time) 
+                    FROM bookings 
+                    WHERE booking_room_id = r.room_id 
+                    AND booking_date = CAST(GETDATE() AS DATE)
+                    AND booking_start_time > CAST(GETDATE() AS TIME)
+                    AND booking_status IN ('Pending', 'Confirmed')) as next_booking_time
+                FROM rooms r
+                INNER JOIN locations l ON r.room_location_id = l.location_id
+                WHERE r.room_is_active = 1 
+                AND r.room_status = 'Available'
+                AND NOT EXISTS (
+                    SELECT 1 FROM bookings b
+                    WHERE b.booking_room_id = r.room_id
+                    AND b.booking_date = CAST(GETDATE() AS DATE)
+                    AND b.booking_status IN ('Confirmed', 'InProgress')
+                    AND CAST(GETDATE() AS TIME) BETWEEN b.booking_start_time AND b.booking_end_time
+                )
+                ORDER BY r.room_capacity DESC";
+
+            var results = new List<dynamic>();
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            {
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(new
+                        {
+                            room_id = reader["room_id"],
+                            room_name = reader["room_name"],
+                            room_code = reader["room_code"],
+                            room_capacity = reader["room_capacity"],
+                            room_facilities = reader["room_facilities"],
+                            location_plant_name = reader["location_plant_name"],
+                            location_block = reader["location_block"],
+                            location_floor = reader["location_floor"],
+                            next_booking_time = reader["next_booking_time"] == DBNull.Value ? null : 
+                                TimeSpan.Parse(reader["next_booking_time"].ToString()!).ToString(@"hh\:mm")
+                        });
+                    }
+                }
+            }
+            return results;
+        }
+
+        // Get popular rooms this month
+        private List<dynamic> GetPopularRooms(SqlConnection conn)
+        {
+            string query = @"
+                SELECT TOP 5
+                    r.room_name,
+                    r.room_code,
+                    COUNT(b.booking_id) as booking_count,
+                    AVG(CAST(r.room_capacity AS FLOAT)) as avg_capacity
+                FROM bookings b
+                INNER JOIN rooms r ON b.booking_room_id = r.room_id
+                WHERE b.booking_date >= DATEADD(day, -30, GETDATE())
+                AND b.booking_status IN ('Confirmed', 'Completed')
+                GROUP BY r.room_id, r.room_name, r.room_code
+                ORDER BY booking_count DESC";
+
+            var results = new List<dynamic>();
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            {
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        results.Add(new
+                        {
+                            room_name = reader["room_name"],
+                            room_code = reader["room_code"],
+                            booking_count = reader["booking_count"]
+                        });
+                    }
+                }
+            }
+            return results;
+        }
+
+        // Get my booking status breakdown
+        private Dictionary<string, int> GetMyBookingsByStatus(SqlConnection conn, string userId)
+        {
+            var stats = new Dictionary<string, int>();
+            string query = @"
+                SELECT booking_status, COUNT(*) as count 
+                FROM bookings 
+                WHERE booking_user_id = @UserId
+                AND booking_date >= DATEADD(day, -30, GETDATE())
+                GROUP BY booking_status";
+
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            {
+                cmd.Parameters.AddWithValue("@UserId", userId);
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        stats[reader["booking_status"].ToString()!] = Convert.ToInt32(reader["count"]);
+                    }
+                }
+            }
+            return stats;
         }
 
         // ============================================
@@ -1039,10 +1258,18 @@ namespace RoomWise.Controllers
                     {
                         bookings.Add(new
                         {
+                            booking_id = Convert.ToInt32(reader["booking_id"]),
                             booking_title = reader["booking_title"].ToString(),
                             room_name = reader["room_name"]?.ToString(),
                             booking_date = Convert.ToDateTime(reader["booking_date"]),
-                            booking_start_time = TimeSpan.Parse(reader["booking_start_time"].ToString()!),
+                            booking_start_time = reader["booking_start_time"] != DBNull.Value
+                                ? TimeSpan.Parse(reader["booking_start_time"].ToString()!)
+                                    .ToString(@"hh\:mm")
+                                : "-",
+                            booking_end_time = reader["booking_end_time"] != DBNull.Value
+                                ? TimeSpan.Parse(reader["booking_end_time"].ToString()!)
+                                    .ToString(@"hh\:mm")
+                                : "-",
                             booking_status = reader["booking_status"].ToString()
                         });
                     }

@@ -322,6 +322,24 @@
     <script>
         let Table1;
 
+        function reInitializeSelect2() {
+            $('#createRole').select2('destroy');
+            $('#editRole').select2('destroy');
+
+            $('#createRole').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#createUserModal'),
+                allowClear: true
+            });
+
+            $('#editRole').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select an option',
+                dropdownParent: $('#editUserModal'),
+                allowClear: true
+            });
+        }
         function initializeDataTable() {
             Table1 = $('#usersTable').DataTable({
                 responsive: false,
@@ -348,6 +366,7 @@
 
         $(document).ready(function() {
             initializeDataTable();
+            reInitializeSelect2();
         });
         
         function createUser() {
@@ -418,7 +437,7 @@
             $('#editUserId').val(id);
             $('#editFullName').val(name);
             $('#editEmail').val(email);
-            $('#editRole').val(role);
+            $('#editRole').val(role).trigger('change');
             $('#editDept').val(dept || '');
             
             const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
