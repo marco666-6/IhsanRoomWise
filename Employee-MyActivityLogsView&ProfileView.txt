@@ -1,0 +1,401 @@
+@model List<dynamic>
+
+@{
+    ViewData["Title"] = "My Activity Logs";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">My Activity Logs</h1>
+        <p class="page-description">Track your system activities</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        @if (Model != null && Model.Count > 0)
+        {
+            <table id="logsTable" class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Action</th>
+                        <th>Description</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in Model)
+                    {
+                        <tr>
+                            <td>@log.log_id</td>
+                            <td><span class="badge bg-primary">@log.log_action</span></td>
+                            <td>@log.log_description</td>
+                            <td>@log.log_created_at.ToString("MMM dd, yyyy HH:mm:ss")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="text-center py-5">
+                <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
+                <h4 class="text-muted">No Activity Logs</h4>
+                <p class="text-muted">Your activities will appear here</p>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            if ($('#logsTable').length) {
+                $('#logsTable').DataTable({
+                    order: [[3, 'desc']],
+                    pageLength: 50
+                });
+            }
+        });
+    </script>
+}
+
+--------------------------------------------------------------------------
+
+@model IhsanRoomWise.Models.User
+
+@{
+    ViewData["Title"] = "My Profile";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">My Profile</h1>
+        <p class="page-description">Manage your account information</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Profile Information Card -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Profile Information</h5>
+            </div>
+            <div class="card-body">
+                <form id="profileForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Employee ID</label>
+                            <input type="text" class="form-control" value="@Model.user_employee_id" disabled />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Role</label>
+                            <input type="text" class="form-control" value="@Model.user_role" disabled />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Full Name *</label>
+                        <input type="text" class="form-control" id="fullName" value="@Model.user_full_name" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email Address *</label>
+                        <input type="email" class="form-control" id="email" value="@Model.user_email" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Department</label>
+                        <input type="text" class="form-control" id="deptName" value="@Model.user_dept_name" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Account Created</label>
+                        <input type="text" class="form-control" value="@Model.user_created_at.ToString("MMMM dd, yyyy")" disabled />
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i> Update Profile
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="location.reload()">
+                            <i class="fas fa-undo me-2"></i> Reset
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Summary Card -->
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="profile-avatar-large mx-auto mb-3">
+                        @Model.user_full_name.Substring(0, 1)
+                    </div>
+                    <h4 class="mb-1">@Model.user_full_name</h4>
+                    <p class="text-muted mb-0">@Model.user_employee_id</p>
+                    <span class="badge bg-info mt-2">@Model.user_role</span>
+                </div>
+                <hr />
+                <div class="text-start">
+                    <p class="mb-2"><strong>Email:</strong><br />@Model.user_email</p>
+                    <p class="mb-2"><strong>Department:</strong><br />@(Model.user_dept_name ?? "N/A")</p>
+                    <p class="mb-0"><strong>Status:</strong><br />
+                        @if (Model.user_is_active)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Inactive</span>
+                        }
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats Card -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Quick Stats</h6>
+            </div>
+            <div class="card-body">
+                <div class="stat-item">
+                    <i class="fas fa-calendar-check text-primary"></i>
+                    <div>
+                        <p class="mb-0 text-muted small">Total Bookings</p>
+                        <h5 class="mb-0">Loading...</h5>
+                    </div>
+                </div>
+                <hr />
+                <div class="stat-item">
+                    <i class="fas fa-star text-warning"></i>
+                    <div>
+                        <p class="mb-0 text-muted small">Feedbacks Given</p>
+                        <h5 class="mb-0">Loading...</h5>
+                    </div>
+                </div>
+                <hr />
+                <div class="stat-item">
+                    <i class="fas fa-history text-info"></i>
+                    <div>
+                        <p class="mb-0 text-muted small">Activities Logged</p>
+                        <h5 class="mb-0">Loading...</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Password Card -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Change Password</h5>
+    </div>
+    <div class="card-body">
+        <form id="passwordForm" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Current Password *</label>
+                <div class="input-group">
+                    <input type="password" class="form-control" id="currentPassword" required />
+                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('currentPassword')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">New Password *</label>
+                <div class="input-group">
+                    <input type="password" class="form-control" id="newPassword" required />
+                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('newPassword')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <small class="text-muted">Minimum 6 characters</small>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Confirm New Password *</label>
+                <div class="input-group">
+                    <input type="password" class="form-control" id="confirmPassword" required />
+                    <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('confirmPassword')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-key me-2"></i> Change Password
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .profile-avatar-large {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .stat-item i {
+            font-size: 1.5rem;
+        }
+
+        .stat-item div {
+            flex: 1;
+        }
+
+        .input-group .btn-outline-secondary {
+            border-left: none;
+        }
+
+        .input-group .form-control:focus + .btn-outline-secondary {
+            border-color: #667eea;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Load quick stats
+            loadQuickStats();
+
+            // Profile Form Submission
+            $('#profileForm').submit(function(e) {
+                e.preventDefault();
+                
+                const data = {
+                    fullName: $('#fullName').val(),
+                    email: $('#email').val(),
+                    deptName: $('#deptName').val()
+                };
+                
+                if (!data.fullName || !data.email) {
+                    Swal.fire('Error', 'Please fill in all required fields', 'error');
+                    return;
+                }
+                
+                if (!isValidEmail(data.email)) {
+                    Swal.fire('Error', 'Please enter a valid email address', 'error');
+                    return;
+                }
+                
+                $.ajax({
+                    url: '@Url.Action("UpdateProfile", "Employee")',
+                    type: 'POST',
+                    data: data,
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire('Success', response.message, 'success');
+                        } else {
+                            Swal.fire('Error', response.message, 'error');
+                        }
+                    },
+                    error: function() {
+                        Swal.fire('Error', 'An error occurred while updating profile', 'error');
+                    }
+                });
+            });
+            
+            // Password Form Submission
+            $('#passwordForm').submit(function(e) {
+                e.preventDefault();
+                
+                const currentPassword = $('#currentPassword').val();
+                const newPassword = $('#newPassword').val();
+                const confirmPassword = $('#confirmPassword').val();
+                
+                if (!currentPassword || !newPassword || !confirmPassword) {
+                    Swal.fire('Error', 'Please fill in all password fields', 'error');
+                    return;
+                }
+                
+                if (newPassword !== confirmPassword) {
+                    Swal.fire('Error', 'New passwords do not match', 'error');
+                    return;
+                }
+                
+                if (newPassword.length < 6) {
+                    Swal.fire('Error', 'Password must be at least 6 characters', 'error');
+                    return;
+                }
+                
+                if (currentPassword === newPassword) {
+                    Swal.fire('Error', 'New password must be different from current password', 'error');
+                    return;
+                }
+                
+                $.ajax({
+                    url: '@Url.Action("ChangePassword", "Employee")',
+                    type: 'POST',
+                    data: {
+                        currentPassword: currentPassword,
+                        newPassword: newPassword
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire('Success', response.message, 'success');
+                            $('#passwordForm')[0].reset();
+                        } else {
+                            Swal.fire('Error', response.message, 'error');
+                        }
+                    },
+                    error: function() {
+                        Swal.fire('Error', 'An error occurred while changing password', 'error');
+                    }
+                });
+            });
+        });
+
+        function loadQuickStats() {
+            // This would typically load from an API endpoint
+            // For now, we'll use placeholder values
+            setTimeout(function() {
+                $('.stat-item:eq(0) h5').text('0');
+                $('.stat-item:eq(1) h5').text('0');
+                $('.stat-item:eq(2) h5').text('0');
+            }, 500);
+        }
+
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            const button = field.nextElementSibling;
+            const icon = button.querySelector('i');
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                field.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/;
+            return emailRegex.test(email);
+        }
+    </script>
+}

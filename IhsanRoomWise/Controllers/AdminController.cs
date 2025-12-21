@@ -551,10 +551,47 @@ namespace RoomWise.Controllers
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
                     conn.Open();
-                    string query = "UPDATE bookings SET booking_status = 'Confirmed', booking_updated_at = GETDATE() WHERE booking_id = @id";
+                    var now = DateTime.Now;
+                    var currentDate = now.Date;
+                    var currentTime = now.TimeOfDay;
+                    int systemUserId = 1; // System user for auto-cancellations
+                    string query = @"UPDATE bookings SET booking_status = 'Confirmed', booking_updated_at = GETDATE() WHERE booking_id = @id;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Cancelled',
+                                    booking_cancel_reason = 'Not reviewed by admin before meeting time.',
+                                    booking_cancelled_by = @SystemUserId,
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Pending'
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_start_time < @CurrentTime)
+                                    );
+                                
+                                UPDATE bookings
+                                SET booking_status = 'InProgress',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Confirmed'
+                                    AND booking_date = @CurrentDate
+                                    AND booking_start_time <= @CurrentTime
+                                    AND booking_end_time > @CurrentTime;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Completed',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status IN ('InProgress', 'Confirmed')
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_end_time <= @CurrentTime)
+                                    );";
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@id", id);
+                        cmd.Parameters.AddWithValue("@SystemUserId", systemUserId);
+                        cmd.Parameters.AddWithValue("@CurrentDate", currentDate);
+                        cmd.Parameters.AddWithValue("@CurrentTime", currentTime);
                         cmd.ExecuteNonQuery();
 
                 LogActivity("Approve Booking", $"Approved booking ID: {id}");
@@ -580,18 +617,55 @@ namespace RoomWise.Controllers
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
                     conn.Open();
+                    var now = DateTime.Now;
+                    var currentDate = now.Date;
+                    var currentTime = now.TimeOfDay;
+                    int systemUserId = 1; // System user for auto-cancellations
                     int adminId = Convert.ToInt32(HttpContext.Session.GetString("UserId"));
                     string query = @"UPDATE bookings 
                                 SET booking_status = 'Cancelled', 
                                     booking_cancel_reason = @reason,
                                     booking_cancelled_by = @adminId,
                                     booking_updated_at = GETDATE() 
-                                WHERE booking_id = @id";
+                                WHERE booking_id = @id;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Cancelled',
+                                    booking_cancel_reason = 'Not reviewed by admin before meeting time.',
+                                    booking_cancelled_by = @SystemUserId,
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Pending'
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_start_time < @CurrentTime)
+                                    );
+                                
+                                UPDATE bookings
+                                SET booking_status = 'InProgress',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Confirmed'
+                                    AND booking_date = @CurrentDate
+                                    AND booking_start_time <= @CurrentTime
+                                    AND booking_end_time > @CurrentTime;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Completed',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status IN ('InProgress', 'Confirmed')
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_end_time <= @CurrentTime)
+                                    );";
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@id", id);
                         cmd.Parameters.AddWithValue("@reason", reason);
                         cmd.Parameters.AddWithValue("@adminId", adminId);
+                        cmd.Parameters.AddWithValue("@SystemUserId", systemUserId);
+                        cmd.Parameters.AddWithValue("@CurrentDate", currentDate);
+                        cmd.Parameters.AddWithValue("@CurrentTime", currentTime);
                         cmd.ExecuteNonQuery();
                 
                 LogActivity("Cancel Booking", $"Cancelled booking ID: {id}");
@@ -1254,11 +1328,49 @@ namespace RoomWise.Controllers
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
                     conn.Open();
-                    string query = "UPDATE bookings SET booking_status = 'Confirmed', booking_updated_at = GETDATE() WHERE booking_id = @BookingId";
+                    var now = DateTime.Now;
+                    var currentDate = now.Date;
+                    var currentTime = now.TimeOfDay;
+                    int systemUserId = 1; // System user for auto-cancellations
+                    string query = @"
+                                UPDATE bookings SET booking_status = 'Confirmed', booking_updated_at = GETDATE() WHERE booking_id = @BookingId;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Cancelled',
+                                    booking_cancel_reason = 'Not reviewed by admin before meeting time.',
+                                    booking_cancelled_by = @SystemUserId,
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Pending'
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_start_time < @CurrentTime)
+                                    );
+                                
+                                UPDATE bookings
+                                SET booking_status = 'InProgress',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Confirmed'
+                                    AND booking_date = @CurrentDate
+                                    AND booking_start_time <= @CurrentTime
+                                    AND booking_end_time > @CurrentTime;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Completed',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status IN ('InProgress', 'Confirmed')
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_end_time <= @CurrentTime)
+                                    );";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        cmd.Parameters.AddWithValue("@SystemUserId", systemUserId);
+                        cmd.Parameters.AddWithValue("@CurrentDate", currentDate);
+                        cmd.Parameters.AddWithValue("@CurrentTime", currentTime);
                         cmd.ExecuteNonQuery();
 
                         LogActivity("Approve Booking", $"Approved booking ID: {bookingId}");
@@ -1286,18 +1398,55 @@ namespace RoomWise.Controllers
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
                     conn.Open();
+                    var now = DateTime.Now;
+                    var currentDate = now.Date;
+                    var currentTime = now.TimeOfDay;
+                    int systemUserId = 1; // System user for auto-cancellations
                     string query = @"UPDATE bookings 
-                                   SET booking_status = 'Cancelled', 
-                                       booking_cancel_reason = @Reason,
-                                       booking_cancelled_by = @CancelledBy,
-                                       booking_updated_at = GETDATE() 
-                                   WHERE booking_id = @BookingId";
+                                SET booking_status = 'Cancelled', 
+                                    booking_cancel_reason = @Reason,
+                                    booking_cancelled_by = @CancelledBy,
+                                    booking_updated_at = GETDATE() 
+                                WHERE booking_id = @BookingId;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Cancelled',
+                                    booking_cancel_reason = 'Not reviewed by admin before meeting time.',
+                                    booking_cancelled_by = @SystemUserId,
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Pending'
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_start_time < @CurrentTime)
+                                    );
+                                
+                                UPDATE bookings
+                                SET booking_status = 'InProgress',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Confirmed'
+                                    AND booking_date = @CurrentDate
+                                    AND booking_start_time <= @CurrentTime
+                                    AND booking_end_time > @CurrentTime;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Completed',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status IN ('InProgress', 'Confirmed')
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_end_time <= @CurrentTime)
+                                    );";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@Reason", reason);
                         cmd.Parameters.AddWithValue("@CancelledBy", adminId);
                         cmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        cmd.Parameters.AddWithValue("@SystemUserId", systemUserId);
+                        cmd.Parameters.AddWithValue("@CurrentDate", currentDate);
+                        cmd.Parameters.AddWithValue("@CurrentTime", currentTime);
                         cmd.ExecuteNonQuery();
 
                         LogActivity("Cancel Booking", $"Cancelled booking ID: {bookingId}");

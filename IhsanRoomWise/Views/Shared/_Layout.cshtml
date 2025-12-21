@@ -1,4 +1,4 @@
-﻿@using IhsanRoomWise.Function;
+﻿@using IhsanRoomWise.Functions;
 @using Microsoft.AspNetCore.Http;
 @inject IHttpContextAccessor HttpContextAccessor;
 
@@ -86,6 +86,12 @@
                             <a asp-controller="Admin" asp-action="RoomsView" class="nav-link @TagHelperFunction.IsActive(Html, "Admin", "RoomsView")">
                                 <i class="fas fa-door-open"></i>
                                 <span>Rooms</span>
+                            </a>
+                        </div>
+                        <div class="nav-item">
+                            <a asp-controller="Admin" asp-action="LocationsView" class="nav-link @TagHelperFunction.IsActive(Html, "Admin", "LocationsView")">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>Locations</span>
                             </a>
                         </div>
                         <div class="nav-item">

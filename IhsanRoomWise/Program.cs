@@ -1,8 +1,12 @@
 // Program.cs
 
 using System;
+using IhsanRoomWise.Functions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Register the background service
+builder.Services.AddHostedService<BkngStatusUpdHelperFunction>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();

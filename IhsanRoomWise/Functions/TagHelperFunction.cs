@@ -3,7 +3,7 @@
 using System;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
-namespace IhsanRoomWise.Function
+namespace IhsanRoomWise.Functions
 {
     public static class TagHelperFunction
     {

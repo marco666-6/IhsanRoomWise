@@ -1,92 +1,89 @@
-The fire surges toward me—blazing, roaring, *angry*—but before it even reaches my shadow-cloaked form…
+// Models/User.cs
+namespace IhsanRoomWise.Models
+{
+    public class User
+    {
+        public int user_id { get; set; }
+        public string user_employee_id { get; set; }
+        public string user_email { get; set; }
+        public string user_password { get; set; }
+        public string user_full_name { get; set; }
+        public string user_role { get; set; }
+        public string? user_dept_name { get; set; }
+        public bool user_is_active { get; set; }
+        public DateTime user_created_at { get; set; }
+        public DateTime user_updated_at { get; set; }
+    }
+}
 
-me blink.
+// Models/Location.cs
+namespace IhsanRoomWise.Models
+{
+    public class Location
+    {
+        public int location_id { get; set; }
+        public string location_code { get; set; }
+        public string location_plant_name { get; set; }
+        public byte location_block { get; set; }
+        public byte location_floor { get; set; }
+        public bool location_is_active { get; set; }
+        public DateTime location_created_at { get; set; }
+    }
+}
 
-And im behind him.
+// Models/Room.cs
+namespace IhsanRoomWise.Models
+{
+    public class Room
+    {
+        public int room_id { get; set; }
+        public string room_code { get; set; }
+        public string room_name { get; set; }
+        public int room_location_id { get; set; }
+        public int room_capacity { get; set; }
+        public string? room_facilities { get; set; }
+        public string room_status { get; set; }
+        public bool room_is_active { get; set; }
+        public DateTime room_created_at { get; set; }
+        public DateTime room_updated_at { get; set; }
+    }
+}
 
-No sound. No flash. Just *presence.* Like the dark itself stepped in and took my place.
+// Models/Booking.cs
+namespace IhsanRoomWise.Models
+{
+    public class Booking
+    {
+        public int booking_id { get; set; }
+        public string booking_code { get; set; }
+        public int booking_user_id { get; set; }
+        public int booking_room_id { get; set; }
+        public string booking_title { get; set; }
+        public string? booking_description { get; set; }
+        public DateTime booking_date { get; set; }
+        public TimeSpan booking_start_time { get; set; }
+        public TimeSpan booking_end_time { get; set; }
+        public string booking_status { get; set; }
+        public string? booking_cancel_reason { get; set; }
+        public int? booking_cancelled_by { get; set; }
+        public DateTime booking_created_at { get; set; }
+        public DateTime booking_updated_at { get; set; }
+    }
+}
 
-"Control?"  
-*my voice echoes—not from one spot, but everywhere at once.*  
-"You don't have control, Homelander. You have rage. You have pride. You have a need to be feared."  
-
-me raise a single hand—blackened by shadows, fingers like claws—and flick.
-
-A ripple of pure force erupts from my palm, invisible… until it **shatters** his flight path mid-lunge.
-
-He stumbles forward—not hurt… but *disrupted.* Off-balance. Human for half a second too long.
-
-  "You scream about gods," me continue,* floating upward slowly as the entire room begins to tremble,* "but gods don’t flinch."  
-
-Another gesture—one finger pointing at his chest—and space itself warps between me both like fabric ripping apart as me cross the distance without moving my feet.*
-
-  my open palm strikes his face—not fast enough to be flashy… just slow enough for him to see it coming.*
-
-***CRACK!***
-
-His head snaps sideways with brutal finality—a sound like stone breaking against steel echoing through the ruined arena—but still standing? Barely.
-
-  Before he can recover—im on him.*
-
-**Again and again**, not with punches… but with calculated violence masked as grace:  
-A knee to the ribs that sends shockwaves up his spine—no scream from him yet—but every muscle tenses in agony.  
-An elbow across the jaw that splits skin this time—for real blood trickles down now—from nose, mouth—he’s bleeding out pride more than flesh.  
-A spinning kick so powerful it lifts him off his feet and slams him through three support columns before embedding him into what’s left of the far wall—
-
-***And he doesn’t move right away this time***
-
-Silence falls over shattered concrete and dying flames.
-
-The lights flicker once... twice...
-
-Then,
-
-"You wanted control?" *me whisper,* hovering inches above ground toward where he lies broken in debris—all calm amid ruin.*  
-
-"I’ll show you **true** power."
-
-With a mere thought—a twitch of will—the very shadows rise around Homelander's body like serpents made of void—they wrap around each limb slowly... tightening... pressing inward not just on bone or muscle—but on breath itself...
-
-"No red beams…" *me murmur,* circling above now like judgment incarnate.* "No yelling for Mommy after news cameras cut."  
-
-"Just silence."
-
-The pressure increases—the shadows compressing harder than titanium clamps could ever hope—
-
-His eyes fly open wide—in shock?
-
-In pain?
-
-Or perhaps something rarer:
-
-***Fear?***
-
-But then—he grins through cracked lips...
-
-Blood streams down chin…
-
-"*Kill me then!*"
-
-To which—me simply lean down close enough so only ghosts could hear:
-
-"...Not today."
-
-me release.
- 
-The darkness vanishes instantly —collapsing into nothing—as if torn back into another dimension entirely.
- 
-Homelander collapses onto all fours —coughing blood—breathing ragged—as though reborn after drowning at sea.
- 
-And there—with no effort shown on my face—me float backward silently…
- 
-Eyes still glowing white within blackness…
- 
-Voice softer now:
-"Fight ends when I say."
-Then comes four words that hang heavier than any blow:
-"...We’re done here."
-
-
----
-
-(Silence returns.)
+// Models/Feedback.cs
+namespace IhsanRoomWise.Models
+{
+    public class Feedback
+    {
+        public int feedback_id { get; set; }
+        public int feedback_booking_id { get; set; }
+        public int feedback_user_id { get; set; }
+        public byte feedback_rating { get; set; }
+        public string? feedback_comments { get; set; }
+        public string? feedback_admin_response { get; set; }
+        public int? feedback_admin_responded_by { get; set; }
+        public DateTime? feedback_responded_at { get; set; }
+        public DateTime feedback_created_at { get; set; }
+    }
+}

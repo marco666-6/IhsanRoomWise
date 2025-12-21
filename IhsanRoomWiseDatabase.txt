@@ -1,191 +1,485 @@
--- Create RoomWise Database
-CREATE DATABASE rwdb;
+USE [rwdb]
 GO
-
-USE rwdb;
+/****** Object:  Table [dbo].[activity_logs]    Script Date: 22/12/2025 02.22.39 ******/
+SET ANSI_NULLS ON
 GO
-
--- Users Table (handles login, profiles, roles KF-01,02,03,05,06)
-CREATE TABLE users (
-    user_id INT IDENTITY(1,1) PRIMARY KEY,
-    user_employee_id NVARCHAR(20) UNIQUE NOT NULL,
-    user_email NVARCHAR(100) UNIQUE NOT NULL,
-    user_password NVARCHAR(255) NOT NULL,
-    user_full_name NVARCHAR(150) NOT NULL,
-    user_role NVARCHAR(20) NOT NULL CHECK (user_role IN ('Admin', 'Employee')),
-    user_dept_name NVARCHAR(100),
-    user_is_active BIT NOT NULL DEFAULT 1,
-    user_created_at DATETIME2 DEFAULT GETDATE(),
-    user_updated_at DATETIME2 DEFAULT GETDATE()
-);
-
--- Locations Table (Plant/Block/Floor hierarchy KF-08,16)
-CREATE TABLE locations (
-    location_id INT IDENTITY(1,1) PRIMARY KEY,
-    location_code NVARCHAR(15) UNIQUE NOT NULL,
-    location_plant_name NVARCHAR(50) NOT NULL,
-    location_block TINYINT NOT NULL,
-    location_floor TINYINT NOT NULL,
-    location_is_active BIT NOT NULL DEFAULT 1,
-    location_created_at DATETIME2 DEFAULT GETDATE()
-);
-
--- Rooms Table (facilities, status KF-09,10,15,16)
-CREATE TABLE rooms (
-    room_id INT IDENTITY(1,1) PRIMARY KEY,
-    room_code NVARCHAR(20) UNIQUE NOT NULL,
-    room_name NVARCHAR(100) NOT NULL,
-    room_location_id INT NOT NULL,
-    room_capacity INT NOT NULL,
-    room_facilities NVARCHAR(500),
-    room_status NVARCHAR(20) NOT NULL DEFAULT 'Available' 
-        CHECK (room_status IN ('Available', 'Maintenance', 'OutOfService')),
-    room_is_active BIT NOT NULL DEFAULT 1,
-    room_created_at DATETIME2 DEFAULT GETDATE(),
-    room_updated_at DATETIME2 DEFAULT GETDATE(),
-    FOREIGN KEY (room_location_id) REFERENCES locations(location_id)
-);
-
--- Bookings Table (core scheduling KF-11,15,17,18,19)
-CREATE TABLE bookings (
-    booking_id INT IDENTITY(1,1) PRIMARY KEY,
-    booking_code NVARCHAR(30) UNIQUE NOT NULL,
-    booking_user_id INT NOT NULL,
-    booking_room_id INT NOT NULL,
-    booking_title NVARCHAR(200) NOT NULL,
-    booking_description NVARCHAR(500),
-    booking_date DATE NOT NULL,
-    booking_start_time TIME NOT NULL,
-    booking_end_time TIME NOT NULL,
-    booking_status NVARCHAR(20) NOT NULL DEFAULT 'Pending'
-        CHECK (booking_status IN ('Pending', 'Confirmed', 'InProgress', 'Completed', 'Cancelled')),
-    booking_cancel_reason NVARCHAR(500),
-    booking_cancelled_by INT NULL,
-    booking_created_at DATETIME2 DEFAULT GETDATE(),
-    booking_updated_at DATETIME2 DEFAULT GETDATE(),
-    FOREIGN KEY (booking_user_id) REFERENCES users(user_id),
-    FOREIGN KEY (booking_room_id) REFERENCES rooms(room_id),
-    FOREIGN KEY (booking_cancelled_by) REFERENCES users(user_id)
-);
-
--- Feedbacks Table (post-meeting KF-20)
-CREATE TABLE feedbacks (
-    feedback_id INT IDENTITY(1,1) PRIMARY KEY,
-    feedback_booking_id INT NOT NULL UNIQUE,
-    feedback_user_id INT NOT NULL,
-    feedback_rating TINYINT NOT NULL CHECK (feedback_rating BETWEEN 1 AND 5),
-    feedback_comments NVARCHAR(500),
-    feedback_admin_response NVARCHAR(500),
-    feedback_admin_responded_by INT NULL,
-    feedback_responded_at DATETIME2 NULL,
-    feedback_created_at DATETIME2 DEFAULT GETDATE(),
-    FOREIGN KEY (feedback_booking_id) REFERENCES bookings(booking_id),
-    FOREIGN KEY (feedback_user_id) REFERENCES users(user_id),
-    FOREIGN KEY (feedback_admin_responded_by) REFERENCES users(user_id)
-);
-
--- Indexes for performance (KF-15,16,19)
-CREATE INDEX IX_bookings_date_time ON bookings(booking_date, booking_start_time, booking_room_id);
-CREATE INDEX IX_bookings_user ON bookings(booking_user_id, booking_status);
-CREATE INDEX IX_rooms_location_status ON rooms(room_location_id, room_status);
-
--- Additional Tables for RoomWise System
--- Run this script after creating the main database tables
-
+SET QUOTED_IDENTIFIER ON
 GO
-
--- Seed Locations (Plant A Block 1 Floor 1-3)
-INSERT INTO locations (location_code, location_plant_name, location_block, location_floor) VALUES
-('PLANT-A-B1-F1', 'Plant A', 1, 1),
-('PLANT-A-B1-F2', 'Plant A', 1, 2),
-('PLANT-A-B1-F3', 'Plant A', 1, 3);
-
--- Seed Rooms
-INSERT INTO rooms (room_code, room_name, room_location_id, room_capacity, room_facilities, room_status) VALUES
-('RM-001', 'Meeting Room Alpha', 1, 8, 'Projector,SmartScreen', 'Available'),
-('RM-002', 'Conference Room Beta', 1, 15, 'Projector,ScreenBeam,CiscoBar', 'Available'),
-('RM-003', 'Board Room Gamma', 2, 20, 'Projector,SmartScreen,CiscoBar', 'Maintenance');
-
--- Seed Admin User (MD5: admin123)
-INSERT INTO users (user_employee_id, user_email, user_password, user_full_name, user_role, user_dept_name) VALUES
-('EMP-0001', 'admin@company.com', '0192023a7bbd73250516f069df18b500', 'System Administrator', 'Admin', 'IT Department');
-
--- Seed Employee Users
-INSERT INTO users (user_employee_id, user_email, user_password, user_full_name, user_role, user_dept_name) VALUES
-('EMP-0002', 'john.doe@company.com', '827ccb0eea8a706c4c34a16891f84e7b', 'John Doe', 'Employee', 'Engineering'),
-('EMP-0003', 'jane.smith@company.com', '827ccb0eea8a706c4c34a16891f84e7b', 'Jane Smith', 'Employee', 'HR');
-
--- Sample Booking (password: employee123 for both)
-INSERT INTO bookings (booking_code, booking_user_id, booking_room_id, booking_title, booking_date, booking_start_time, booking_end_time, booking_status) VALUES
-('BK-20251220-001', 2, 1, 'Project Review Meeting', '2025-12-20', '10:00', '11:30', 'Confirmed');
-
+CREATE TABLE [dbo].[activity_logs](
+	[log_id] [int] IDENTITY(1,1) NOT NULL,
+	[log_user_id] [int] NOT NULL,
+	[log_action] [nvarchar](100) NOT NULL,
+	[log_description] [nvarchar](500) NOT NULL,
+	[log_created_at] [datetime2](7) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[log_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
 GO
-
--- Notifications Table (KF-12, KF-21)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'notifications')
-BEGIN
-    CREATE TABLE notifications (
-        notification_id INT IDENTITY(1,1) PRIMARY KEY,
-        notification_title NVARCHAR(200) NOT NULL,
-        notification_message NVARCHAR(1000) NOT NULL,
-        notification_type NVARCHAR(20) NOT NULL CHECK (notification_type IN ('Info', 'Warning', 'Alert', 'Announcement')),
-        notification_target_role NVARCHAR(20) NOT NULL CHECK (notification_target_role IN ('Admin', 'Employee', 'All')),
-        notification_is_active BIT NOT NULL DEFAULT 1,
-        notification_created_at DATETIME2 DEFAULT GETDATE()
-    );
-    
-    PRINT 'Notifications table created successfully';
-END
-ELSE
-BEGIN
-    PRINT 'Notifications table already exists';
-END
+/****** Object:  Table [dbo].[bookings]    Script Date: 22/12/2025 02.22.39 ******/
+SET ANSI_NULLS ON
 GO
-
--- Activity Logs Table (KF-13, KF-22)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'activity_logs')
-BEGIN
-    CREATE TABLE activity_logs (
-        log_id INT IDENTITY(1,1) PRIMARY KEY,
-        log_user_id INT NOT NULL,
-        log_action NVARCHAR(100) NOT NULL,
-        log_description NVARCHAR(500) NOT NULL,
-        log_created_at DATETIME2 DEFAULT GETDATE(),
-        FOREIGN KEY (log_user_id) REFERENCES users(user_id)
-    );
-    
-    PRINT 'Activity logs table created successfully';
-END
-ELSE
-BEGIN
-    PRINT 'Activity logs table already exists';
-END
+SET QUOTED_IDENTIFIER ON
 GO
-
--- Create indexes for better performance
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_notifications_target_role')
-BEGIN
-    CREATE INDEX IX_notifications_target_role ON notifications(notification_target_role, notification_is_active);
-    PRINT 'Index IX_notifications_target_role created';
-END
+CREATE TABLE [dbo].[bookings](
+	[booking_id] [int] IDENTITY(1,1) NOT NULL,
+	[booking_code] [nvarchar](30) NOT NULL,
+	[booking_user_id] [int] NOT NULL,
+	[booking_room_id] [int] NOT NULL,
+	[booking_title] [nvarchar](200) NOT NULL,
+	[booking_description] [nvarchar](500) NULL,
+	[booking_date] [date] NOT NULL,
+	[booking_start_time] [time](7) NOT NULL,
+	[booking_end_time] [time](7) NOT NULL,
+	[booking_status] [nvarchar](20) NOT NULL,
+	[booking_cancel_reason] [nvarchar](500) NULL,
+	[booking_cancelled_by] [int] NULL,
+	[booking_created_at] [datetime2](7) NULL,
+	[booking_updated_at] [datetime2](7) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[booking_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
 GO
-
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_activity_logs_user')
-BEGIN
-    CREATE INDEX IX_activity_logs_user ON activity_logs(log_user_id, log_created_at);
-    PRINT 'Index IX_activity_logs_user created';
-END
+/****** Object:  Table [dbo].[feedbacks]    Script Date: 22/12/2025 02.22.39 ******/
+SET ANSI_NULLS ON
 GO
-
--- Insert sample notifications
-IF NOT EXISTS (SELECT * FROM notifications WHERE notification_id = 1)
-BEGIN
-    INSERT INTO notifications (notification_title, notification_message, notification_type, notification_target_role, notification_is_active)
-    VALUES 
-    ('Welcome to RoomWise', 'Welcome to the RoomWise Meeting Room Management System. Book your rooms efficiently and manage your meetings seamlessly.', 'Info', 'All', 1),
-    ('System Maintenance Notice', 'The system will undergo scheduled maintenance on Sunday from 2:00 AM to 4:00 AM. Please plan accordingly.', 'Warning', 'All', 1),
-    ('New Feature: Real-time Availability', 'You can now check room availability in real-time before making a booking!', 'Announcement', 'Employee', 1);
-    
-    PRINT 'Sample notifications inserted';
-END
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[feedbacks](
+	[feedback_id] [int] IDENTITY(1,1) NOT NULL,
+	[feedback_booking_id] [int] NOT NULL,
+	[feedback_user_id] [int] NOT NULL,
+	[feedback_rating] [tinyint] NOT NULL,
+	[feedback_comments] [nvarchar](500) NULL,
+	[feedback_admin_response] [nvarchar](500) NULL,
+	[feedback_admin_responded_by] [int] NULL,
+	[feedback_responded_at] [datetime2](7) NULL,
+	[feedback_created_at] [datetime2](7) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[feedback_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[locations]    Script Date: 22/12/2025 02.22.39 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[locations](
+	[location_id] [int] IDENTITY(1,1) NOT NULL,
+	[location_code] [nvarchar](15) NOT NULL,
+	[location_plant_name] [nvarchar](50) NOT NULL,
+	[location_block] [tinyint] NOT NULL,
+	[location_floor] [tinyint] NOT NULL,
+	[location_is_active] [bit] NOT NULL,
+	[location_created_at] [datetime2](7) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[location_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[rooms]    Script Date: 22/12/2025 02.22.39 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[rooms](
+	[room_id] [int] IDENTITY(1,1) NOT NULL,
+	[room_code] [nvarchar](20) NOT NULL,
+	[room_name] [nvarchar](100) NOT NULL,
+	[room_location_id] [int] NOT NULL,
+	[room_capacity] [int] NOT NULL,
+	[room_facilities] [nvarchar](500) NULL,
+	[room_status] [nvarchar](20) NOT NULL,
+	[room_is_active] [bit] NOT NULL,
+	[room_created_at] [datetime2](7) NULL,
+	[room_updated_at] [datetime2](7) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[room_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+/****** Object:  Table [dbo].[users]    Script Date: 22/12/2025 02.22.39 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[users](
+	[user_id] [int] IDENTITY(1,1) NOT NULL,
+	[user_employee_id] [nvarchar](20) NOT NULL,
+	[user_email] [nvarchar](100) NOT NULL,
+	[user_password] [nvarchar](255) NOT NULL,
+	[user_full_name] [nvarchar](150) NOT NULL,
+	[user_role] [nvarchar](20) NOT NULL,
+	[user_dept_name] [nvarchar](100) NULL,
+	[user_is_active] [bit] NOT NULL,
+	[user_created_at] [datetime2](7) NULL,
+	[user_updated_at] [datetime2](7) NULL,
+PRIMARY KEY CLUSTERED 
+(
+	[user_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+SET IDENTITY_INSERT [dbo].[activity_logs] ON 
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (1, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-17T15:27:49.0700000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (2, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T07:16:36.0966667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (3, 1, N'Export Data', N'Exported users data to Excel', CAST(N'2025-12-18T07:17:01.7200000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (4, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T07:19:58.2800000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (5, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T07:26:55.4133333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (6, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T07:28:20.2666667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (7, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T07:30:30.6533333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (8, 1, N'Logout', N'User logged out', CAST(N'2025-12-18T07:35:42.4433333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (9, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T07:38:24.2366667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (10, 1, N'Logout', N'User logged out', CAST(N'2025-12-18T07:38:29.5333333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (11, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-18T07:45:09.2833333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (12, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-18T07:48:31.8833333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (13, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-18T07:55:16.7066667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (14, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-18T08:06:45.1366667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (15, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-18T08:22:53.3266667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (16, 2, N'Logout', N'User logged out', CAST(N'2025-12-18T08:23:44.5233333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (17, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T08:23:47.6666667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (18, 1, N'Logout', N'User logged out', CAST(N'2025-12-18T08:25:52.3833333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (19, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-18T08:25:54.9033333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (20, 2, N'Logout', N'User logged out', CAST(N'2025-12-18T08:26:18.2766667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (21, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-18T09:02:52.5266667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (22, 2, N'Logout', N'User logged out', CAST(N'2025-12-18T10:25:33.6400000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (23, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T10:25:36.2600000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (24, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T10:27:13.5500000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (25, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T12:38:43.3900000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (26, 1, N'Logout', N'User logged out', CAST(N'2025-12-18T12:41:27.7633333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (27, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-18T12:41:30.3866667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (28, 2, N'Create Booking', N'Created booking: BK202512181242313644', CAST(N'2025-12-18T12:42:31.7833333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (29, 2, N'Logout', N'User logged out', CAST(N'2025-12-18T12:42:50.6700000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (30, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T12:42:53.7133333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (31, 1, N'Approve Booking', N'Approved booking ID: 0', CAST(N'2025-12-18T12:43:15.7733333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (32, 1, N'Approve Booking', N'Approved booking ID: 0', CAST(N'2025-12-18T12:44:41.6800000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (33, 1, N'Approve Booking', N'Approved booking ID: 0', CAST(N'2025-12-18T12:44:48.4900000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (34, 1, N'Approve Booking', N'Approved booking ID: 2', CAST(N'2025-12-18T12:45:00.7033333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (35, 1, N'Logout', N'User logged out', CAST(N'2025-12-18T14:20:26.3166667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (36, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-18T14:20:29.9000000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (37, 2, N'Create Booking', N'Created booking: BK202512181421102087', CAST(N'2025-12-18T14:21:10.5733333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (38, 2, N'Logout', N'User logged out', CAST(N'2025-12-18T14:21:15.7233333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (39, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T14:21:18.1500000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (40, 1, N'Approve Booking', N'Approved booking ID: 3', CAST(N'2025-12-18T14:22:09.0500000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (41, 1, N'Cancel Booking', N'Cancelled booking ID: 3', CAST(N'2025-12-18T14:23:02.1466667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (42, 1, N'Update User', N'Updated user ID: 2', CAST(N'2025-12-18T14:59:23.3033333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (43, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T15:22:25.3666667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (44, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T15:26:49.4800000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (45, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T15:28:45.7700000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (46, 1, N'Update Room', N'Updated room ID: 1', CAST(N'2025-12-18T16:03:55.3833333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (47, 1, N'Update Room', N'Updated room ID: 1', CAST(N'2025-12-18T16:04:04.0800000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (48, 1, N'Logout', N'User logged out', CAST(N'2025-12-18T16:29:00.9133333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (49, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T16:29:03.0766667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (50, 1, N'Logout', N'User logged out', CAST(N'2025-12-18T16:29:22.4333333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (51, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-18T16:29:28.2400000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (52, 2, N'Create Booking', N'Created booking: BK202512181630321810', CAST(N'2025-12-18T16:30:32.4633333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (53, 2, N'Logout', N'User logged out', CAST(N'2025-12-18T16:30:45.8366667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (54, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-18T16:30:48.9000000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (55, 1, N'Approve Booking', N'Approved booking ID: 4', CAST(N'2025-12-18T16:31:15.6600000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (56, 1, N'Cancel Booking', N'Cancelled booking ID: 4', CAST(N'2025-12-18T16:31:37.2800000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (57, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-19T04:17:44.7066667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (58, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-19T04:42:38.3666667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (59, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-19T04:45:26.7500000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (60, 1, N'Update Room Status', N'Changed room ID 3 operational status to Maintenance', CAST(N'2025-12-19T04:56:30.0066667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (61, 1, N'Update Room Status', N'Changed room ID 3 operational status to Maintenance', CAST(N'2025-12-19T04:56:35.3233333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (62, 1, N'Update Room', N'Updated room ID: 3', CAST(N'2025-12-19T04:56:46.7500000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (63, 1, N'Update Room Status', N'Changed room ID 3 operational status to Maintenance', CAST(N'2025-12-19T04:56:57.7933333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (64, 1, N'Toggle Room Status', N'Changed room ID 3 status to Inactive', CAST(N'2025-12-19T04:57:05.9266667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (65, 1, N'Toggle Room Status', N'Changed room ID 3 status to Active', CAST(N'2025-12-19T04:57:12.2300000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (66, 1, N'Logout', N'User logged out', CAST(N'2025-12-19T05:35:02.3533333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (67, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-21T08:15:13.1766667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (68, 2, N'Logout', N'User logged out', CAST(N'2025-12-21T08:18:34.8166667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (69, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-21T08:19:23.4600000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (70, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-21T10:40:04.7033333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (71, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-21T12:43:20.8066667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (72, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-21T17:13:12.6533333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (73, 2, N'Create Booking', N'Created booking: BK202512211721063564', CAST(N'2025-12-21T17:21:06.8700000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (74, 2, N'Create Booking', N'Created booking: BK202512211723453746', CAST(N'2025-12-21T17:23:45.6600000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (75, 2, N'Logout', N'User logged out', CAST(N'2025-12-21T17:24:49.6766667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (76, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-21T17:24:52.4666667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (77, 1, N'Logout', N'User logged out', CAST(N'2025-12-21T17:25:07.9566667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (78, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-21T17:25:12.7033333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (79, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-21T17:30:51.2200000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (80, 2, N'Create Booking', N'Created booking: BK202512211733105973', CAST(N'2025-12-21T17:33:10.7800000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (81, 2, N'Logout', N'User logged out', CAST(N'2025-12-21T17:49:03.7200000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (82, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-21T17:49:06.2800000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (83, 1, N'Logout', N'User logged out', CAST(N'2025-12-21T17:49:17.9633333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (84, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-21T17:49:21.4433333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (85, 2, N'Logout', N'User logged out', CAST(N'2025-12-21T17:50:40.4133333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (86, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-21T17:50:42.6566667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (87, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-21T17:52:07.8566667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (88, 1, N'Logout', N'User logged out', CAST(N'2025-12-21T17:52:23.4900000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (89, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-21T17:52:25.7566667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (90, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-21T18:42:23.7466667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (91, 2, N'Logout', N'User logged out', CAST(N'2025-12-21T19:05:54.5533333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (92, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-21T19:05:57.2500000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (93, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-21T19:07:45.1933333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (94, 1, N'Logout', N'User logged out', CAST(N'2025-12-21T19:08:01.6133333' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (95, 1, N'Login', N'User logged in successfully', CAST(N'2025-12-21T19:08:08.1866667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (96, 1, N'Logout', N'User logged out', CAST(N'2025-12-21T19:08:12.3200000' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (97, 2, N'Login', N'User logged in successfully', CAST(N'2025-12-21T19:08:14.7566667' AS DateTime2))
+GO
+INSERT [dbo].[activity_logs] ([log_id], [log_user_id], [log_action], [log_description], [log_created_at]) VALUES (98, 2, N'Create Booking', N'Created booking: BK202512211913213219', CAST(N'2025-12-21T19:13:21.6900000' AS DateTime2))
+GO
+SET IDENTITY_INSERT [dbo].[activity_logs] OFF
+GO
+SET IDENTITY_INSERT [dbo].[bookings] ON 
+GO
+INSERT [dbo].[bookings] ([booking_id], [booking_code], [booking_user_id], [booking_room_id], [booking_title], [booking_description], [booking_date], [booking_start_time], [booking_end_time], [booking_status], [booking_cancel_reason], [booking_cancelled_by], [booking_created_at], [booking_updated_at]) VALUES (1, N'BK-20251220-001', 2, 1, N'Project Review Meeting', NULL, CAST(N'2025-12-20' AS Date), CAST(N'10:00:00' AS Time), CAST(N'11:30:00' AS Time), N'Confirmed', NULL, NULL, CAST(N'2025-12-17T13:51:18.6233333' AS DateTime2), CAST(N'2025-12-17T13:51:18.6233333' AS DateTime2))
+GO
+INSERT [dbo].[bookings] ([booking_id], [booking_code], [booking_user_id], [booking_room_id], [booking_title], [booking_description], [booking_date], [booking_start_time], [booking_end_time], [booking_status], [booking_cancel_reason], [booking_cancelled_by], [booking_created_at], [booking_updated_at]) VALUES (2, N'BK202512181242313644', 2, 2, N'Dance', N'Donce', CAST(N'2025-12-18' AS Date), CAST(N'22:41:00' AS Time), CAST(N'23:42:00' AS Time), N'Confirmed', NULL, NULL, CAST(N'2025-12-18T12:42:31.6966667' AS DateTime2), CAST(N'2025-12-18T12:45:00.6900000' AS DateTime2))
+GO
+INSERT [dbo].[bookings] ([booking_id], [booking_code], [booking_user_id], [booking_room_id], [booking_title], [booking_description], [booking_date], [booking_start_time], [booking_end_time], [booking_status], [booking_cancel_reason], [booking_cancelled_by], [booking_created_at], [booking_updated_at]) VALUES (3, N'BK202512181421102087', 2, 2, N'Dancey', N'y', CAST(N'2025-12-18' AS Date), CAST(N'20:20:00' AS Time), CAST(N'21:20:00' AS Time), N'Cancelled', N'You orderin twice? No!', 1, CAST(N'2025-12-18T14:21:10.4800000' AS DateTime2), CAST(N'2025-12-18T14:23:02.0600000' AS DateTime2))
+GO
+INSERT [dbo].[bookings] ([booking_id], [booking_code], [booking_user_id], [booking_room_id], [booking_title], [booking_description], [booking_date], [booking_start_time], [booking_end_time], [booking_status], [booking_cancel_reason], [booking_cancelled_by], [booking_created_at], [booking_updated_at]) VALUES (4, N'BK202512181630321810', 2, 1, N'wow', N'wew', CAST(N'2025-12-18' AS Date), CAST(N'22:30:00' AS Time), CAST(N'23:30:00' AS Time), N'Cancelled', N'no', 1, CAST(N'2025-12-18T16:30:32.3000000' AS DateTime2), CAST(N'2025-12-18T16:31:37.1800000' AS DateTime2))
+GO
+INSERT [dbo].[bookings] ([booking_id], [booking_code], [booking_user_id], [booking_room_id], [booking_title], [booking_description], [booking_date], [booking_start_time], [booking_end_time], [booking_status], [booking_cancel_reason], [booking_cancelled_by], [booking_created_at], [booking_updated_at]) VALUES (5, N'BK202512211721063564', 2, 2, N'aa', N'aa', CAST(N'2025-12-22' AS Date), CAST(N'22:21:00' AS Time), CAST(N'23:21:00' AS Time), N'Pending', NULL, NULL, CAST(N'2025-12-21T17:21:06.8200000' AS DateTime2), CAST(N'2025-12-21T17:21:06.8200000' AS DateTime2))
+GO
+INSERT [dbo].[bookings] ([booking_id], [booking_code], [booking_user_id], [booking_room_id], [booking_title], [booking_description], [booking_date], [booking_start_time], [booking_end_time], [booking_status], [booking_cancel_reason], [booking_cancelled_by], [booking_created_at], [booking_updated_at]) VALUES (6, N'BK202512211723453746', 2, 1, N'bbb', N'bbb', CAST(N'2025-12-22' AS Date), CAST(N'18:23:00' AS Time), CAST(N'19:23:00' AS Time), N'Pending', NULL, NULL, CAST(N'2025-12-21T17:23:45.6333333' AS DateTime2), CAST(N'2025-12-21T17:23:45.6333333' AS DateTime2))
+GO
+INSERT [dbo].[bookings] ([booking_id], [booking_code], [booking_user_id], [booking_room_id], [booking_title], [booking_description], [booking_date], [booking_start_time], [booking_end_time], [booking_status], [booking_cancel_reason], [booking_cancelled_by], [booking_created_at], [booking_updated_at]) VALUES (7, N'BK202512211733105973', 2, 2, N'cc', N'cc', CAST(N'2025-12-21' AS Date), CAST(N'22:33:00' AS Time), CAST(N'23:33:00' AS Time), N'Pending', NULL, NULL, CAST(N'2025-12-21T17:33:10.7533333' AS DateTime2), CAST(N'2025-12-21T17:33:10.7533333' AS DateTime2))
+GO
+INSERT [dbo].[bookings] ([booking_id], [booking_code], [booking_user_id], [booking_room_id], [booking_title], [booking_description], [booking_date], [booking_start_time], [booking_end_time], [booking_status], [booking_cancel_reason], [booking_cancelled_by], [booking_created_at], [booking_updated_at]) VALUES (8, N'BK202512211913213219', 2, 2, N'dd', N'dd', CAST(N'2025-12-21' AS Date), CAST(N'20:12:00' AS Time), CAST(N'22:26:00' AS Time), N'Pending', NULL, NULL, CAST(N'2025-12-21T19:13:21.6566667' AS DateTime2), CAST(N'2025-12-21T19:13:21.6566667' AS DateTime2))
+GO
+SET IDENTITY_INSERT [dbo].[bookings] OFF
+GO
+SET IDENTITY_INSERT [dbo].[locations] ON 
+GO
+INSERT [dbo].[locations] ([location_id], [location_code], [location_plant_name], [location_block], [location_floor], [location_is_active], [location_created_at]) VALUES (1, N'PLANT-A-B1-F1', N'Plant A', 1, 1, 1, CAST(N'2025-12-17T13:51:18.6166667' AS DateTime2))
+GO
+INSERT [dbo].[locations] ([location_id], [location_code], [location_plant_name], [location_block], [location_floor], [location_is_active], [location_created_at]) VALUES (2, N'PLANT-A-B1-F2', N'Plant A', 1, 2, 1, CAST(N'2025-12-17T13:51:18.6166667' AS DateTime2))
+GO
+INSERT [dbo].[locations] ([location_id], [location_code], [location_plant_name], [location_block], [location_floor], [location_is_active], [location_created_at]) VALUES (3, N'PLANT-A-B1-F3', N'Plant A', 1, 3, 1, CAST(N'2025-12-17T13:51:18.6166667' AS DateTime2))
+GO
+SET IDENTITY_INSERT [dbo].[locations] OFF
+GO
+SET IDENTITY_INSERT [dbo].[rooms] ON 
+GO
+INSERT [dbo].[rooms] ([room_id], [room_code], [room_name], [room_location_id], [room_capacity], [room_facilities], [room_status], [room_is_active], [room_created_at], [room_updated_at]) VALUES (1, N'RM-001', N'Meeting Room Alpha', 1, 8, N'Projector,SmartScreen, Cool Stuff, Yes Yes, Mama mia', N'Available', 1, CAST(N'2025-12-17T13:51:18.6200000' AS DateTime2), CAST(N'2025-12-18T16:04:03.9533333' AS DateTime2))
+GO
+INSERT [dbo].[rooms] ([room_id], [room_code], [room_name], [room_location_id], [room_capacity], [room_facilities], [room_status], [room_is_active], [room_created_at], [room_updated_at]) VALUES (2, N'RM-002', N'Conference Room Beta', 1, 15, N'Projector,ScreenBeam,CiscoBar', N'Available', 1, CAST(N'2025-12-17T13:51:18.6200000' AS DateTime2), CAST(N'2025-12-17T13:51:18.6200000' AS DateTime2))
+GO
+INSERT [dbo].[rooms] ([room_id], [room_code], [room_name], [room_location_id], [room_capacity], [room_facilities], [room_status], [room_is_active], [room_created_at], [room_updated_at]) VALUES (3, N'RM-003', N'Board Room Gamma', 2, 20, N'Projector,SmartScreen,CiscoBar', N'Maintenance', 1, CAST(N'2025-12-17T13:51:18.6200000' AS DateTime2), CAST(N'2025-12-19T04:57:12.2233333' AS DateTime2))
+GO
+SET IDENTITY_INSERT [dbo].[rooms] OFF
+GO
+SET IDENTITY_INSERT [dbo].[users] ON 
+GO
+INSERT [dbo].[users] ([user_id], [user_employee_id], [user_email], [user_password], [user_full_name], [user_role], [user_dept_name], [user_is_active], [user_created_at], [user_updated_at]) VALUES (1, N'EMP-0001', N'admin@company.com', N'0192023a7bbd73250516f069df18b500', N'System Administrator', N'Admin', N'IT Department', 1, CAST(N'2025-12-17T13:51:18.6200000' AS DateTime2), CAST(N'2025-12-17T13:51:18.6200000' AS DateTime2))
+GO
+INSERT [dbo].[users] ([user_id], [user_employee_id], [user_email], [user_password], [user_full_name], [user_role], [user_dept_name], [user_is_active], [user_created_at], [user_updated_at]) VALUES (2, N'EMP-0002', N'john.doe@company.com', N'827ccb0eea8a706c4c34a16891f84e7b', N'John Doe', N'Employee', N'Engineeringga', 1, CAST(N'2025-12-17T13:51:18.6233333' AS DateTime2), CAST(N'2025-12-18T14:59:23.2000000' AS DateTime2))
+GO
+INSERT [dbo].[users] ([user_id], [user_employee_id], [user_email], [user_password], [user_full_name], [user_role], [user_dept_name], [user_is_active], [user_created_at], [user_updated_at]) VALUES (3, N'EMP-0003', N'jane.smith@company.com', N'827ccb0eea8a706c4c34a16891f84e7b', N'Jane Smith', N'Employee', N'HR', 1, CAST(N'2025-12-17T13:51:18.6233333' AS DateTime2), CAST(N'2025-12-17T13:51:18.6233333' AS DateTime2))
+GO
+SET IDENTITY_INSERT [dbo].[users] OFF
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [UQ__bookings__FF29040F2B9333A1]    Script Date: 22/12/2025 02.22.39 ******/
+ALTER TABLE [dbo].[bookings] ADD UNIQUE NONCLUSTERED 
+(
+	[booking_code] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+/****** Object:  Index [UQ__feedback__5A8675B09AEE85A4]    Script Date: 22/12/2025 02.22.39 ******/
+ALTER TABLE [dbo].[feedbacks] ADD UNIQUE NONCLUSTERED 
+(
+	[feedback_booking_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [UQ__location__68EFE2C42FB25F89]    Script Date: 22/12/2025 02.22.39 ******/
+ALTER TABLE [dbo].[locations] ADD UNIQUE NONCLUSTERED 
+(
+	[location_code] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [UQ__rooms__B970AF18E9739A5C]    Script Date: 22/12/2025 02.22.39 ******/
+ALTER TABLE [dbo].[rooms] ADD UNIQUE NONCLUSTERED 
+(
+	[room_code] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [UQ__users__B0FBA212BA51E46D]    Script Date: 22/12/2025 02.22.39 ******/
+ALTER TABLE [dbo].[users] ADD UNIQUE NONCLUSTERED 
+(
+	[user_email] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+SET ANSI_PADDING ON
+GO
+/****** Object:  Index [UQ__users__F4F2EDAEC8C909AF]    Script Date: 22/12/2025 02.22.39 ******/
+ALTER TABLE [dbo].[users] ADD UNIQUE NONCLUSTERED 
+(
+	[user_employee_id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+GO
+ALTER TABLE [dbo].[activity_logs] ADD  DEFAULT (getdate()) FOR [log_created_at]
+GO
+ALTER TABLE [dbo].[bookings] ADD  DEFAULT ('Pending') FOR [booking_status]
+GO
+ALTER TABLE [dbo].[bookings] ADD  DEFAULT (getdate()) FOR [booking_created_at]
+GO
+ALTER TABLE [dbo].[bookings] ADD  DEFAULT (getdate()) FOR [booking_updated_at]
+GO
+ALTER TABLE [dbo].[feedbacks] ADD  DEFAULT (getdate()) FOR [feedback_created_at]
+GO
+ALTER TABLE [dbo].[locations] ADD  DEFAULT ((1)) FOR [location_is_active]
+GO
+ALTER TABLE [dbo].[locations] ADD  DEFAULT (getdate()) FOR [location_created_at]
+GO
+ALTER TABLE [dbo].[rooms] ADD  DEFAULT ('Available') FOR [room_status]
+GO
+ALTER TABLE [dbo].[rooms] ADD  DEFAULT ((1)) FOR [room_is_active]
+GO
+ALTER TABLE [dbo].[rooms] ADD  DEFAULT (getdate()) FOR [room_created_at]
+GO
+ALTER TABLE [dbo].[rooms] ADD  DEFAULT (getdate()) FOR [room_updated_at]
+GO
+ALTER TABLE [dbo].[users] ADD  DEFAULT ((1)) FOR [user_is_active]
+GO
+ALTER TABLE [dbo].[users] ADD  DEFAULT (getdate()) FOR [user_created_at]
+GO
+ALTER TABLE [dbo].[users] ADD  DEFAULT (getdate()) FOR [user_updated_at]
+GO
+ALTER TABLE [dbo].[activity_logs]  WITH CHECK ADD FOREIGN KEY([log_user_id])
+REFERENCES [dbo].[users] ([user_id])
+GO
+ALTER TABLE [dbo].[bookings]  WITH CHECK ADD FOREIGN KEY([booking_user_id])
+REFERENCES [dbo].[users] ([user_id])
+GO
+ALTER TABLE [dbo].[bookings]  WITH CHECK ADD FOREIGN KEY([booking_room_id])
+REFERENCES [dbo].[rooms] ([room_id])
+GO
+ALTER TABLE [dbo].[bookings]  WITH CHECK ADD FOREIGN KEY([booking_cancelled_by])
+REFERENCES [dbo].[users] ([user_id])
+GO
+ALTER TABLE [dbo].[feedbacks]  WITH CHECK ADD FOREIGN KEY([feedback_booking_id])
+REFERENCES [dbo].[bookings] ([booking_id])
+GO
+ALTER TABLE [dbo].[feedbacks]  WITH CHECK ADD FOREIGN KEY([feedback_user_id])
+REFERENCES [dbo].[users] ([user_id])
+GO
+ALTER TABLE [dbo].[feedbacks]  WITH CHECK ADD FOREIGN KEY([feedback_admin_responded_by])
+REFERENCES [dbo].[users] ([user_id])
+GO
+ALTER TABLE [dbo].[rooms]  WITH CHECK ADD FOREIGN KEY([room_location_id])
+REFERENCES [dbo].[locations] ([location_id])
+GO
+ALTER TABLE [dbo].[bookings]  WITH CHECK ADD CHECK  (([booking_status]='Cancelled' OR [booking_status]='Completed' OR [booking_status]='InProgress' OR [booking_status]='Confirmed' OR [booking_status]='Pending'))
+GO
+ALTER TABLE [dbo].[feedbacks]  WITH CHECK ADD CHECK  (([feedback_rating]>=(1) AND [feedback_rating]<=(5)))
+GO
+ALTER TABLE [dbo].[rooms]  WITH CHECK ADD CHECK  (([room_status]='OutOfService' OR [room_status]='Maintenance' OR [room_status]='Available'))
+GO
+ALTER TABLE [dbo].[users]  WITH CHECK ADD CHECK  (([user_role]='Employee' OR [user_role]='Admin'))
 GO

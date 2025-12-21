@@ -8,56 +8,557 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">My Activity Logs</h1>
-        <p class="page-description">Track your system activities</p>
+        <p class="page-description">Track your system activities and interactions</p>
     </div>
 </div>
 
+<!-- Quick Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-primary">
+                <i class="fas fa-list"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count</div>
+                <div class="stat-label-sm">Total Activities</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-info">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count(l => l.log_created_at.Date == DateTime.Today)</div>
+                <div class="stat-label-sm">Today's Activities</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-success">
+                <i class="fas fa-calendar-week"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count(l => l.log_created_at >= DateTime.Today.AddDays(-7))</div>
+                <div class="stat-label-sm">This Week</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-warning">
+                <i class="fas fa-bolt"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Select(l => l.log_action).Distinct().Count()</div>
+                <div class="stat-label-sm">Action Types</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="filter-section d-flex justify-content-center align-items-center">
+    <div class="filter-group d-flex justify-content-start align-items-center gap-3">
+        <div class="d-flex flex-column">
+            <label>Action Type</label>
+            <select id="actionFilter" class="filter-select" style="min-width:300px !important;">
+                <option value="">All Actions</option>
+            </select>
+        </div>
+        <div class="d-flex flex-column">
+            <label>Date Range</label>
+            <select id="dateFilter" class="filter-select" style="min-width:200px !important;">
+                <option value="">All Time</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="filter-actions">
+        <button class="btn-primary" onclick="clearFilters()">
+            <i class="fas fa-undo"></i> Reset
+        </button>
+    </div>
+</div>
+
+<!-- Logs Table Card -->
 <div class="card">
     <div class="card-body">
-        @if (Model != null && Model.Count > 0)
-        {
-            <table id="logsTable" class="table table-hover">
+        <div class="table-responsive">
+            <table id="logsTable" class="table table-hover text-nowrap align-middle">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Action</th>
-                        <th>Description</th>
-                        <th>Timestamp</th>
+                        <th>
+                            <div class="th-content">
+                                <i class="fas fa-hashtag me-2"></i>ID
+                            </div>
+                        </th>
+                        <th>
+                            <div class="th-content">
+                                <i class="fas fa-bolt me-2"></i>Action
+                            </div>
+                        </th>
+                        <th>
+                            <div class="th-content">
+                                <i class="fas fa-info-circle me-2"></i>Description
+                            </div>
+                        </th>
+                        <th>
+                            <div class="th-content">
+                                <i class="fas fa-calendar me-2"></i>Timestamp
+                            </div>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var log in Model)
                     {
-                        <tr>
-                            <td>@log.log_id</td>
-                            <td><span class="badge bg-primary">@log.log_action</span></td>
-                            <td>@log.log_description</td>
-                            <td>@log.log_created_at.ToString("MMM dd, yyyy HH:mm:ss")</td>
+                        <tr data-action="@log.log_action" 
+                            data-date="@log.log_created_at.ToString("yyyy-MM-dd")">
+                            <td>
+                                <span class="log-id">@log.log_id</span>
+                            </td>
+                            <td>
+                                <span class="action-badge action-@log.log_action.ToLower().Replace(" ", "-")">
+                                    <i class="fas fa-circle"></i>
+                                    @log.log_action
+                                </span>
+                            </td>
+                            <td>
+                                <div class="description-cell">
+                                    @if (!string.IsNullOrEmpty(log.log_description))
+                                    {
+                                        <span>@(log.log_description.Length > 80 ? log.log_description.Substring(0, 80) + "..." : log.log_description)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted fst-italic">No description</span>
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                <div class="timestamp-cell">
+                                    <span class="date-text">@log.log_created_at.ToString("MMM dd, yyyy")</span>
+                                    <small class="time-text">@log.log_created_at.ToString("HH:mm:ss")</small>
+                                </div>
+                            </td>
                         </tr>
                     }
                 </tbody>
             </table>
-        }
-        else
-        {
-            <div class="text-center py-5">
-                <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
-                <h4 class="text-muted">No Activity Logs</h4>
-                <p class="text-muted">Your activities will appear here</p>
-            </div>
-        }
+        </div>
     </div>
 </div>
 
 @section Scripts {
     <script>
+        let logsTable;
+
+        function initializeDataTable() {
+            logsTable = $('#logsTable').DataTable({
+                responsive: false,
+                scrollX: true,
+                pageLength: 50,
+                order: [[3, 'desc']],
+                language: {
+                    search: "",
+                    searchPlaceholder: "🔍 Search activities...",
+                    lengthMenu: "Show _MENU_ logs",
+                    info: "Showing _START_ to _END_ of _TOTAL_ activities",
+                    emptyTable: `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-history fa-2x mb-2"></i>
+                            <p class="mb-0">No activity logs found</p>
+                        </div>
+                    `
+                },
+                columnDefs: [
+                    { orderable: false, targets: [2] }
+                ]
+            });
+        }
+
+        function populateFilters() {
+            const actions = [...new Set(
+                @Html.Raw(Json.Serialize(Model.Select(l => l.log_action).Distinct()))
+            )];
+            
+            const actionFilter = $('#actionFilter');
+            actions.forEach(action => {
+                actionFilter.append(`<option value="${action}">${action}</option>`);
+            });
+        }
+
+        function applyFilters() {
+            const actionFilter = $('#actionFilter').val();
+            const dateFilter = $('#dateFilter').val();
+            
+            logsTable.rows().every(function() {
+                const row = this.node();
+                const rowAction = $(row).data('action');
+                const rowDate = new Date($(row).data('date'));
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                let showRow = true;
+                
+                // Action filter
+                if (actionFilter && rowAction !== actionFilter) {
+                    showRow = false;
+                }
+                
+                // Date filter
+                if (dateFilter && showRow) {
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    
+                    const weekStart = new Date(today);
+                    weekStart.setDate(weekStart.getDate() - 7);
+                    
+                    const monthStart = new Date(today);
+                    monthStart.setMonth(monthStart.getMonth() - 1);
+                    
+                    switch(dateFilter) {
+                        case 'today':
+                            showRow = rowDate >= today;
+                            break;
+                        case 'yesterday':
+                            showRow = rowDate >= yesterday && rowDate < today;
+                            break;
+                        case 'week':
+                            showRow = rowDate >= weekStart;
+                            break;
+                        case 'month':
+                            showRow = rowDate >= monthStart;
+                            break;
+                    }
+                }
+                
+                $(row).toggle(showRow);
+            });
+        }
+
+        function clearFilters() {
+            $('#actionFilter').val('');
+            $('#dateFilter').val('');
+            logsTable.rows().every(function() {
+                $(this.node()).show();
+            });
+            logsTable.draw();
+        }
+
         $(document).ready(function() {
-            if ($('#logsTable').length) {
-                $('#logsTable').DataTable({
-                    order: [[3, 'desc']],
-                    pageLength: 50
-                });
-            }
+            initializeDataTable();
+            populateFilters();
+            
+            $('#actionFilter, #dateFilter').on('change', function() {
+                applyFilters();
+            });
         });
     </script>
+}
+
+@section Styles {
+    <style>
+    /* ============================================
+       BASE STYLES FROM FEEDBACKS VIEW
+       ============================================ */
+    
+    /* Page Header */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 2rem;
+    }
+
+    /* Small Stat Cards */
+    .stat-card-sm {
+        background: var(--white);
+        border-radius: var(--radius-md);
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid rgba(122,162,46,0.08);
+        transition: all 0.2s;
+    }
+
+    .stat-card-sm:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .stat-icon-sm {
+        width: 48px;
+        height: 48px;
+        min-width: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: var(--white);
+    }
+
+    .stat-icon-sm.bg-primary { background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%); }
+    .stat-icon-sm.bg-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .stat-icon-sm.bg-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+    .stat-icon-sm.bg-info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+
+    .stat-details-sm {
+        flex: 1;
+    }
+
+    .stat-value-sm {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--gray-800);
+        line-height: 1;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .stat-label-sm {
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+        margin-top: 0.25rem;
+        font-weight: 500;
+    }
+
+    /* Filter Section */
+    .filter-section {
+        background: var(--white);
+        border-radius: var(--radius-md);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid rgba(122,162,46,0.08);
+        gap: 1.5rem;
+    }
+
+    .filter-group {
+        flex: 1;
+        flex-wrap: wrap;
+    }
+
+    .filter-group label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--gray-700);
+        margin-bottom: 0.375rem;
+    }
+
+    .filter-select {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+        background: var(--white);
+    }
+
+    .filter-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 0.2rem rgba(122, 162, 46, 0.15);
+        outline: none;
+    }
+
+    /* Table Header */
+    .th-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8125rem;
+        white-space: nowrap;
+    }
+
+    .th-content i {
+        opacity: 0.6;
+        font-size: 0.875rem;
+    }
+
+    /* User Info Cell */
+    .user-info-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .user-avatar-sm {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--white);
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    /* ============================================
+       ACTIVITY LOGS SPECIFIC STYLES
+       ============================================ */
+
+    /* Log ID */
+    .log-id {
+        font-family: 'Courier New', monospace;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--gray-700);
+        background: var(--gray-50);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+
+    /* Employee ID Badge */
+    .employee-id-badge {
+        font-family: 'Courier New', monospace;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--gray-600);
+        background: var(--gray-100);
+        padding: 0.375rem 0.75rem;
+        border-radius: 6px;
+        border: 1px solid var(--gray-200);
+    }
+
+    /* Action Badge */
+    .action-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .action-badge i {
+        font-size: 0.5rem;
+    }
+
+    /* Default action colors */
+    .action-badge {
+        background: rgba(122, 162, 46, 0.1);
+        color: var(--primary-dark);
+        border: 1px solid rgba(122, 162, 46, 0.2);
+    }
+
+    /* Specific action type colors */
+    .action-badge[class*="login"],
+    .action-badge[class*="signin"] {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .action-badge[class*="logout"],
+    .action-badge[class*="signout"] {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+        border: 1px solid rgba(107, 114, 128, 0.2);
+    }
+
+    .action-badge[class*="create"],
+    .action-badge[class*="add"] {
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563eb;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .action-badge[class*="update"],
+    .action-badge[class*="edit"],
+    .action-badge[class*="modify"] {
+        background: rgba(245, 158, 11, 0.1);
+        color: #d97706;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .action-badge[class*="delete"],
+    .action-badge[class*="remove"] {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .action-badge[class*="approve"],
+    .action-badge[class*="confirm"] {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .action-badge[class*="reject"],
+    .action-badge[class*="decline"] {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    /* Description Cell */
+    .description-cell {
+        font-size: 0.875rem;
+        color: var(--gray-700);
+        line-height: 1.4;
+    }
+
+    /* Timestamp Cell */
+    .timestamp-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 0.125rem;
+    }
+
+    .date-text {
+        font-size: 0.875rem;
+        color: var(--gray-700);
+        font-weight: 500;
+    }
+
+    .time-text {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        font-family: 'Courier New', monospace;
+    }
+
+    /* Table Row Hover */
+    .table-hover tbody tr:hover {
+        background-color: rgba(122, 162, 46, 0.04);
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .filter-section {
+            flex-direction: column;
+        }
+
+        .filter-group {
+            width: 100%;
+        }
+
+        .filter-actions {
+            width: 100%;
+        }
+
+        .stat-card-sm {
+            padding: 1rem;
+        }
+
+        .stat-value-sm {
+            font-size: 1.5rem;
+        }
+    }
+    </style>
 }

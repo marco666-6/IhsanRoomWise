@@ -688,6 +688,11 @@ namespace RoomWise.Controllers
                 {
                     conn.Open();
 
+                    var now = DateTime.Now;
+                    var currentDate = now.Date;
+                    var currentTime = now.TimeOfDay;
+                    int systemUserId = 1; // System user for auto-cancellations
+
                     // Validate ownership
                     string checkQuery = "SELECT booking_user_id, booking_status FROM bookings WHERE booking_id = @BookingId";
                     using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
@@ -713,17 +718,50 @@ namespace RoomWise.Controllers
 
                     // Cancel booking
                     string query = @"UPDATE bookings 
-                                   SET booking_status = 'Cancelled',
-                                       booking_cancel_reason = @Reason,
-                                       booking_cancelled_by = @CancelledBy,
-                                       booking_updated_at = GETDATE()
-                                   WHERE booking_id = @BookingId";
+                                SET booking_status = 'Cancelled',
+                                    booking_cancel_reason = @Reason,
+                                    booking_cancelled_by = @CancelledBy,
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_id = @BookingId;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Cancelled',
+                                    booking_cancel_reason = 'Not reviewed by admin before meeting time.',
+                                    booking_cancelled_by = @SystemUserId,
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Pending'
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_start_time < @CurrentTime)
+                                    );
+                                
+                                UPDATE bookings
+                                SET booking_status = 'InProgress',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Confirmed'
+                                    AND booking_date = @CurrentDate
+                                    AND booking_start_time <= @CurrentTime
+                                    AND booking_end_time > @CurrentTime;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Completed',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status IN ('InProgress', 'Confirmed')
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_end_time <= @CurrentTime)
+                                    );";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@Reason", reason);
                         cmd.Parameters.AddWithValue("@CancelledBy", userId);
                         cmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        cmd.Parameters.AddWithValue("@SystemUserId", systemUserId);
+                        cmd.Parameters.AddWithValue("@CurrentDate", currentDate);
+                        cmd.Parameters.AddWithValue("@CurrentTime", currentTime);
 
                         cmd.ExecuteNonQuery();
 
@@ -1060,7 +1098,7 @@ namespace RoomWise.Controllers
                         cmdVerify.Parameters.AddWithValue("@UserId", userId);
                         string storedPassword = cmdVerify.ExecuteScalar()?.ToString() ?? "";
 
-                        if (!SecHelperFunction.VerifyPassword(currentPassword, storedPassword))
+                        if (!SecHelperFunction.VerifyPassword(SecHelperFunction.HashPasswordMD5(currentPassword), storedPassword))
                         {
                             return Json(new { success = false, message = "Current password is incorrect" });
                         }
