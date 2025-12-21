@@ -877,19 +877,6 @@ namespace RoomWise.Controllers
         }
 
         // ============================================
-        // KF-21: Notifications View
-        // ============================================
-        [HttpGet]
-        public IActionResult NotificationsView()
-        {
-            if (!CheckEmployeeAuth())
-                return RedirectToAction("LoginView", "Auth");
-
-            // Placeholder for notifications feature
-            return View();
-        }
-
-        // ============================================
         // My Activity Logs View
         // ============================================
         [HttpGet]

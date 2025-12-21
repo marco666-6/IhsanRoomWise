@@ -581,9 +581,20 @@
                 language: {
                     search: "",
                     searchPlaceholder: "🔍 Search rooms...",
-                    lengthMenu: "Show _MENU_",
-                    info: "Showing _START_ to _END_ of _TOTAL_ users",
-                    emptyTable: "No users found",
+                    lengthMenu: "Show _MENU_ rooms",
+                    info: "Showing _START_ to _END_ of _TOTAL_ rooms",
+                    emptyTable: `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-door-open fa-2x mb-2"></i>
+                            <p class="mb-0">No rooms found</p>
+                        </div>
+                    `,
+                    zeroRecords: `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-search fa-2x mb-2"></i>
+                            <p class="mb-0">No matching rooms found</p>
+                        </div>
+                    `,
                     paginate: {
                         previous: "‹",
                         next: "›"

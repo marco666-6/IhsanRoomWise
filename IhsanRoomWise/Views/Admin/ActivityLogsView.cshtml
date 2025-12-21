@@ -198,9 +198,20 @@
                 language: {
                     search: "",
                     searchPlaceholder: "🔍 Search logs...",
-                    lengthMenu: "Show _MENU_",
+                    lengthMenu: "Show _MENU_ logs",
                     info: "Showing _START_ to _END_ of _TOTAL_ logs",
-                    emptyTable: "No activity logs found",
+                    emptyTable: `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-history fa-2x mb-2"></i>
+                            <p class="mb-0">No activity logs found</p>
+                        </div>
+                    `,
+                    zeroRecords : `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-search fa-2x mb-2"></i>
+                            <p class="mb-0">No matching logs found</p>
+                        </div>
+                    `,  
                     paginate: {
                         previous: "‹",
                         next: "›"

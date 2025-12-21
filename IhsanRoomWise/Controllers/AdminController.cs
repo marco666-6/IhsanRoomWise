@@ -1405,19 +1405,6 @@ namespace RoomWise.Controllers
         }
 
         // ============================================
-        // KF-12: Notifications Management (Optional Feature)
-        // ============================================
-        [HttpGet]
-        public IActionResult NotificationsView()
-        {
-            if (!CheckAdminAuth())
-                return RedirectToAction("LoginView", "Auth");
-
-            // This is a placeholder for notifications feature
-            return View();
-        }
-
-        // ============================================
         // KF-13: Activity Logs View
         // ============================================
         [HttpGet]

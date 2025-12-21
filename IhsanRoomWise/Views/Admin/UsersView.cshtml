@@ -349,9 +349,20 @@
                 language: {
                     search: "",
                     searchPlaceholder: "🔍 Search users...",
-                    lengthMenu: "Show _MENU_",
+                    lengthMenu: "Show _MENU_ users",
                     info: "Showing _START_ to _END_ of _TOTAL_ users",
-                    emptyTable: "No users found",
+                    emptyTable: `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-user fa-2x mb-2"></i>
+                            <p class="mb-0">No users found</p>
+                        </div>
+                    `,
+                    zeroRecords : `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-search fa-2x mb-2"></i>
+                            <p class="mb-0">No matching users found</p>
+                        </div>
+                    `,
                     paginate: {
                         previous: "‹",
                         next: "›"

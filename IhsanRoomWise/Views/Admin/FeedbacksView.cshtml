@@ -368,9 +368,20 @@
                 language: {
                     search: "",
                     searchPlaceholder: "🔍 Search feedbacks...",
-                    lengthMenu: "Show _MENU_",
+                    lengthMenu: "Show _MENU_ feedbacks",
                     info: "Showing _START_ to _END_ of _TOTAL_ feedbacks",
-                    emptyTable: "No feedbacks found",
+                    emptyTable: `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-comment-dots fa-2x mb-2"></i>
+                            <p class="mb-0">No feedbacks found</p>
+                        </div>
+                    `,
+                    zeroRecords : `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-search fa-2x mb-2"></i>
+                            <p class="mb-0">No matching feedbacks found</p>
+                        </div>
+                    `,
                     paginate: {
                         previous: "‹",
                         next: "›"

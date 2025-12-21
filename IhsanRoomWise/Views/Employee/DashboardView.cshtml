@@ -89,7 +89,7 @@
     </div>
 </div>
 
-<!-- Available Rooms Now (WITH ADMIN-STYLE FILTERS) -->
+<!-- Available Rooms Now -->
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="card-title mb-0">
@@ -103,12 +103,14 @@
                     <option value="">All Plants</option>
                 </select>
             </div>
+
             <div class="d-flex flex-column">
                 <small class="text-muted">Block</small>
                 <select id="blockFilter" class="filter-select" disabled>
                     <option value="">All Blocks</option>
                 </select>
             </div>
+
             <div class="d-flex flex-column">
                 <small class="text-muted">Floor</small>
                 <select id="floorFilter" class="filter-select" disabled>
@@ -120,7 +122,7 @@
     </div>
     <div class="card-body">
         <div class="row g-3" id="availableRoomsContainer">
-            @if (ViewBag.AvailableRoomsNowList != null)
+            @if (ViewBag.AvailableRoomsNowList != null && ViewBag.AvailableRoomsNowList.Count > 0)
             {
                 @foreach (var room in ViewBag.AvailableRoomsNowList)
                 {
@@ -247,22 +249,14 @@
                             </tr>
                         }
                     }
-                    else
-                    {
-                        <tr>
-                            <td colspan="5" class="text-center py-4">
-                                <i class="fas fa-calendar-times fa-2x text-muted mb-2"></i>
-                                <p class="text-muted mb-0">No upcoming bookings</p>
-                            </td>
-                        </tr>
-                    }
+                    
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 
-<!-- PERFECTLY ENHANCED Weekly Schedule -->
+<!-- Weekly Schedule -->
 <div class="card mb-4">
     <div class="card-header">
         <h5 class="card-title mb-0">
@@ -291,16 +285,14 @@
                     var bookings = dayGroup.Value.Where(d => d.booking_id != null).ToList();
                     var bookingCount = bookings.Count;
                     
-                    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-6 col-6">
+                    <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6 col-12">
                         <div class="card text-center h-100 @dayClass position-relative overflow-hidden schedule-day-card">
-                            <!-- Today Badge -->
                             @if (isToday)
                             {
                                 <span class="badge bg-primary position-absolute top-0 end-0 border border-white border-2 m-2 shadow">TODAY</span>
                             }
                             
                             <div class="card-body py-4 d-flex flex-column">
-                                <!-- Day Header -->
                                 <div class="mb-4">
                                     <h5 class="fw-bold mb-1 text-truncate">@firstDay.day_name</h5>
                                     <div class="date-badge bg-light rounded-pill px-3 py-1 mx-auto d-inline-block">
@@ -308,7 +300,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Booking Content -->
                                 @if (bookingCount > 0)
                                 {
                                     <div class="flex-grow-1 d-flex flex-column justify-content-center">
@@ -316,7 +307,6 @@
                                         {
                                             var booking = bookings.First();
                                             <div class="single-booking bg-gradient rounded-3 p-4 shadow-sm border border-light">
-                                                <!-- Time -->
                                                 <div class="time-circle mb-3 mx-auto">
                                                     <div class="time-circle-inner">
                                                         <span class="fw-bold fs-6">@booking.start_time</span><br>
@@ -325,7 +315,6 @@
                                                     </div>
                                                 </div>
                                                 
-                                                <!-- Room -->
                                                 <div class="room-info mb-3">
                                                     <div class="room-icon mb-2">
                                                         <i class="fas fa-door-open fa-2x text-primary"></i>
@@ -336,7 +325,6 @@
                                                     </div>
                                                 </div>
                                                 
-                                                <!-- Status -->
                                                 <span class="badge badge-status badge-@(booking.booking_status == "Pending" ? "warning" : "success") text-@(booking.booking_status == "Pending" ? "warning" : "success") fs-6 px-3 py-2">
                                                     <i class="fas fa-@(booking.booking_status == "Pending" ? "clock" : "check-circle") me-1"></i>
                                                     @booking.booking_status
@@ -345,7 +333,6 @@
                                         }
                                         else if (bookingCount <= 3)
                                         {
-                                            <!-- 2-3 bookings - Show all compact -->
                                             <div class="multi-booking-list">
                                                 @foreach (var booking in bookings)
                                                 {
@@ -365,7 +352,6 @@
                                         }
                                         else
                                         {
-                                            <!-- 4+ bookings - Summary + Top 3 -->
                                             <div class="booking-summary p-4 bg-light rounded-3 shadow-sm text-center">
                                                 <h6 class="fw-bold mb-3 text-primary">@bookingCount Meetings</h6>
                                                 
@@ -394,7 +380,6 @@
                                 }
                                 else
                                 {
-                                    <!-- Free Day -->
                                     <div class="free-day flex-grow-1 d-flex flex-column justify-content-center">
                                         <div class="free-icon mb-3 mx-auto">
                                             <i class="fas fa-check-double fa-3x text-success mb-3"></i>
@@ -414,8 +399,7 @@
     </div>
 </div>
 
-<!-- Rest of dashboard remains same... -->
-<!-- Booking Trends & Popular Rooms -->
+<!-- Booking Trends & Status Charts -->
 <div class="row g-4 mb-4">
     <div class="col-md-6">
         <div class="card">
@@ -517,34 +501,56 @@
 
 @section Scripts {
     <script>
-        let statusData = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.MyBookingsByStatus ?? new {}));
-        let trendsData = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.MyBookingTrends ?? new {}));
+        // Chart data from ViewBag
+        const statusData = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.MyBookingsByStatus ?? new {}));
+        const trendsData = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.MyBookingTrends ?? new {}));
 
         $(document).ready(function () {
-            // AVAILABLE ROOMS FILTER (EXACTLY LIKE ADMIN DASHBOARD)
+            // Initialize room filters
+            initializeRoomFilters();
+            
+            // Initialize DataTable
+            initializeDataTable();
+            
+            // Initialize charts
+            initializeCharts();
+            
+            // Hover effects
+            $('.hover-lift').hover(
+                function() { $(this).addClass('shadow-lg transform-scale'); },
+                function() { $(this).removeClass('shadow-lg transform-scale'); }
+            );
+        });
+
+        // Room Filter System (Matching Admin Dashboard)
+        function initializeRoomFilters() {
             const rooms = $('.room-card-item');
             
+            // Helper function to populate select options
             function populateSelect($select, values) {
                 $select.find('option:not(:first)').remove();
-                [...new Set(values)].sort().forEach(v => {
+                const uniqueValues = [...new Set(values)].sort();
+                uniqueValues.forEach(v => {
                     $select.append(`<option value="${v}">${v}</option>`);
                 });
             }
 
-            // Extract plant data
+            // Get all plants
             const plants = rooms.map((_, el) => $(el).data('plant')).get();
             populateSelect($('#plantFilter'), plants);
 
-            // Plant filter
+            // Plant filter change handler
             $('#plantFilter').on('change', function () {
                 const plant = $(this).val();
+                
                 if (!plant) {
                     rooms.show();
-                    $('#blockFilter').val('').prop('disabled', true).empty();
-                    $('#floorFilter').val('').prop('disabled', true).empty();
+                    $('#blockFilter').val('').prop('disabled', true).find('option:not(:first)').remove();
+                    $('#floorFilter').val('').prop('disabled', true).find('option:not(:first)').remove();
                     return;
                 }
 
+                // Get blocks for selected plant
                 const blocks = rooms
                     .filter(`[data-plant="${plant}"]`)
                     .map((_, el) => $(el).data('block'))
@@ -552,7 +558,9 @@
 
                 populateSelect($('#blockFilter'), blocks);
                 $('#blockFilter').prop('disabled', false);
-                $('#floorFilter').prop('disabled', true);
+                $('#floorFilter').val('').prop('disabled', true).find('option:not(:first)').remove();
+                
+                // Show only rooms from selected plant
                 rooms.hide().filter(`[data-plant="${plant}"]`).show();
             });
 
@@ -562,11 +570,18 @@
                 $('#plantFilter').val(randomPlant).trigger('change');
             }
 
-            // Block filter
+            // Block filter change handler
             $('#blockFilter').on('change', function () {
                 const plant = $('#plantFilter').val();
                 const block = $(this).val();
 
+                if (!block) {
+                    rooms.hide().filter(`[data-plant="${plant}"]`).show();
+                    $('#floorFilter').val('').prop('disabled', true).find('option:not(:first)').remove();
+                    return;
+                }
+
+                // Get floors for selected plant and block
                 const floors = rooms
                     .filter(`[data-plant="${plant}"][data-block="${block}"]`)
                     .map((_, el) => $(el).data('floor'))
@@ -575,36 +590,53 @@
                 populateSelect($('#floorFilter'), floors);
                 $('#floorFilter').prop('disabled', false);
 
-                rooms.hide()
-                    .filter(`[data-plant="${plant}"][data-block="${block}"]`)
-                    .show();
+                // Show only rooms from selected plant and block
+                rooms.hide().filter(`[data-plant="${plant}"][data-block="${block}"]`).show();
             });
 
-            // Floor filter
+            // Floor filter change handler
             $('#floorFilter').on('change', function () {
                 const plant = $('#plantFilter').val();
                 const block = $('#blockFilter').val();
                 const floor = $(this).val();
 
-                rooms.hide()
-                    .filter(`[data-plant="${plant}"][data-block="${block}"][data-floor="${floor}"]`)
-                    .show();
-            });
+                if (!floor) {
+                    rooms.hide().filter(`[data-plant="${plant}"][data-block="${block}"]`).show();
+                    return;
+                }
 
-            // DataTable for upcoming bookings (FIXED)
+                // Show only rooms from selected plant, block, and floor
+                rooms.hide().filter(`[data-plant="${plant}"][data-block="${block}"][data-floor="${floor}"]`).show();
+            });
+        }
+
+        // DataTable Initialization
+        function initializeDataTable() {
             if ($.fn.DataTable.isDataTable('#upcomingBookingsTable')) {
                 $('#upcomingBookingsTable').DataTable().destroy();
             }
+            
             $('#upcomingBookingsTable').DataTable({
-                responsive: false, // IMPORTANT: disable responsive to allow horizontal scroll
+                responsive: false,
                 scrollX: true,
                 pageLength: 25,
                 language: {
                     search: "",
-                    searchPlaceholder: "🔍 Search users...",
-                    lengthMenu: "Show _MENU_ users",
-                    info: "Showing _START_ to _END_ of _TOTAL_ users",
-                    emptyTable: "No users found",
+                    searchPlaceholder: "🔍 Search bookings...",
+                    lengthMenu: "Show _MENU_ bookings",
+                    info: "Showing _START_ to _END_ of _TOTAL_ bookings",
+                    emptyTable: `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-calendar-times fa-2x mb-2"></i>
+                            <p class="mb-0">No upcoming bookings found</p>
+                        </div>
+                    `,
+                    zeroRecords : `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-search fa-2x mb-2"></i>
+                            <p class="mb-0">No upcoming bookings found</p>
+                        </div>
+                    `,
                     paginate: {
                         previous: "«",
                         next: "»"
@@ -613,55 +645,84 @@
                 dom:
                     "<'row mb-2'<'col-md-6'l><'col-md-6 text-end'f>>" +
                     "<'row'<'col-12'tr>>" +
-                    "<'row mt-2'<'col-md-6'i><'col-md-6 text-end'p>>",
+                    "<'row mt-2'<'col-md-6'i><'col-md-6 text-end'p>>"
             });
+        }
 
-            // Highcharts - Trends
+        // Charts Initialization
+        function initializeCharts() {
+            // Booking Trends Chart
             if (trendsData.length > 0) {
                 Highcharts.chart('myBookingTrendsChart', {
-                    chart: { type: 'line', height: 250 },
+                    chart: { 
+                        type: 'line', 
+                        height: 250 
+                    },
                     title: { text: null },
-                    xAxis: { categories: trendsData.map(d => d.date_str), crosshair: true },
-                    yAxis: { title: { text: 'Bookings' }, allowDecimals: false, min: 0 },
+                    xAxis: { 
+                        categories: trendsData.map(d => d.date_str), 
+                        crosshair: true 
+                    },
+                    yAxis: { 
+                        title: { text: 'Bookings' }, 
+                        allowDecimals: false, 
+                        min: 0 
+                    },
                     tooltip: {
                         headerFormat: '<span style="font-size: 10px">{point.key}</span><br>',
-                        pointFormat: '<span style="color:{point.color}">\u25CF</span> {series.name}: <b>{point.y}</b>'
+                        pointFormat: '<span style="color:{point.color}">●</span> {series.name}: <b>{point.y}</b>'
                     },
-                    series: [{ name: 'My Bookings', data: trendsData.map(d => d.count), color: '#0d6efd', marker: { radius: 4 } }],
-                    legend: { enabled: false }
+                    series: [{ 
+                        name: 'My Bookings', 
+                        data: trendsData.map(d => d.count), 
+                        color: '#0d6efd', 
+                        marker: { radius: 4 } 
+                    }],
+                    legend: { enabled: false },
+                    credits: { enabled: false }
                 });
             }
 
-            // Highcharts - Status Pie
+            // Bookings by Status Chart
             if (Object.keys(statusData).length > 0) {
                 const pieData = Object.keys(statusData).map(key => ({
                     name: key,
                     y: statusData[key],
-                    color: key === 'Confirmed' ? '#28a745' : key === 'Pending' ? '#ffc107' : key === 'Completed' ? '#17a2b8' : '#6c757d'
+                    color: key === 'Confirmed' ? '#28a745' : 
+                           key === 'Pending' ? '#ffc107' : 
+                           key === 'Completed' ? '#17a2b8' : '#6c757d'
                 }));
 
                 Highcharts.chart('bookingsStatusChart', {
-                    chart: { type: 'pie', height: 250 },
+                    chart: { 
+                        type: 'pie', 
+                        height: 250 
+                    },
                     title: { text: null },
-                    tooltip: { pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>' },
+                    tooltip: { 
+                        pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>' 
+                    },
                     plotOptions: {
                         pie: {
                             allowPointSelect: true,
                             cursor: 'pointer',
-                            dataLabels: { enabled: true, format: '<b>{point.name}</b>: {point.percentage:.1f} %' }
+                            dataLabels: { 
+                                enabled: true, 
+                                format: '<b>{point.name}</b>: {point.percentage:.1f}%' 
+                            }
                         }
                     },
-                    series: [{ name: 'Bookings', colorByPoint: true, data: pieData }]
+                    series: [{ 
+                        name: 'Bookings', 
+                        colorByPoint: true, 
+                        data: pieData 
+                    }],
+                    credits: { enabled: false }
                 });
             }
+        }
 
-            // Hover effects
-            $('.hover-lift').hover(
-                function() { $(this).addClass('shadow-lg transform-scale'); },
-                function() { $(this).removeClass('shadow-lg transform-scale'); }
-            );
-        });
-
+        // Refresh Dashboard
         function refreshDashboard() {
             Swal.fire({
                 title: 'Refreshing...',
@@ -676,54 +737,139 @@
 
 @section Styles {
     <style>
-/* Enhanced Schedule CSS */
-.schedule-day-card {
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-}
+        /* Schedule Day Cards */
+        .schedule-day-card {
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
 
-.schedule-day-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.1) !important;
-}
+        .schedule-day-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1) !important;
+        }
 
-.summary-circle {
-    width: 70px;
-    height: 70px;
-    margin: 0 auto 10px;
-}
+        /* Time Circle */
+        .time-circle {
+            width: 120px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0dd25c 0%, #009d27 100%);
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(6, 99, 3, 0.4);
+        }
 
-.summary-circle-inner {
-    width: 60px;
-    height: 60px;
-}
+        .time-circle-inner {
+            width: 110px;
+            height: 110px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.2;
+        }
 
-.room-compact {
-    font-size: 0.9rem;
-    color: #495057;
-}
+        /* Room Info */
+        .room-info {
+            padding: 1rem 0;
+        }
 
-.badge-status {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    font-weight: 600;
-    min-width: 90px;
-}
+        .room-icon {
+            filter: drop-shadow(0 4px 8px rgba(13, 110, 253, 0.3));
+        }
 
-.free-icon {
-    filter: drop-shadow(0 4px 8px rgba(40, 167, 69, 0.3));
-}
+        .room-code {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2);
+        }
 
-.date-badge {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
+        /* Badge Status */
+        .badge-status {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            font-weight: 600;
+            min-width: 90px;
+        }
 
-.preview-list .preview-item:last-child {
-    border-bottom: none !important;
-}
+        /* Compact Booking Cards */
+        .booking-compact {
+            background: white;
+            transition: all 0.2s ease;
+        }
 
-.multi-booking-list .booking-compact:hover {
-    background-color: rgba(13, 110, 253, 0.05) !important;
-    transform: scale(1.02);
-}
-</style>
+        .booking-compact:hover {
+            background-color: rgba(13, 110, 253, 0.05) !important;
+            transform: scale(1.02);
+        }
+
+        .room-compact {
+            font-size: 0.9rem;
+            color: #495057;
+        }
+
+        /* Booking Summary */
+        .booking-summary {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+
+        .preview-list .preview-item {
+            text-align: left;
+        }
+
+        .preview-list .preview-item:last-child {
+            border-bottom: none !important;
+        }
+
+        /* Free Day */
+        .free-day {
+            padding: 1rem 0;
+        }
+
+        .free-icon {
+            filter: drop-shadow(0 4px 8px rgba(40, 167, 69, 0.3));
+        }
+
+        /* Date Badge */
+        .date-badge {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Hover Lift Effect */
+        .hover-lift {
+            transition: all 0.3s ease;
+        }
+
+        .hover-lift.shadow-lg {
+            box-shadow: 0 1rem 3rem rgba(0,0,0,0.175) !important;
+        }
+
+        .hover-lift.transform-scale {
+            transform: translateY(-5px);
+        }
+
+        /* Activity List */
+        .activity-item {
+            transition: background-color 0.2s ease;
+        }
+
+        .activity-item:hover {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+
+        .activity-item:last-child {
+            border-bottom: none !important;
+        }
+
+        /* Responsive Adjustments */
+        @@media (max-width: 768px) {
+
+            .schedule-day-card {
+                margin-bottom: 1rem;
+            }
+        }
+    </style>
 }

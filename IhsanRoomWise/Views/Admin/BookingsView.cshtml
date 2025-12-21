@@ -521,9 +521,20 @@
                 language: {
                     search: "",
                     searchPlaceholder: "🔍 Search bookings...",
-                    lengthMenu: "Show _MENU_",
+                    lengthMenu: "Show _MENU_ bookings",
                     info: "Showing _START_ to _END_ of _TOTAL_ bookings",
-                    emptyTable: "No bookings found",
+                    emptyTable: `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-calendar-alt fa-2x mb-2"></i>
+                            <p class="mb-0">No bookings found</p>
+                        </div>
+                    `,
+                    zeroRecords : `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-search fa-2x mb-2"></i>
+                            <p class="mb-0">No matching bookings found</p>
+                        </div>
+                    `,
                     paginate: {
                         previous: "‹",
                         next: "›"
@@ -545,7 +556,6 @@
             
             // Map bookings to calendar events with CORRECT property names
             const events = bookingsData
-                .filter(b => b && b.booking_status !== 'Cancelled') // Filter cancelled
                 .map(b => {
                     try {
                         // Handle different date/time formats

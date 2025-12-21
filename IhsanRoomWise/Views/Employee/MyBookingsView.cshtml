@@ -10,217 +10,431 @@
         <h1 class="page-title">My Bookings</h1>
         <p class="page-description">View and manage your meeting room bookings</p>
     </div>
-    <div>
+    <div class="page-actions">
+        <div class="view-toggle">
+            <button class="view-btn active" data-view="table">
+                <i class="fas fa-table"></i>
+            </button>
+            <button class="view-btn" data-view="calendar">
+                <i class="fas fa-calendar-alt"></i>
+            </button>
+        </div>
         <a asp-action="FindRoomView" class="btn btn-primary">
             <i class="fas fa-plus me-2"></i> New Booking
         </a>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-body">
-        <table id="bookingsTable" class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Code</th>
-                    <th>Title</th>
-                    <th>Room</th>
-                    <th>Location</th>
-                    <th>Date</th>
-                    <th>Time</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var booking in Model)
+<!-- Quick Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-primary">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count</div>
+                <div class="stat-label-sm">Total Bookings</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-warning">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count(b => b.booking_status == "Pending")</div>
+                <div class="stat-label-sm">Pending</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count(b => b.booking_status == "Confirmed")</div>
+                <div class="stat-label-sm">Confirmed</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-icon-sm bg-info">
+                <i class="fas fa-hourglass-half"></i>
+            </div>
+            <div class="stat-details-sm">
+                <div class="stat-value-sm">@Model.Count(b => b.booking_status == "InProgress")</div>
+                <div class="stat-label-sm">In Progress</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="filter-section d-flex justify-content-center align-items-center">
+    <div class="filter-group d-flex justify-content-start align-items-center gap-3">
+        <div class="d-flex flex-column">
+            <label>Status</label>
+            <select class="filter-select" id="filterStatus" style="min-width:200px !important;">
+                <option value="">All Status</option>
+                <option value="Pending">Pending</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="InProgress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="Cancelled">Cancelled</option>
+            </select>
+        </div>
+        <div class="d-flex flex-column">
+            <label>Room</label>
+            <select class="filter-select" id="filterRoom" style="min-width:300px !important;">
+                <option value="">All Rooms</option>
+                @foreach (var room in Model.Select(b => new { code = b.room_code, name = b.room_name }).Distinct())
                 {
-                    <tr>
-                        <td><strong>@booking.booking_code</strong></td>
-                        <td>@booking.booking_title</td>
-                        <td>
-                            @booking.room_code<br />
-                            <small class="text-muted">@booking.room_name</small>
-                        </td>
-                        <td>@booking.location_plant_name</td>
-                        <td>@booking.booking_date.ToString("MMM dd, yyyy")</td>
-                        <td>
-                            @booking.booking_start_time.ToString(@"hh\:mm") - 
-                            @booking.booking_end_time.ToString(@"hh\:mm")
-                        </td>
-                        <td>
-                            @if (booking.booking_status == "Pending")
-                            {
-                                <span class="badge bg-warning">Pending</span>
-                            }
-                            else if (booking.booking_status == "Confirmed")
-                            {
-                                <span class="badge bg-success">Confirmed</span>
-                            }
-                            else if (booking.booking_status == "InProgress")
-                            {
-                                <span class="badge bg-info">In Progress</span>
-                            }
-                            else if (booking.booking_status == "Completed")
-                            {
-                                <span class="badge bg-primary">Completed</span>
-                            }
-                            else if (booking.booking_status == "Cancelled")
-                            {
-                                <span class="badge bg-danger">Cancelled</span>
-                            }
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-info" onclick='viewBooking(@booking.booking_id, "@booking.booking_code", "@booking.booking_title", "@Html.Raw(booking.booking_description?.ToString().Replace("\"", "\\\"") ?? "")", "@booking.booking_date.ToString("yyyy-MM-dd")", "@booking.booking_start_time.ToString(@"hh\:mm")", "@booking.booking_end_time.ToString(@"hh\:mm")", "@booking.room_name", "@booking.location_plant_name", "@booking.booking_status", "@Html.Raw(booking.booking_cancel_reason?.ToString().Replace("\"", "\\\"") ?? "")")'>
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            @if (booking.booking_status == "Pending" || booking.booking_status == "Confirmed")
-                            {
-                                <button class="btn btn-sm btn-primary" onclick='editBooking(@booking.booking_id, "@booking.booking_title", "@Html.Raw(booking.booking_description?.ToString().Replace("\"", "\\\"") ?? "")", "@booking.booking_date.ToString("yyyy-MM-dd")", "@booking.booking_start_time.ToString(@"hh\:mm")", "@booking.booking_end_time.ToString(@"hh\:mm")")'>
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-sm btn-danger" onclick="cancelBooking(@booking.booking_id, '@booking.booking_code')">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            }
-                        </td>
-                    </tr>
+                    @if (!string.IsNullOrEmpty(room.code))
+                    {
+                        <option value="@room.code">@room.code - @room.name</option>
+                    }
                 }
-            </tbody>
-        </table>
+            </select>
+        </div>
+        <div class="d-flex flex-column">
+            <label>Date Range</label>
+            <select class="filter-select" id="filterDate" style="min-width:200px !important;">
+                <option value="">All Dates</option>
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="upcoming">Upcoming</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="filter-actions">
+        <button class="btn-primary" onclick="resetFilters()">
+            <i class="fas fa-undo"></i> Reset
+        </button>
+    </div>
+</div>
+
+<!-- Table View -->
+<div class="card" id="tableView">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="bookingsTable" class="table table-hover text-nowrap text-center align-middle">
+                <thead>
+                    <tr>
+                        <th><div class="th-content"><i class="fas fa-barcode me-2"></i>Code</div></th>
+                        <th><div class="th-content"><i class="fas fa-heading me-2"></i>Title</div></th>
+                        <th><div class="th-content"><i class="fas fa-door-open me-2"></i>Room</div></th>
+                        <th><div class="th-content"><i class="fas fa-map-marker-alt me-2"></i>Location</div></th>
+                        <th><div class="th-content"><i class="fas fa-calendar me-2"></i>Date</div></th>
+                        <th><div class="th-content"><i class="fas fa-clock me-2"></i>Time</div></th>
+                        <th><div class="th-content"><i class="fas fa-circle-dot me-2"></i>Status</div></th>
+                        <th class="text-center"><div class="th-content justify-content-center"><i class="fas fa-tools me-2"></i>Actions</div></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var booking in Model)
+                    {
+                        <tr data-status="@booking.booking_status" 
+                            data-room="@booking.room_code" 
+                            data-date="@booking.booking_date.ToString("yyyy-MM-dd")">
+                            <td><span class="booking-code">@booking.booking_code</span></td>
+                            <td><strong>@booking.booking_title</strong></td>
+                            <td>
+                                <div class="room-info">
+                                    <div class="room-code-sm">@booking.room_code</div>
+                                    <div class="room-name-sm">@booking.room_name</div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="location-badge">
+                                    <i class="fas fa-building me-1"></i>
+                                    @booking.location_plant_name
+                                </span>
+                            </td>
+                            <td>@booking.booking_date.ToString("MMM dd, yyyy")</td>
+                            <td>
+                                <span class="time-badge">
+                                    @booking.booking_start_time.ToString(@"hh\:mm") - @booking.booking_end_time.ToString(@"hh\:mm")
+                                </span>
+                            </td>
+                            <td>
+                                @if (booking.booking_status == "Pending")
+                                {
+                                    <span class="status-badge status-pending">
+                                        <i class="fas fa-circle"></i> Pending
+                                    </span>
+                                }
+                                else if (booking.booking_status == "Confirmed")
+                                {
+                                    <span class="status-badge status-confirmed">
+                                        <i class="fas fa-circle"></i> Confirmed
+                                    </span>
+                                }
+                                else if (booking.booking_status == "InProgress")
+                                {
+                                    <span class="status-badge status-progress">
+                                        <i class="fas fa-circle"></i> In Progress
+                                    </span>
+                                }
+                                else if (booking.booking_status == "Completed")
+                                {
+                                    <span class="status-badge status-completed">
+                                        <i class="fas fa-circle"></i> Completed
+                                    </span>
+                                }
+                                else if (booking.booking_status == "Cancelled")
+                                {
+                                    <span class="status-badge status-cancelled">
+                                        <i class="fas fa-circle"></i> Cancelled
+                                    </span>
+                                }
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-action btn-action-view" 
+                                            onclick='viewBooking(@booking.booking_id, "@booking.booking_code", "@booking.booking_title", "@Html.Raw(booking.booking_description?.ToString().Replace("\"", "\\\"") ?? "")", "@booking.booking_date.ToString("yyyy-MM-dd")", "@booking.booking_start_time.ToString(@"hh\:mm")", "@booking.booking_end_time.ToString(@"hh\:mm")", "@booking.room_name", "@booking.location_plant_name", "@booking.booking_status", "@Html.Raw(booking.booking_cancel_reason?.ToString().Replace("\"", "\\\"") ?? "")")'
+                                            title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    @if (booking.booking_status == "Pending" || booking.booking_status == "Confirmed")
+                                    {
+                                        <button class="btn-action btn-action-edit" 
+                                                onclick='editBooking(@booking.booking_id, "@booking.booking_title", "@Html.Raw(booking.booking_description?.ToString().Replace("\"", "\\\"") ?? "")", "@booking.booking_date.ToString("yyyy-MM-dd")", "@booking.booking_start_time.ToString(@"hh\:mm")", "@booking.booking_end_time.ToString(@"hh\:mm")")'
+                                                title="Edit Booking">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn-action btn-action-delete" 
+                                                onclick="cancelBooking(@booking.booking_id, '@booking.booking_code')"
+                                                title="Cancel Booking">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Calendar View -->
+<div class="card premium-calendar-card" id="calendarView" style="display: none;">
+    <div class="card-body p-0">
+        <div class="card-header calendar-header">
+            <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Meeting Schedule</h5>
+        </div>
+        <div class="card-body p-0">
+            <div id="bookingCalendar"></div>
+        </div>
     </div>
 </div>
 
 @section Modals {
 <!-- View Booking Modal -->
 <div class="modal fade" id="viewBookingModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
+
+            <!-- Header -->
             <div class="modal-header">
-                <h5 class="modal-title">Booking Details</h5>
+                <div class="modal-header-content d-flex align-items-center gap-3">
+                    <div class="modal-icon bg-info text-white rounded-circle d-flex align-items-center justify-content-center"
+                         style="width:42px;height:42px;">
+                        <i class="fas fa-eye"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title mb-0">Booking Details</h5>
+                        <p class="modal-subtitle mb-0 text-muted">View booking information</p>
+                    </div>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+
+            <!-- Body -->
             <div class="modal-body">
-                <div class="row mb-3">
+                <div class="row g-3">
+
                     <div class="col-md-6">
-                        <strong>Booking Code:</strong>
-                        <p id="viewCode"></p>
+                        <label class="detail-label">Booking Code</label>
+                        <p class="detail-value" id="viewCode"></p>
                     </div>
+
                     <div class="col-md-6">
-                        <strong>Status:</strong>
-                        <p id="viewStatus"></p>
+                        <label class="detail-label">Status</label>
+                        <div id="viewStatus"></div>
                     </div>
-                </div>
-                <div class="mb-3">
-                    <strong>Title:</strong>
-                    <p id="viewTitle"></p>
-                </div>
-                <div class="row mb-3">
+
                     <div class="col-md-6">
-                        <strong>Room:</strong>
-                        <p id="viewRoom"></p>
+                        <label class="detail-label">Meeting Title</label>
+                        <p class="detail-value" id="viewTitle"></p>
                     </div>
+
                     <div class="col-md-6">
-                        <strong>Location:</strong>
-                        <p id="viewLocation"></p>
+                        <label class="detail-label">Room</label>
+                        <p class="detail-value" id="viewRoom"></p>
                     </div>
-                </div>
-                <div class="row mb-3">
+
                     <div class="col-md-6">
-                        <strong>Date:</strong>
-                        <p id="viewDate"></p>
+                        <label class="detail-label">Location</label>
+                        <p class="detail-value" id="viewLocation"></p>
                     </div>
+
                     <div class="col-md-6">
-                        <strong>Time:</strong>
-                        <p id="viewTime"></p>
+                        <label class="detail-label">Date</label>
+                        <p class="detail-value" id="viewDate"></p>
                     </div>
-                </div>
-                <div class="mb-3">
-                    <strong>Description:</strong>
-                    <p id="viewDescription"></p>
-                </div>
-                <div id="cancelReasonSection" style="display: none;">
-                    <div class="alert alert-danger">
-                        <strong>Cancellation Reason:</strong>
-                        <p id="viewCancelReason" class="mb-0"></p>
+
+                    <div class="col-md-6">
+                        <label class="detail-label">Time</label>
+                        <p class="detail-value" id="viewTime"></p>
                     </div>
+
+                    <div class="col-12">
+                        <label class="detail-label">Description</label>
+                        <p class="detail-value" id="viewDescription"></p>
+                    </div>
+
+                    <!-- Cancel Reason -->
+                    <div class="col-12" id="cancelReasonSection" style="display:none;">
+                        <div class="alert alert-danger mb-0">
+                            <strong>Cancellation Reason</strong>
+                            <p class="mb-0 mt-2" id="viewCancelReason"></p>
+                        </div>
+                    </div>
+
                 </div>
             </div>
+
+            <!-- Footer -->
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Close
+                </button>
             </div>
+
         </div>
     </div>
 </div>
 
 <!-- Edit Booking Modal -->
 <div class="modal fade" id="editBookingModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
+
+            <!-- Header -->
             <div class="modal-header">
-                <h5 class="modal-title">Edit Booking</h5>
+                <div class="modal-header-content d-flex align-items-center gap-3">
+                    <div class="modal-icon bg-warning text-white rounded-circle d-flex align-items-center justify-content-center"
+                         style="width:42px;height:42px;">
+                        <i class="fas fa-pen"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title mb-0">Edit Booking</h5>
+                        <p class="modal-subtitle mb-0 text-muted">Update your booking details</p>
+                    </div>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+
+            <!-- Body -->
             <div class="modal-body">
                 <form id="editBookingForm">
                     <input type="hidden" id="editBookingId" />
+
                     <div class="mb-3">
                         <label class="form-label">Meeting Title *</label>
-                        <input type="text" class="form-control" id="editTitle" required />
+                        <input type="text" class="form-control" id="editTitle" required>
                     </div>
+
                     <div class="mb-3">
                         <label class="form-label">Description</label>
                         <textarea class="form-control" id="editDescription" rows="3"></textarea>
                     </div>
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
                             <label class="form-label">Date *</label>
-                            <input type="date" class="form-control" id="editDate" required />
+                            <input type="date" class="form-control" id="editDate" required>
                         </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-4">
                             <label class="form-label">Start Time *</label>
-                            <input type="time" class="form-control" id="editStartTime" required />
+                            <input type="time" class="form-control" id="editStartTime" required>
                         </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-4">
                             <label class="form-label">End Time *</label>
-                            <input type="time" class="form-control" id="editEndTime" required />
+                            <input type="time" class="form-control" id="editEndTime" required>
                         </div>
                     </div>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        After updating, your booking will require admin re-approval.
+
+                    <div class="alert alert-info mt-4 mb-0">
+                        <strong>Important:</strong>
+                        <p class="mb-0">After updating, your booking will require admin re-approval.</p>
                     </div>
                 </form>
             </div>
+
+            <!-- Footer -->
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancel
+                </button>
                 <button type="button" class="btn btn-primary" onclick="submitUpdate()">
-                    <i class="fas fa-save me-2"></i> Update Booking
+                    <i class="fas fa-save me-2"></i>Update Booking
                 </button>
             </div>
+
         </div>
     </div>
 </div>
 
 <!-- Cancel Booking Modal -->
 <div class="modal fade" id="cancelBookingModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Cancel Booking</h5>
+                <div>
+                    <h5 class="modal-title">Cancel Booking</h5>
+                    <p class="modal-subtitle mb-0">This action cannot be undone</p>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="cancelBookingId" />
-                <p>Are you sure you want to cancel booking <strong id="cancelBookingCode"></strong>?</p>
+                
+                <div class="alert alert-warning">
+                    <div class="d-flex align-items-start">
+                        <i class="fas fa-exclamation-triangle me-3 mt-1"></i>
+                        <div>
+                            <strong>Confirm Cancellation</strong>
+                            <p class="mb-0 mt-1">
+                                Are you sure you want to cancel booking <strong id="cancelBookingCode"></strong>?
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="mb-3">
-                    <label class="form-label">Cancellation Reason *</label>
-                    <textarea class="form-control" id="cancelReason" rows="3" placeholder="Please provide a reason" required></textarea>
+                    <label class="form-label">
+                        <i class="fas fa-comment me-2"></i>Cancellation Reason *
+                    </label>
+                    <textarea class="form-control form-control-modern" id="cancelReason" rows="4" 
+                              placeholder="Please provide a reason for cancellation" required></textarea>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-danger" onclick="confirmCancel()">Cancel Booking</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Keep Booking
+                </button>
+                <button type="button" class="btn btn-danger" onclick="confirmCancel()">
+                    <i class="fas fa-ban me-2"></i>Cancel Booking
+                </button>
             </div>
         </div>
     </div>
@@ -228,120 +442,1194 @@
 }
 
 @section Scripts {
-    <script>
-        $(document).ready(function() {
-            $('#bookingsTable').DataTable({
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+<script>
+    // Global variables
+    let calendar;
+    
+    // Initialize on document ready
+    $(document).ready(function() {
+        initializeDataTable();
+        initializeCalendar();
+        initializeViewToggle();
+        initializeFilters();
+        setMinDate();
+    });
+    
+    // Initialize DataTable
+    function initializeDataTable() {
+        $('#bookingsTable').DataTable({
+            responsive: false,
+                scrollX: true,
+                pageLength: 25,
                 order: [[4, 'desc'], [5, 'desc']],
-                pageLength: 25
-            });
-            
-            const today = new Date().toISOString().split('T')[0];
-            $('#editDate').attr('min', today);
-        });
-        
-        function viewBooking(id, code, title, description, date, startTime, endTime, room, location, status, cancelReason) {
-            $('#viewCode').text(code);
-            $('#viewTitle').text(title);
-            $('#viewRoom').text(room);
-            $('#viewLocation').text(location);
-            $('#viewDate').text(date);
-            $('#viewTime').text(startTime + ' - ' + endTime);
-            $('#viewDescription').text(description || 'No description provided');
-            
-            let statusBadge = '';
-            if (status === 'Pending') statusBadge = '<span class="badge bg-warning">Pending</span>';
-            else if (status === 'Confirmed') statusBadge = '<span class="badge bg-success">Confirmed</span>';
-            else if (status === 'InProgress') statusBadge = '<span class="badge bg-info">In Progress</span>';
-            else if (status === 'Completed') statusBadge = '<span class="badge bg-primary">Completed</span>';
-            else if (status === 'Cancelled') statusBadge = '<span class="badge bg-danger">Cancelled</span>';
-            $('#viewStatus').html(statusBadge);
-            
-            if (status === 'Cancelled' && cancelReason) {
-                $('#viewCancelReason').text(cancelReason);
-                $('#cancelReasonSection').show();
-            } else {
-                $('#cancelReasonSection').hide();
-            }
-            
-            $('#viewBookingModal').modal('show');
-        }
-        
-        function editBooking(id, title, description, date, startTime, endTime) {
-            $('#editBookingId').val(id);
-            $('#editTitle').val(title);
-            $('#editDescription').val(description || '');
-            $('#editDate').val(date);
-            $('#editStartTime').val(startTime);
-            $('#editEndTime').val(endTime);
-            $('#editBookingModal').modal('show');
-        }
-        
-        function submitUpdate() {
-            const data = {
-                bookingId: $('#editBookingId').val(),
-                title: $('#editTitle').val(),
-                description: $('#editDescription').val(),
-                date: $('#editDate').val(),
-                startTime: $('#editStartTime').val(),
-                endTime: $('#editEndTime').val()
-            };
-            
-            if (!data.title || !data.date || !data.startTime || !data.endTime) {
-                Swal.fire('Error', 'Please fill in all required fields', 'error');
-                return;
-            }
-            
-            $.ajax({
-                url: '@Url.Action("UpdateBooking", "Employee")',
-                type: 'POST',
-                data: data,
-                success: function(response) {
-                    if (response.success) {
-                        $('#editBookingModal').modal('hide');
-                        Swal.fire('Success', response.message, 'success').then(() => {
-                            location.reload();
-                        });
-                    } else {
-                        Swal.fire('Error', response.message, 'error');
+                language: {
+                    search: "",
+                    searchPlaceholder: "🔍 Search bookings...",
+                    lengthMenu: "Show _MENU_ bookings",
+                    info: "Showing _START_ to _END_ of _TOTAL_ bookings",
+                    emptyTable: `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-calendar-alt fa-2x mb-2"></i>
+                            <p class="mb-0">No bookings found</p>
+                        </div>
+                    `,
+                    zeroRecords : `
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-search fa-2x mb-2"></i>
+                            <p class="mb-0">No matching bookings found</p>
+                        </div>
+                    `,
+                    paginate: {
+                        previous: "‹",
+                        next: "›"
                     }
-                }
-            });
-        }
-        
-        function cancelBooking(bookingId, bookingCode) {
-            $('#cancelBookingId').val(bookingId);
-            $('#cancelBookingCode').text(bookingCode);
-            $('#cancelReason').val('');
-            $('#cancelBookingModal').modal('show');
-        }
-        
-        function confirmCancel() {
-            const bookingId = $('#cancelBookingId').val();
-            const reason = $('#cancelReason').val().trim();
-            
-            if (!reason) {
-                Swal.fire('Error', 'Please provide a cancellation reason', 'error');
-                return;
-            }
-            
-            $.ajax({
-                url: '@Url.Action("CancelBooking", "Employee")',
-                type: 'POST',
-                data: {
-                    bookingId: bookingId,
-                    reason: reason
                 },
-                success: function(response) {
-                    if (response.success) {
-                        $('#cancelBookingModal').modal('hide');
-                        Swal.fire('Success', response.message, 'success').then(() => {
-                            location.reload();
-                        });
-                    } else {
-                        Swal.fire('Error', response.message, 'error');
-                    }
+                dom:
+                    "<'row mb-3'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+                    "<'row'<'col-sm-12'tr>>" +
+                    "<'row mt-3'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+            });
+    }
+    
+    // Initialize Calendar
+    function initializeCalendar() {
+        const calendarEl = document.getElementById('bookingCalendar');
+
+        const bookings = @Html.Raw(Json.Serialize(Model));
+
+        const events = bookings.map(b => {
+        const date = b.booking_date.split('T')[0];
+        const startTime = b.booking_start_time.substring(0, 5);
+        const endTime = b.booking_end_time.substring(0, 5);
+
+        return {
+            title: `${b.booking_title} (${b.room_code})`, // ✅ Add room code to title
+            start: `${date}T${startTime}:00`,
+            end: `${date}T${endTime}:00`,
+            classNames: [`status-${b.booking_status.toLowerCase()}`],
+            extendedProps: {
+                bookingId: b.booking_id,
+                code: b.booking_code,
+                room: b.room_name,
+                roomCode: b.room_code, // ✅ Make sure this is included
+                location: b.location_plant_name,
+                status: b.booking_status,
+                description: b.booking_description,
+                cancelReason: b.booking_cancel_reason,
+                startTime: startTime, // ✅ Store for later use
+                endTime: endTime
+            }
+        };
+    });
+
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+            },
+            views: {
+                dayGridMonth: { buttonText: 'Month' },
+                timeGridWeek: { buttonText: 'Week' },
+                timeGridDay: { buttonText: 'Day' },
+                listWeek: { buttonText: 'List' }
+            },
+            events: events,
+            height: 750,
+            dayMaxEvents: 3,
+            eventTimeFormat: {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            },
+            slotMinTime: '07:00:00',
+            slotMaxTime: '20:00:00',
+            allDaySlot: false,
+            nowIndicator: true,
+            
+            // Event rendering with room badge
+            eventDidMount: function(info) {
+                const props = info.event.extendedProps;
+                
+                // Add room badge for better visibility
+                if (props.roomCode) {
+                    const badge = document.createElement('span');
+                    badge.className = 'event-room-badge';
+                    badge.textContent = props.roomCode;
+                    info.el.appendChild(badge);
                 }
+                
+                // Enhanced tooltip
+                const tooltipContent = `
+                    📌 ${props.title}
+                    🚪 ${props.room || 'N/A'} (${props.roomCode || 'N/A'})
+                    ⏰ ${info.event.start.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})} - ${info.event.end ? info.event.end.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'}) : 'N/A'}
+                    📊 Status: ${props.status}
+                `.trim();
+                
+                info.el.title = tooltipContent;
+            },
+            eventClick(info) {
+                const p = info.event.extendedProps;
+                viewBooking(
+                    p.bookingId,
+                    p.code,
+                    info.event.title,
+                    p.description,
+                    info.event.start.toISOString().split('T')[0],
+                    p.startTime,
+                    p.endTime,
+                    p.room,
+                    p.location,
+                    p.status,
+                    p.cancelReason
+                );
+            }
+        });
+
+        calendar.render();
+    }
+    
+    // Initialize View Toggle
+    function initializeViewToggle() {
+        $('.view-btn').click(function() {
+            const view = $(this).data('view');
+            
+            $('.view-btn').removeClass('active');
+            $(this).addClass('active');
+            
+            $('#tableView, #calendarView').hide();
+            
+            if (view === 'table') {
+                $('#tableView').show();
+            } else if (view === 'calendar') {
+                $('#calendarView').show();
+                if (calendar) calendar.render();
+            }
+        });
+    }
+    
+    // Initialize Filters
+    function initializeFilters() {
+        $('#filterStatus, #filterRoom, #filterDate').change(function() {
+            applyFilters();
+        });
+    }
+    
+    // Apply Filters
+    function applyFilters() {
+        const status = $('#filterStatus').val();
+        const room = $('#filterRoom').val();
+        const dateRange = $('#filterDate').val();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Filter table rows
+        $('#bookingsTable tbody tr').each(function() {
+            const row = $(this);
+            const rowStatus = row.data('status');
+            const rowRoom = row.data('room');
+            const rowDate = new Date(row.data('date'));
+            
+            let showRow = true;
+            
+            if (status && rowStatus !== status) showRow = false;
+            if (room && rowRoom !== room) showRow = false;
+            
+            if (dateRange) {
+                if (dateRange === 'today' && rowDate.getTime() !== today.getTime()) showRow = false;
+                if (dateRange === 'week') {
+                    const weekFromNow = new Date(today);
+                    weekFromNow.setDate(weekFromNow.getDate() + 7);
+                    if (rowDate < today || rowDate > weekFromNow) showRow = false;
+                }
+                if (dateRange === 'month') {
+                    const monthFromNow = new Date(today);
+                    monthFromNow.setMonth(monthFromNow.getMonth() + 1);
+                    if (rowDate < today || rowDate > monthFromNow) showRow = false;
+                }
+                if (dateRange === 'upcoming' && rowDate < today) showRow = false;
+            }
+            
+            row.toggle(showRow);
+        });
+
+        // ✅ CALENDAR FILTER (THIS IS THE MISSING PART)
+        if (calendar) {
+            calendar.getEvents().forEach(event => {
+                const props = event.extendedProps;
+                let show = true;
+
+                if (status && props.status !== status) show = false;
+                if (room && props.roomCode !== room) show = false;
+
+                if (dateRange) {
+                    const eventDate = new Date(event.start);
+                    eventDate.setHours(0,0,0,0);
+
+                    if (dateRange === 'today' && eventDate.getTime() !== today.getTime()) show = false;
+                    if (dateRange === 'week') {
+                        const end = new Date(today);
+                        end.setDate(end.getDate() + 7);
+                        if (eventDate < today || eventDate > end) show = false;
+                    }
+                    if (dateRange === 'month') {
+                        const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                        if (eventDate < today || eventDate > end) show = false;
+                    }
+                    if (dateRange === 'upcoming' && eventDate < today) show = false;
+                }
+
+                event.setProp('display', show ? 'auto' : 'none');
             });
         }
-    </script>
+    }
+    
+    // Reset Filters
+    function resetFilters() {
+        $('#filterStatus, #filterRoom, #filterDate').val('');
+        $('#bookingsTable tbody tr').show();
+        $('.booking-card').show();
+    }
+    
+    // Set minimum date for edit form
+    function setMinDate() {
+        const today = new Date().toISOString().split('T')[0];
+        $('#editDate').attr('min', today);
+    }
+    
+    // View Booking Details
+    function viewBooking(id, code, title, description, date, startTime, endTime, room, location, status, cancelReason) {
+        $('#viewCode').text(code);
+        $('#viewTitle').text(title);
+        $('#viewRoom').text(room);
+        $('#viewLocation').text(location);
+        
+        // Format date
+        const dateObj = new Date(date);
+        const formattedDate = dateObj.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+        $('#viewDate').text(formattedDate);
+        $('#viewTime').text(startTime + ' - ' + endTime);
+        $('#viewDescription').text(description || 'No description provided');
+        
+        // Status badge
+        let statusBadge = '';
+        if (status === 'Pending') {
+            statusBadge = '<span class="status-badge status-pending"><i class="fas fa-circle"></i> Pending</span>';
+        } else if (status === 'Confirmed') {
+            statusBadge = '<span class="status-badge status-confirmed"><i class="fas fa-circle"></i> Confirmed</span>';
+        } else if (status === 'InProgress') {
+            statusBadge = '<span class="status-badge status-progress"><i class="fas fa-circle"></i> In Progress</span>';
+        } else if (status === 'Completed') {
+            statusBadge = '<span class="status-badge status-completed"><i class="fas fa-circle"></i> Completed</span>';
+        } else if (status === 'Cancelled') {
+            statusBadge = '<span class="status-badge status-cancelled"><i class="fas fa-circle"></i> Cancelled</span>';
+        }
+        $('#viewStatus').html(statusBadge);
+        
+        // Cancel reason
+        if (status === 'Cancelled' && cancelReason) {
+            $('#viewCancelReason').text(cancelReason);
+            $('#cancelReasonSection').show();
+        } else {
+            $('#cancelReasonSection').hide();
+        }
+        
+        $('#viewBookingModal').modal('show');
+    }
+    
+    // Edit Booking
+    function editBooking(id, title, description, date, startTime, endTime) {
+        $('#editBookingId').val(id);
+        $('#editTitle').val(title);
+        $('#editDescription').val(description || '');
+        $('#editDate').val(date);
+        $('#editStartTime').val(startTime);
+        $('#editEndTime').val(endTime);
+        $('#editBookingModal').modal('show');
+    }
+    
+    // Submit Update
+    function submitUpdate() {
+        const data = {
+            bookingId: $('#editBookingId').val(),
+            title: $('#editTitle').val(),
+            description: $('#editDescription').val(),
+            date: $('#editDate').val(),
+            startTime: $('#editStartTime').val(),
+            endTime: $('#editEndTime').val()
+        };
+        
+        // Validation
+        if (!data.title || !data.date || !data.startTime || !data.endTime) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please fill in all required fields',
+                confirmButtonColor: '#7aa22e'
+            });
+            return;
+        }
+        
+        // Time validation
+        if (data.startTime >= data.endTime) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Invalid Time',
+                text: 'End time must be after start time',
+                confirmButtonColor: '#7aa22e'
+            });
+            return;
+        }
+        
+        $.ajax({
+            url: '@Url.Action("UpdateBooking", "Employee")',
+            type: 'POST',
+            data: data,
+            success: function(response) {
+                if (response.success) {
+                    $('#editBookingModal').modal('hide');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: response.message,
+                        confirmButtonColor: '#7aa22e'
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Update Failed',
+                        text: response.message,
+                        confirmButtonColor: '#7aa22e'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'An error occurred while updating the booking',
+                    confirmButtonColor: '#7aa22e'
+                });
+            }
+        });
+    }
+    
+    // Cancel Booking
+    function cancelBooking(bookingId, bookingCode) {
+        $('#cancelBookingId').val(bookingId);
+        $('#cancelBookingCode').text(bookingCode);
+        $('#cancelReason').val('');
+        $('#cancelBookingModal').modal('show');
+    }
+    
+    // Confirm Cancel
+    function confirmCancel() {
+        const bookingId = $('#cancelBookingId').val();
+        const reason = $('#cancelReason').val().trim();
+        
+        if (!reason) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please provide a cancellation reason',
+                confirmButtonColor: '#7aa22e'
+            });
+            return;
+        }
+        
+        $.ajax({
+            url: '@Url.Action("CancelBooking", "Employee")',
+            type: 'POST',
+            data: {
+                bookingId: bookingId,
+                reason: reason
+            },
+            success: function(response) {
+                if (response.success) {
+                    $('#cancelBookingModal').modal('hide');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Cancelled!',
+                        text: response.message,
+                        confirmButtonColor: '#7aa22e'
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Cancellation Failed',
+                        text: response.message,
+                        confirmButtonColor: '#7aa22e'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'An error occurred while cancelling the booking',
+                    confirmButtonColor: '#7aa22e'
+                });
+            }
+        });
+    }
+</script>
+}
+
+
+@section Styles {
+    <style>
+    /* Base Styles from RoomsView */
+    
+    /* Page Header, Stats, Filters, Modals, Form Controls */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 2rem;
+    }
+
+    .page-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    /* Small Stat Cards */
+    .stat-card-sm {
+        background: var(--white);
+        border-radius: var(--radius-md);
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid rgba(122,162,46,0.08);
+        transition: all 0.2s;
+    }
+
+    .stat-card-sm:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .stat-icon-sm {
+        width: 48px;
+        height: 48px;
+        min-width: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: var(--white);
+    }
+
+    .stat-icon-sm.bg-primary { background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%); }
+    .stat-icon-sm.bg-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .stat-icon-sm.bg-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+    .stat-icon-sm.bg-info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+
+    .stat-details-sm {
+        flex: 1;
+    }
+
+    .stat-value-sm {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--gray-800);
+        line-height: 1;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .stat-label-sm {
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+        margin-top: 0.25rem;
+        font-weight: 500;
+    }
+
+    /* Table Header Enhancements */
+    .th-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8125rem;
+        white-space: nowrap;
+    }
+
+    .th-content i {
+        opacity: 0.6;
+        font-size: 0.875rem;
+    }
+
+    .view-toggle {
+        display: flex;
+        gap: 0.5rem;
+        background: var(--gray-100);
+        padding: 0.25rem;
+        border-radius: 8px;
+    }
+
+    .view-btn {
+        padding: 0.5rem 0.75rem;
+        border: none;
+        background: transparent;
+        color: var(--gray-600);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 1rem;
+    }
+
+    .view-btn:hover {
+        color: var(--primary);
+        background: rgba(122, 162, 46, 0.1);
+    }
+
+    .view-btn.active {
+        background: var(--white);
+        color: var(--primary);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .status-badge i {
+        font-size: 0.5rem;
+    }
+
+    .status-available {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status-available i {
+        color: #059669;
+        animation: pulse 2s infinite;
+    }
+
+    .status-maintenance {
+        background: rgba(245, 158, 11, 0.1);
+        color: #d97706;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .status-out {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .status-active {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status-active i {
+        animation: pulse 2s infinite;
+    }
+
+    .status-inactive {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+        border: 1px solid rgba(107, 114, 128, 0.2);
+    }
+
+    .room-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gray-200);
+    }
+
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.875rem;
+    }
+
+    .btn-action-edit {
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563eb;
+    }
+
+    .btn-action-edit:hover {
+        background: rgba(59, 130, 246, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-action-toggle {
+        background: rgba(245, 158, 11, 0.1);
+        color: #d97706;
+    }
+
+    .btn-action-toggle:hover {
+        background: rgba(245, 158, 11, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-action-key {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+    }
+
+    .btn-action-key:hover {
+        background: rgba(107, 114, 128, 0.2);
+        transform: translateY(-2px);
+    }
+
+    @@keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    /* Modal Enhancements */
+    .modal-header-content {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .modal-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--white);
+        font-size: 1.25rem;
+    }
+
+    .modal-icon.bg-info {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+
+    .modal-subtitle {
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+        margin: 0.25rem 0 0 0;
+    }
+
+    .form-label {
+        font-weight: 500;
+        font-size: 0.8125rem;
+        color: var(--gray-700);
+        margin-bottom: 0.25rem;
+    }
+
+    /* Form Controls */
+    .form-control,
+    .form-select {
+        font-size: 0.875rem;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--gray-300);
+        transition: all 0.2s ease;
+    }
+
+    .form-control::placeholder {
+        color: var(--gray-400);
+        font-size: 0.8125rem;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 0.2rem rgba(122, 162, 46, 0.15);
+    }
+
+    /* Modal Footer Buttons */
+    .modal-footer {
+        border-top: 1px solid var(--gray-200);
+        padding-top: 1rem;
+    }
+
+    .modal-footer .btn {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+    }
+
+    /* Table Row Hover */
+    .table-hover tbody tr:hover {
+        background-color: rgba(122, 162, 46, 0.04);
+    }
+
+    /* Responsive Tweaks */
+    @@media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .page-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .stat-card-sm {
+            padding: 1rem;
+        }
+
+        .stat-value-sm {
+            font-size: 1.5rem;
+        }
+
+        .action-buttons {
+            gap: 0.25rem;
+        }
+    }
+
+    /* Booking-Specific Styles */
+    
+    /* Booking Code */
+    /* Booking Code */
+    .booking-code {
+        font-family: 'Courier New', monospace;
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+        background: var(--gray-50);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+
+    /* Room & User Info in Table */
+    .room-info, .user-info {
+        line-height: 1.3;
+    }
+
+    .room-code-sm, .user-name {
+        font-weight: 500;
+        color: var(--gray-800);
+        font-size: 0.875rem;
+    }
+
+    .room-name-sm, .user-id {
+        font-size: 0.75rem;
+        color: var(--gray-600);
+    }
+
+    /* Time Badge */
+    .time-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.375rem 0.75rem;
+        background: rgba(99, 102, 241, 0.1);
+        color: #4f46e5;
+        border-radius: 6px;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        font-family: 'Courier New', monospace;
+    }
+
+    /* Status Badges - Booking Specific */
+    .status-pending {
+        background: rgba(245, 158, 11, 0.1);
+        color: #d97706;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .status-pending i {
+        color: #d97706;
+        animation: pulse 2s infinite;
+    }
+
+    .status-confirmed {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status-confirmed i {
+        color: #059669;
+    }
+
+    .status-progress {
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563eb;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .status-progress i {
+        color: #2563eb;
+        animation: pulse 2s infinite;
+    }
+
+    .status-completed {
+        background: rgba(99, 102, 241, 0.1);
+        color: #4f46e5;
+        border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+
+    .status-cancelled {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    /* Action Buttons - Booking Specific */
+    .btn-action-view {
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563eb;
+    }
+
+    .btn-action-view:hover {
+        background: rgba(59, 130, 246, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-action-approve {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+    }
+
+    .btn-action-approve:hover {
+        background: rgba(16, 185, 129, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .btn-action-cancel {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+    }
+
+    .btn-action-cancel:hover {
+        background: rgba(239, 68, 68, 0.2);
+        transform: translateY(-2px);
+    }
+
+    /* Card View - Booking Cards */
+    .bookings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 1.25rem;
+    }
+
+    .booking-card-item {
+        background: var(--white);
+        border-radius: var(--radius-lg);
+        padding: 1.25rem;
+        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--gray-200);
+        transition: all 0.2s;
+    }
+
+    .booking-card-item:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-md);
+        border-color: rgba(122, 162, 46, 0.3);
+    }
+
+    .booking-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--gray-200);
+    }
+
+    .booking-card-title h5 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--gray-800);
+        margin: 0 0 0.25rem 0;
+    }
+
+    .booking-card-body {
+        margin-bottom: 1rem;
+    }
+
+    .booking-card-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .info-item {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .info-item i {
+        width: 20px;
+        color: var(--primary);
+        font-size: 1rem;
+        margin-top: 0.125rem;
+    }
+
+    .info-label {
+        font-size: 0.75rem;
+        color: var(--gray-600);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+    }
+
+    .info-value {
+        font-size: 0.9375rem;
+        color: var(--gray-800);
+        font-weight: 600;
+    }
+
+    .info-sub {
+        font-size: 0.8125rem;
+        color: var(--gray-600);
+    }
+
+    .booking-description {
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--gray-200);
+    }
+
+    .description-label {
+        font-size: 0.75rem;
+        color: var(--gray-600);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+    }
+
+    .booking-description p {
+        font-size: 0.875rem;
+        color: var(--gray-700);
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    .booking-card-footer {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        padding-top: 1rem;
+        border-top: 1px solid var(--gray-200);
+    }
+
+    /* Calendar View Customization */
+    /* PREMIUM CALENDAR - ZERO BUGS */
+    
+    .premium-calendar-card {
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px -10px rgba(0,0,0,0.2);
+        border: none;
+        background: #fff;
+    }
+
+    #bookingCalendar {
+        font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    /* Header */
+    .fc .fc-toolbar {
+        background: linear-gradient(135deg, #7aa22e 0%, #5f7f23 100%);
+        padding: 1.5rem 2rem;
+        margin: 0;
+    }
+
+    .fc .fc-toolbar-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: white;
+    }
+
+    .fc .fc-button {
+        background: rgba(255,255,255,0.2) !important;
+        border: 1px solid rgba(255,255,255,0.3) !important;
+        color: white !important;
+        border-radius: 12px;
+        padding: 0.75rem 1.5rem !important;
+        margin: 0 0.25rem;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+    }
+
+    .fc .fc-button:hover {
+        background: rgba(255,255,255,0.4) !important;
+        transform: translateY(-2px);
+    }
+
+    .fc .fc-button-active {
+        background: white !important;
+        color: #667eea !important;
+    }
+
+    /* Days Grid */
+    .fc .fc-col-header-cell {
+        background: #f8fafc;
+        border: none;
+        padding: 1rem 0.75rem;
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .fc .fc-daygrid-day {
+        border: 1px solid #f1f5f9;
+        padding: 0.75rem;
+        transition: all 0.2s ease;
+    }
+
+    .fc .fc-daygrid-day:hover {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+    }
+
+    .fc .fc-daygrid-day.fc-day-today {
+        background: linear-gradient(135deg, #10b98120, #05966910) !important;
+        border-color: #10b981 !important;
+        position: relative;
+    }
+
+    .fc .fc-daygrid-day.fc-day-today::after {
+        content: 'TODAY';
+        position: absolute;
+        top: 0.5rem;
+        left: 0.5rem;
+        background: #10b981;
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.65rem;
+        font-weight: 700;
+    }
+
+    /* PERFECT EVENTS */
+    .fc .fc-daygrid-event {
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 0.4rem 0.6rem !important;
+        margin: 0.1rem 0.2rem !important;
+        font-size: 0.65rem !important;
+        font-weight: 600 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .fc .fc-daygrid-event:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        z-index: 10;
+        color: white;
+        cursor: pointer;
+    }
+
+    .fc .fc-daygrid-event .fc-event-title {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Status Colors */
+    .status-pending { background: linear-gradient(135deg, #f59e0b, #d97706) !important; color: white; }
+    .status-confirmed { background: linear-gradient(135deg, #10b981, #059669) !important; color: white; }
+    .status-inprogress { background: linear-gradient(135deg, #3b82f6, #2563eb) !important; color: white; }
+    .status-completed { background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important; color: white; }
+    .status-cancelled { 
+        background: linear-gradient(135deg, transparent, transparent) !important; 
+        border: 2px solid #ef4444 !important; 
+        color: #ef4444 !important;
+    }
+
+    /* Room Badge */
+    .event-room-badge {
+        position: absolute;
+        top: 1px;
+        right: 3px;
+        background: rgba(255,255,255,0.9);
+        color: #64748b;
+        padding: 0.1rem 0.3rem;
+        border-radius: 3px;
+        font-size: 0.45rem;
+        font-weight: 700;
+        border: 1px solid #e2e8f0;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .fc .fc-toolbar { padding: 1rem; }
+        .fc .fc-toolbar-title { font-size: 1.25rem; }
+        .fc .fc-daygrid-event { font-size: 0.7rem !important; padding: 0.3rem 0.4rem !important; }
+    }
+
+    /* Modal Details */
+    .detail-label {
+        font-size: 0.75rem;
+        color: var(--gray-600);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .detail-value {
+        font-size: 0.9375rem;
+        color: var(--gray-800);
+        font-weight: 500;
+        margin: 0;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .bookings-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .booking-card-header {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .page-actions {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .view-toggle {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+    </style>
 }

@@ -27,588 +27,172 @@ namespace RoomWise.Controllers
         }
 
         // ============================================
-        // Employee Dashboard
+        // KF-15, KF-16, KF-22: Find Room View (Search and Filter)
         // ============================================
-        // REPLACE the existing DashboardView method with this enhanced version:
         [HttpGet]
-        public IActionResult DashboardView()
+        public IActionResult FindRoomView()
         {
             if (!CheckEmployeeAuth())
                 return RedirectToAction("LoginView", "Auth");
 
             try
             {
-                var userId = HttpContext.Session.GetString("UserId");
+                // Get all locations for filter
+                ViewBag.Locations = GetActiveLocations();
 
+                // Get all available rooms
+                List<dynamic> rooms = new List<dynamic>();
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
                     conn.Open();
-
-                    // Existing statistics
-                    ViewBag.MyBookingsToday = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_date = CAST(GETDATE() AS DATE)");
-                    ViewBag.MyUpcomingBookings = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_date >= CAST(GETDATE() AS DATE) AND booking_status IN ('Pending', 'Confirmed')");
-                    ViewBag.MyPastBookings = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_date < CAST(GETDATE() AS DATE)");
-                    ViewBag.MyFeedbacksGiven = GetCount(conn, $"SELECT COUNT(*) FROM feedbacks WHERE feedback_user_id = {userId}");
-                    ViewBag.AvailableRoomsNow = GetCount(conn, "SELECT COUNT(*) FROM rooms WHERE room_status = 'Available' AND room_is_active = 1");
-                    
-                    // NEW: Additional statistics
-                    ViewBag.MyPendingBookings = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_status = 'Pending'");
-                    ViewBag.MyConfirmedBookings = GetCount(conn, $"SELECT COUNT(*) FROM bookings WHERE booking_user_id = {userId} AND booking_status = 'Confirmed'");
-                    ViewBag.TotalRooms = GetCount(conn, "SELECT COUNT(*) FROM rooms WHERE room_is_active = 1");
-
-                    // Existing data
-                    ViewBag.UpcomingBookings = GetUserUpcomingBookings(conn, userId!);
-                    ViewBag.RecentActivity = GetUserRecentActivity(conn, userId!);
-
-                    // NEW: Enhanced dashboard data
-                    ViewBag.WeeklySchedule = GetWeeklySchedule(conn, userId!);
-                    ViewBag.MyBookingTrends = GetMyBookingTrends(conn, userId!);
-                    ViewBag.AvailableRoomsNowList = GetAvailableRoomsNow(conn);
-                    ViewBag.PopularRooms = GetPopularRooms(conn);
-                    ViewBag.MyBookingsByStatus = GetMyBookingsByStatus(conn, userId!);
-                }
-
-                return View();
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = "Error loading dashboard: " + ex.Message;
-                return View();
-            }
-        }
-
-        // Add these methods to EmployeeController.cs after the existing DashboardView method
-
-        // Get weekly calendar data
-        private List<dynamic> GetWeeklySchedule(SqlConnection conn, string userId)
-        {
-            string query = @"
-                WITH DateRange AS (
-                    SELECT 0 as day_offset UNION ALL SELECT 1 UNION ALL SELECT 2 
-                    UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
-                )
-                SELECT 
-                    CAST(DATEADD(day, dr.day_offset, GETDATE()) AS DATE) as booking_date,
-                    FORMAT(DATEADD(day, dr.day_offset, GETDATE()), 'ddd') as day_name,
-                    FORMAT(DATEADD(day, dr.day_offset, GETDATE()), 'MMM dd') as date_str,
-                    b.booking_id,
-                    b.booking_title,
-                    b.booking_status,
-                    CONVERT(VARCHAR(5), b.booking_start_time, 108) as start_time,
-                    CONVERT(VARCHAR(5), b.booking_end_time, 108) as end_time,
-                    r.room_name,
-                    r.room_code,
-                    CASE WHEN b.booking_user_id = @UserId THEN 1 ELSE 0 END as is_mine,
-                    CASE WHEN dr.day_offset = 0 THEN 1 ELSE 0 END as is_today
-                FROM DateRange dr
-                LEFT JOIN bookings b ON b.booking_date = CAST(DATEADD(day, dr.day_offset, GETDATE()) AS DATE)
-                    AND b.booking_status IN ('Pending', 'Confirmed', 'InProgress')
-                LEFT JOIN rooms r ON b.booking_room_id = r.room_id
-                ORDER BY dr.day_offset, b.booking_start_time";
-
-            var results = new List<dynamic>();
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            {
-                cmd.Parameters.AddWithValue("@UserId", userId);
-                using (SqlDataReader reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        results.Add(new
-                        {
-                            booking_date = reader["booking_date"],
-                            day_name = reader["day_name"],
-                            date_str = reader["date_str"],
-                            booking_id = reader["booking_id"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["booking_id"]),
-                            booking_title = reader["booking_title"] == DBNull.Value ? null : reader["booking_title"].ToString(),
-                            booking_status = reader["booking_status"] == DBNull.Value ? null : reader["booking_status"].ToString(),
-                            start_time = reader["start_time"] == DBNull.Value ? null : reader["start_time"].ToString(),
-                            end_time = reader["end_time"] == DBNull.Value ? null : reader["end_time"].ToString(),
-                            room_name = reader["room_name"] == DBNull.Value ? null : reader["room_name"].ToString(),
-                            room_code = reader["room_code"] == DBNull.Value ? null : reader["room_code"].ToString(),
-                            is_mine = reader["is_mine"] == DBNull.Value ? false : Convert.ToBoolean(reader["is_mine"]),
-                            is_today = Convert.ToBoolean(reader["is_today"])
-                        });
-                    }
-                }
-            }
-            return results;
-        }
-
-        // Get my booking trends (last 30 days)
-        private List<dynamic> GetMyBookingTrends(SqlConnection conn, string userId)
-        {
-            string query = @"
-                SELECT 
-                    FORMAT(booking_date, 'MMM dd') as date_str,
-                    COUNT(*) as count
-                FROM bookings
-                WHERE booking_user_id = @UserId
-                AND booking_date >= DATEADD(day, -30, GETDATE())
-                GROUP BY booking_date
-                ORDER BY booking_date";
-
-            var results = new List<dynamic>();
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            {
-                cmd.Parameters.AddWithValue("@UserId", userId);
-                using (SqlDataReader reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        results.Add(new
-                        {
-                            date_str = reader["date_str"],
-                            count = reader["count"]
-                        });
-                    }
-                }
-            }
-            return results;
-        }
-
-        // Get available rooms right now
-        private List<dynamic> GetAvailableRoomsNow(SqlConnection conn)
-        {
-            string query = @"
-                SELECT TOP 6
-                    r.room_id,
-                    r.room_name,
-                    r.room_code,
-                    r.room_capacity,
-                    r.room_facilities,
-                    l.location_plant_name,
-                    l.location_block,
-                    l.location_floor,
-                    (SELECT MIN(booking_start_time) 
-                    FROM bookings 
-                    WHERE booking_room_id = r.room_id 
-                    AND booking_date = CAST(GETDATE() AS DATE)
-                    AND booking_start_time > CAST(GETDATE() AS TIME)
-                    AND booking_status IN ('Pending', 'Confirmed')) as next_booking_time
-                FROM rooms r
-                INNER JOIN locations l ON r.room_location_id = l.location_id
-                WHERE r.room_is_active = 1 
-                AND r.room_status = 'Available'
-                AND NOT EXISTS (
-                    SELECT 1 FROM bookings b
-                    WHERE b.booking_room_id = r.room_id
-                    AND b.booking_date = CAST(GETDATE() AS DATE)
-                    AND b.booking_status IN ('Confirmed', 'InProgress')
-                    AND CAST(GETDATE() AS TIME) BETWEEN b.booking_start_time AND b.booking_end_time
-                )
-                ORDER BY r.room_capacity DESC";
-
-            var results = new List<dynamic>();
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            {
-                using (SqlDataReader reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        results.Add(new
-                        {
-                            room_id = reader["room_id"],
-                            room_name = reader["room_name"],
-                            room_code = reader["room_code"],
-                            room_capacity = reader["room_capacity"],
-                            room_facilities = reader["room_facilities"],
-                            location_plant_name = reader["location_plant_name"],
-                            location_block = reader["location_block"],
-                            location_floor = reader["location_floor"],
-                            next_booking_time = reader["next_booking_time"] == DBNull.Value ? null : 
-                                TimeSpan.Parse(reader["next_booking_time"].ToString()!).ToString(@"hh\:mm")
-                        });
-                    }
-                }
-            }
-            return results;
-        }
-
-        // Get popular rooms this month
-        private List<dynamic> GetPopularRooms(SqlConnection conn)
-        {
-            string query = @"
-                SELECT TOP 5
-                    r.room_name,
-                    r.room_code,
-                    COUNT(b.booking_id) as booking_count,
-                    AVG(CAST(r.room_capacity AS FLOAT)) as avg_capacity
-                FROM bookings b
-                INNER JOIN rooms r ON b.booking_room_id = r.room_id
-                WHERE b.booking_date >= DATEADD(day, -30, GETDATE())
-                AND b.booking_status IN ('Confirmed', 'Completed')
-                GROUP BY r.room_id, r.room_name, r.room_code
-                ORDER BY booking_count DESC";
-
-            var results = new List<dynamic>();
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            {
-                using (SqlDataReader reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        results.Add(new
-                        {
-                            room_name = reader["room_name"],
-                            room_code = reader["room_code"],
-                            booking_count = reader["booking_count"]
-                        });
-                    }
-                }
-            }
-            return results;
-        }
-
-        // Get my booking status breakdown
-        private Dictionary<string, int> GetMyBookingsByStatus(SqlConnection conn, string userId)
-        {
-            var stats = new Dictionary<string, int>();
-            string query = @"
-                SELECT booking_status, COUNT(*) as count 
-                FROM bookings 
-                WHERE booking_user_id = @UserId
-                AND booking_date >= DATEADD(day, -30, GETDATE())
-                GROUP BY booking_status";
-
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            {
-                cmd.Parameters.AddWithValue("@UserId", userId);
-                using (SqlDataReader reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        stats[reader["booking_status"].ToString()!] = Convert.ToInt32(reader["count"]);
-                    }
-                }
-            }
-            return stats;
-        }
-
-        // ============================================
-        // My Activity Logs View
-        // ============================================
-        [HttpGet]
-        public IActionResult MyActivityLogsView()
-        {
-            if (!CheckEmployeeAuth())
-                return RedirectToAction("LoginView", "Auth");
-
-            try
-            {
-                var userId = HttpContext.Session.GetString("UserId");
-                List<dynamic> logs = new List<dynamic>();
-
-                using (SqlConnection conn = new SqlConnection(_connectionString))
-                {
-                    conn.Open();
-                    
-                    // Create table if not exists
-                    string createTable = @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'activity_logs')
-                                         BEGIN
-                                             CREATE TABLE activity_logs (
-                                                 log_id INT IDENTITY(1,1) PRIMARY KEY,
-                                                 log_user_id INT NOT NULL,
-                                                 log_action NVARCHAR(100) NOT NULL,
-                                                 log_description NVARCHAR(500),
-                                                 log_created_at DATETIME2 DEFAULT GETDATE(),
-                                                 FOREIGN KEY (log_user_id) REFERENCES users(user_id)
-                                             )
-                                         END";
-                    
-                    using (SqlCommand createCmd = new SqlCommand(createTable, conn))
-                    {
-                        createCmd.ExecuteNonQuery();
-                    }
-
-                    string query = @"SELECT * FROM activity_logs 
-                                   WHERE log_user_id = @UserId 
-                                   ORDER BY log_created_at DESC";
+                    string query = @"SELECT r.*, l.location_code, l.location_plant_name, l.location_block, l.location_floor
+                                   FROM rooms r
+                                   LEFT JOIN locations l ON r.room_location_id = l.location_id
+                                   WHERE r.room_is_active = 1
+                                   ORDER BY r.room_name";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
-                        cmd.Parameters.AddWithValue("@UserId", userId);
                         using (SqlDataReader reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
                             {
-                                logs.Add(new
+                                rooms.Add(new
                                 {
-                                    log_id = Convert.ToInt32(reader["log_id"]),
-                                    log_action = reader["log_action"].ToString(),
-                                    log_description = reader["log_description"]?.ToString(),
-                                    log_created_at = Convert.ToDateTime(reader["log_created_at"])
+                                    room_id = Convert.ToInt32(reader["room_id"]),
+                                    room_code = reader["room_code"].ToString(),
+                                    room_name = reader["room_name"].ToString(),
+                                    room_capacity = Convert.ToInt32(reader["room_capacity"]),
+                                    room_facilities = reader["room_facilities"]?.ToString(),
+                                    room_status = reader["room_status"].ToString(),
+                                    location_code = reader["location_code"]?.ToString(),
+                                    location_plant_name = reader["location_plant_name"]?.ToString(),
+                                    location_block = reader["location_block"] != DBNull.Value ? Convert.ToInt32(reader["location_block"]) : 0,
+                                    location_floor = reader["location_floor"] != DBNull.Value ? Convert.ToInt32(reader["location_floor"]) : 0,
+                                    room_location_id = Convert.ToInt32(reader["room_location_id"])
                                 });
                             }
                         }
                     }
                 }
 
-                return View(logs);
+                return View(rooms);
             }
             catch (Exception ex)
             {
-                TempData["Error"] = "Error loading activity logs: " + ex.Message;
+                TempData["Error"] = "Error loading rooms: " + ex.Message;
                 return View(new List<dynamic>());
             }
         }
 
-        // ============================================
-        // HELPER METHODS
-        // ============================================
-
-        private void LogActivity(string action, string description)
+        // KF-16: Search and Filter Rooms
+        [HttpGet]
+        public IActionResult SearchRooms(int? locationId, int? minCapacity, string? facilities, string? status, DateTime? date, TimeSpan? startTime, TimeSpan? endTime)
         {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
             try
             {
-                var userId = HttpContext.Session.GetString("UserId");
-                if (string.IsNullOrEmpty(userId)) return;
-
+                List<dynamic> rooms = new List<dynamic>();
                 using (SqlConnection conn = new SqlConnection(_connectionString))
                 {
                     conn.Open();
-                    
-                    // Create table if not exists
-                    string createTable = @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'activity_logs')
-                                         BEGIN
-                                             CREATE TABLE activity_logs (
-                                                 log_id INT IDENTITY(1,1) PRIMARY KEY,
-                                                 log_user_id INT NOT NULL,
-                                                 log_action NVARCHAR(100) NOT NULL,
-                                                 log_description NVARCHAR(500),
-                                                 log_created_at DATETIME2 DEFAULT GETDATE(),
-                                                 FOREIGN KEY (log_user_id) REFERENCES users(user_id)
-                                             )
-                                         END";
-                    
-                    using (SqlCommand createCmd = new SqlCommand(createTable, conn))
-                    {
-                        createCmd.ExecuteNonQuery();
-                    }
 
-                    string query = @"INSERT INTO activity_logs (log_user_id, log_action, log_description, log_created_at)
-                                   VALUES (@UserId, @Action, @Description, GETDATE())";
+                    string query = @"SELECT r.*, l.location_code, l.location_plant_name, l.location_block, l.location_floor
+                                   FROM rooms r
+                                   LEFT JOIN locations l ON r.room_location_id = l.location_id
+                                   WHERE r.room_is_active = 1";
+
+                    // Build dynamic query based on filters
+                    if (locationId.HasValue)
+                        query += " AND r.room_location_id = @LocationId";
+                    
+                    if (minCapacity.HasValue)
+                        query += " AND r.room_capacity >= @MinCapacity";
+                    
+                    if (!string.IsNullOrEmpty(facilities))
+                        query += " AND r.room_facilities LIKE @Facilities";
+                    
+                    if (!string.IsNullOrEmpty(status))
+                        query += " AND r.room_status = @Status";
+
+                    query += " ORDER BY r.room_name";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
-                        cmd.Parameters.AddWithValue("@UserId", userId);
-                        cmd.Parameters.AddWithValue("@Action", action);
-                        cmd.Parameters.AddWithValue("@Description", description);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-            }
-            catch
-            {
-                // Silent fail
-            }
-        }
-
-        private int GetCount(SqlConnection conn, string query)
-        {
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            {
-                var result = cmd.ExecuteScalar();
-                return result != null ? Convert.ToInt32(result) : 0;
-            }
-        }
-
-        private bool CheckRoomAvailability(int roomId, DateTime date, TimeSpan startTime, TimeSpan endTime, int? excludeBookingId = null)
-        {
-            try
-            {
-                using (SqlConnection conn = new SqlConnection(_connectionString))
-                {
-                    conn.Open();
-                    
-                    string query = @"SELECT COUNT(*) FROM bookings 
-                                   WHERE booking_room_id = @RoomId 
-                                   AND booking_date = @Date
-                                   AND booking_status IN ('Pending', 'Confirmed', 'InProgress')
-                                   AND (
-                                       (booking_start_time < @EndTime AND booking_end_time > @StartTime)
-                                   )";
-                    
-                    if (excludeBookingId.HasValue)
-                        query += " AND booking_id != @ExcludeBookingId";
-
-                    using (SqlCommand cmd = new SqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@RoomId", roomId);
-                        cmd.Parameters.AddWithValue("@Date", date.Date);
-                        cmd.Parameters.AddWithValue("@StartTime", startTime);
-                        cmd.Parameters.AddWithValue("@EndTime", endTime);
+                        if (locationId.HasValue)
+                            cmd.Parameters.AddWithValue("@LocationId", locationId.Value);
                         
-                        if (excludeBookingId.HasValue)
-                            cmd.Parameters.AddWithValue("@ExcludeBookingId", excludeBookingId.Value);
+                        if (minCapacity.HasValue)
+                            cmd.Parameters.AddWithValue("@MinCapacity", minCapacity.Value);
+                        
+                        if (!string.IsNullOrEmpty(facilities))
+                            cmd.Parameters.AddWithValue("@Facilities", "%" + facilities + "%");
+                        
+                        if (!string.IsNullOrEmpty(status))
+                            cmd.Parameters.AddWithValue("@Status", status);
 
-                        int conflictCount = (int)cmd.ExecuteScalar();
-                        return conflictCount == 0;
-                    }
-                }
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private string GenerateBookingCode()
-        {
-            return "BK" + DateTime.Now.ToString("yyyyMMddHHmmss") + new Random().Next(1000, 9999);
-        }
-
-        private List<Location> GetActiveLocations()
-        {
-            List<Location> locations = new List<Location>();
-            using (SqlConnection conn = new SqlConnection(_connectionString))
-            {
-                conn.Open();
-                string query = "SELECT * FROM locations WHERE location_is_active = 1 ORDER BY location_plant_name, location_block, location_floor";
-
-                using (SqlCommand cmd = new SqlCommand(query, conn))
-                {
-                    using (SqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
+                        using (SqlDataReader reader = cmd.ExecuteReader())
                         {
-                            locations.Add(new Location
+                            while (reader.Read())
                             {
-                                location_id = Convert.ToInt32(reader["location_id"]),
-                                location_code = reader["location_code"].ToString()!,
-                                location_plant_name = reader["location_plant_name"].ToString()!,
-                                location_block = Convert.ToByte(reader["location_block"]),
-                                location_floor = Convert.ToByte(reader["location_floor"])
-                            });
+                                int roomId = Convert.ToInt32(reader["room_id"]);
+                                
+                                // Check availability if date and time are provided
+                                bool isAvailable = true;
+                                if (date.HasValue && startTime.HasValue && endTime.HasValue)
+                                {
+                                    isAvailable = CheckRoomAvailability(roomId, date.Value, startTime.Value, endTime.Value);
+                                }
+
+                                rooms.Add(new
+                                {
+                                    room_id = roomId,
+                                    room_code = reader["room_code"].ToString(),
+                                    room_name = reader["room_name"].ToString(),
+                                    room_capacity = Convert.ToInt32(reader["room_capacity"]),
+                                    room_facilities = reader["room_facilities"]?.ToString(),
+                                    room_status = reader["room_status"].ToString(),
+                                    location_code = reader["location_code"]?.ToString(),
+                                    location_plant_name = reader["location_plant_name"]?.ToString(),
+                                    location_block = reader["location_block"] != DBNull.Value ? Convert.ToInt32(reader["location_block"]) : 0,
+                                    location_floor = reader["location_floor"] != DBNull.Value ? Convert.ToInt32(reader["location_floor"]) : 0,
+                                    is_available = isAvailable
+                                });
+                            }
                         }
                     }
                 }
+
+                return Json(new { success = true, rooms = rooms });
             }
-            return locations;
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
         }
 
-        private List<dynamic> GetUserUpcomingBookings(SqlConnection conn, string userId)
+        // Check room availability for specific date and time
+        [HttpGet]
+        public IActionResult CheckAvailability(int roomId, DateTime date, string startTime, string endTime)
         {
-            List<dynamic> bookings = new List<dynamic>();
-            string query = @"SELECT TOP 5 b.*, r.room_name
-                           FROM bookings b
-                           LEFT JOIN rooms r ON b.booking_room_id = r.room_id
-                           WHERE b.booking_user_id = @UserId 
-                           AND b.booking_date >= CAST(GETDATE() AS DATE)
-                           AND b.booking_status IN ('Pending', 'Confirmed')
-                           ORDER BY b.booking_date, b.booking_start_time";
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
 
-            using (SqlCommand cmd = new SqlCommand(query, conn))
+            try
             {
-                cmd.Parameters.AddWithValue("@UserId", userId);
-                using (SqlDataReader reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        bookings.Add(new
-                        {
-                            booking_id = Convert.ToInt32(reader["booking_id"]),
-                            booking_title = reader["booking_title"].ToString(),
-                            room_name = reader["room_name"]?.ToString(),
-                            booking_date = Convert.ToDateTime(reader["booking_date"]),
-                            booking_start_time = reader["booking_start_time"] != DBNull.Value
-                                ? TimeSpan.Parse(reader["booking_start_time"].ToString()!)
-                                    .ToString(@"hh\:mm")
-                                : "-",
-                            booking_end_time = reader["booking_end_time"] != DBNull.Value
-                                ? TimeSpan.Parse(reader["booking_end_time"].ToString()!)
-                                    .ToString(@"hh\:mm")
-                                : "-",
-                            booking_status = reader["booking_status"].ToString()
-                        });
-                    }
-                }
-            }
-            return bookings;
-        }
+                TimeSpan start = TimeSpan.Parse(startTime);
+                TimeSpan end = TimeSpan.Parse(endTime);
 
-        private List<dynamic> GetUserRecentActivity(SqlConnection conn, string userId)
-        {
-            List<dynamic> activities = new List<dynamic>();
-            
-            // Create table if not exists
-            string createTable = @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'activity_logs')
-                                 BEGIN
-                                     CREATE TABLE activity_logs (
-                                         log_id INT IDENTITY(1,1) PRIMARY KEY,
-                                         log_user_id INT NOT NULL,
-                                         log_action NVARCHAR(100) NOT NULL,
-                                         log_description NVARCHAR(500),
-                                         log_created_at DATETIME2 DEFAULT GETDATE(),
-                                         FOREIGN KEY (log_user_id) REFERENCES users(user_id)
-                                     )
-                                 END";
-            
-            using (SqlCommand createCmd = new SqlCommand(createTable, conn))
+                bool isAvailable = CheckRoomAvailability(roomId, date, start, end);
+
+                return Json(new { success = true, available = isAvailable });
+            }
+            catch (Exception ex)
             {
-                createCmd.ExecuteNonQuery();
+                return Json(new { success = false, message = "Error: " + ex.Message });
             }
-
-            string query = @"SELECT TOP 10 * FROM activity_logs 
-                           WHERE log_user_id = @UserId 
-                           ORDER BY log_created_at DESC";
-
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            {
-                cmd.Parameters.AddWithValue("@UserId", userId);
-                using (SqlDataReader reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        activities.Add(new
-                        {
-                            log_action = reader["log_action"].ToString(),
-                            log_description = reader["log_description"]?.ToString(),
-                            log_created_at = Convert.ToDateTime(reader["log_created_at"])
-                        });
-                    }
-                }
-            }
-            return activities;
-        }
-
-        private List<dynamic> GetCompletedBookingsWithoutFeedback(string userId)
-        {
-            List<dynamic> bookings = new List<dynamic>();
-            
-            using (SqlConnection conn = new SqlConnection(_connectionString))
-            {
-                conn.Open();
-                string query = @"SELECT b.*, r.room_name
-                               FROM bookings b
-                               LEFT JOIN rooms r ON b.booking_room_id = r.room_id
-                               LEFT JOIN feedbacks f ON b.booking_id = f.feedback_booking_id
-                               WHERE b.booking_user_id = @UserId 
-                               AND b.booking_status = 'Completed'
-                               AND f.feedback_id IS NULL
-                               ORDER BY b.booking_date DESC";
-
-                using (SqlCommand cmd = new SqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@UserId", userId);
-                    using (SqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            bookings.Add(new
-                            {
-                                booking_id = Convert.ToInt32(reader["booking_id"]),
-                                booking_code = reader["booking_code"].ToString(),
-                                booking_title = reader["booking_title"].ToString(),
-                                room_name = reader["room_name"]?.ToString(),
-                                booking_date = Convert.ToDateTime(reader["booking_date"])
-                            });
-                        }
-                    }
-                }
-            }
-            
-            return bookings;
         }
     }
 }
