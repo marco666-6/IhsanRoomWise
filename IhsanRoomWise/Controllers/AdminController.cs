@@ -2243,7 +2243,7 @@ namespace RoomWise.Controllers
                     using (SqlConnection conn = new SqlConnection(_connectionString))
                     {
                         conn.Open();
-                        string query = @"SELECT r.*, l.location_code, l.location_plant_name, l.location_city
+                        string query = @"SELECT r.*, l.location_code, l.location_plant_name, l.location_floor
                                     FROM rooms r
                                     LEFT JOIN locations l ON r.room_location_id = l.location_id
                                     ORDER BY r.room_code";
