@@ -7,9 +7,9 @@ namespace IhsanRoomWise.Functions
     {
         private readonly string _smtpHost = "smtp.gmail.com";
         private readonly int _smtpPort = 587;
-        private readonly string _smtpUsername = "ihsannabawi669@gmail.com"; // CHANGE THIS
-        private readonly string _smtpPassword = "ezcl fatw jsfq axcq"; // CHANGE THIS
-        private readonly string _fromEmail = "ihsannabawi669@gmail.com"; // CHANGE THIS
+        private readonly string _smtpUsername = "blabla@gmail.blabla"; // CHANGE THIS
+        private readonly string _smtpPassword = "blablaapppasswordblabla"; // CHANGE THIS
+        private readonly string _fromEmail = "blabla@gmail.blabla"; // CHANGE THIS
         private readonly string _fromName = "RoomWise System";
 
         public async Task<bool> SendEmailAsync(string toEmail, string toName, string subject, string htmlBody, List<string> ccEmails = null)
