@@ -1,5 +1,3 @@
-// Functions\EmailServiceFunction.cs
-
 using System.Net;
 using System.Net.Mail;
 
@@ -14,7 +12,7 @@ namespace IhsanRoomWise.Functions
         private readonly string _fromEmail = "ihsannabawi669@gmail.com"; // CHANGE THIS
         private readonly string _fromName = "RoomWise System";
 
-        public async Task<bool> SendEmailAsync(string toEmail, string toName, string subject, string htmlBody)
+        public async Task<bool> SendEmailAsync(string toEmail, string toName, string subject, string htmlBody, List<string> ccEmails = null)
         {
             try
             {
@@ -22,6 +20,19 @@ namespace IhsanRoomWise.Functions
                 {
                     message.From = new MailAddress(_fromEmail, _fromName);
                     message.To.Add(new MailAddress(toEmail, toName));
+                    
+                    // Add CC recipients if provided
+                    if (ccEmails != null && ccEmails.Count > 0)
+                    {
+                        foreach (var ccEmail in ccEmails)
+                        {
+                            if (!string.IsNullOrEmpty(ccEmail) && ccEmail != toEmail) // Avoid adding duplicate
+                            {
+                                message.CC.Add(new MailAddress(ccEmail));
+                            }
+                        }
+                    }
+                    
                     message.Subject = subject;
                     message.Body = htmlBody;
                     message.IsBodyHtml = true;

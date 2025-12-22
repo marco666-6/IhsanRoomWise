@@ -556,7 +556,25 @@ namespace RoomWise.Controllers
                             }
                         }
 
-                        // Send email
+                        // Get all admin emails for CC
+                        List<string> adminEmails = new List<string>();
+                        string adminQuery = "SELECT user_email FROM users WHERE user_role = 'Admin' AND user_is_active = 1";
+                        using (SqlCommand adminCmd = new SqlCommand(adminQuery, conn))
+                        {
+                            using (SqlDataReader reader = adminCmd.ExecuteReader())
+                            {
+                                while (reader.Read())
+                                {
+                                    string adminEmail = reader["user_email"]?.ToString();
+                                    if (!string.IsNullOrEmpty(adminEmail))
+                                    {
+                                        adminEmails.Add(adminEmail);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Send email to user with admin CC
                         if (!string.IsNullOrEmpty(userEmail))
                         {
                             var emailBody = _emailService.GetBookingCreatedTemplate(
@@ -565,8 +583,13 @@ namespace RoomWise.Controllers
                                 start.ToString(@"hh\:mm"), 
                                 end.ToString(@"hh\:mm")
                             );
-                            await _emailService.SendEmailAsync(userEmail, userName, 
-                                "Booking Created - Awaiting Approval", emailBody);
+                            await _emailService.SendEmailAsync(
+                                userEmail, 
+                                userName, 
+                                "Booking Created - Awaiting Approval", 
+                                emailBody, 
+                                adminEmails // Pass admin emails as CC
+                            );
                         }
 
                         return Json(new { success = true, message = "Booking created successfully. Waiting for admin approval.", bookingCode = bookingCode });
