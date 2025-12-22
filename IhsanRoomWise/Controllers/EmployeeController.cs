@@ -11,10 +11,12 @@ namespace RoomWise.Controllers
     public class EmployeeController : Controller
     {
         private readonly string _connectionString;
+        private readonly EmailServiceFunction _emailService;
 
         public EmployeeController()
         {
             _connectionString = new DbAccessFunction().GetConnectionString();
+            _emailService = new EmailServiceFunction(); // ADD THIS LINE
         }
 
         // ============================================
@@ -458,7 +460,7 @@ namespace RoomWise.Controllers
         // KF-17: Create Booking
         // ============================================
         [HttpPost]
-        public IActionResult CreateBooking(int roomId, string title, string description, DateTime date, string startTime, string endTime)
+        public async Task<IActionResult> CreateBooking(int roomId, string title, string description, DateTime date, string startTime, string endTime)
         {
             if (!CheckEmployeeAuth())
                 return Json(new { success = false, message = "Unauthorized" });
@@ -520,6 +522,52 @@ namespace RoomWise.Controllers
                         cmd.ExecuteNonQuery();
 
                         LogActivity("Create Booking", $"Created booking: {bookingCode}");
+
+                        // Get user details for email
+                        string userQuery = "SELECT user_full_name, user_email FROM users WHERE user_id = @UserId";
+                        string userName = "";
+                        string userEmail = "";
+
+                        using (SqlCommand userCmd = new SqlCommand(userQuery, conn))
+                        {
+                            userCmd.Parameters.AddWithValue("@UserId", userId);
+                            using (SqlDataReader reader = userCmd.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    userName = reader["user_full_name"]?.ToString() ?? "";
+                                    userEmail = reader["user_email"]?.ToString() ?? "";
+                                }
+                            }
+                        }
+
+                        // Get room name
+                        string roomQuery = "SELECT room_name, room_code FROM rooms WHERE room_id = @RoomId";
+                        string roomName = "";
+                        using (SqlCommand roomCmd = new SqlCommand(roomQuery, conn))
+                        {
+                            roomCmd.Parameters.AddWithValue("@RoomId", roomId);
+                            using (SqlDataReader reader = roomCmd.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    roomName = $"{reader["room_code"]} - {reader["room_name"]}";
+                                }
+                            }
+                        }
+
+                        // Send email
+                        if (!string.IsNullOrEmpty(userEmail))
+                        {
+                            var emailBody = _emailService.GetBookingCreatedTemplate(
+                                userName, bookingCode, roomName, 
+                                date.ToString("MMMM dd, yyyy"), 
+                                start.ToString(@"hh\:mm"), 
+                                end.ToString(@"hh\:mm")
+                            );
+                            await _emailService.SendEmailAsync(userEmail, userName, 
+                                "Booking Created - Awaiting Approval", emailBody);
+                        }
 
                         return Json(new { success = true, message = "Booking created successfully. Waiting for admin approval.", bookingCode = bookingCode });
                     }

@@ -12,10 +12,12 @@ namespace RoomWise.Controllers
     public class AdminController : Controller
     {
         private readonly string _connectionString;
+        private readonly EmailServiceFunction _emailService;
 
         public AdminController()
         {
             _connectionString = new DbAccessFunction().GetConnectionString();
+            _emailService = new EmailServiceFunction(); // ADD THIS LINE
         }
 
         // ============================================
@@ -854,7 +856,7 @@ namespace RoomWise.Controllers
         }
 
         [HttpPost]
-        public IActionResult ResetUserPassword(int userId, string newPassword)
+        public async Task<IActionResult> ResetUserPassword(int userId, string newPassword)
         {
             if (!CheckAdminAuth())
                 return Json(new { success = false, message = "Unauthorized" });
@@ -875,6 +877,31 @@ namespace RoomWise.Controllers
                         cmd.ExecuteNonQuery();
 
                         LogActivity("Reset Password", $"Reset password for user ID: {userId}");
+
+                        // Get user details
+                        string userQuery = "SELECT user_full_name, user_email, user_employee_id FROM users WHERE user_id = @UserId";
+                        using (SqlCommand userCmd = new SqlCommand(userQuery, conn))
+                        {
+                            userCmd.Parameters.AddWithValue("@UserId", userId);
+                            using (SqlDataReader reader = userCmd.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    var emailBody = _emailService.GetPasswordResetTemplate(
+                                        reader["user_full_name"].ToString(),
+                                        reader["user_employee_id"].ToString(),
+                                        newPassword
+                                    );
+                                    
+                                    await _emailService.SendEmailAsync(
+                                        reader["user_email"].ToString(),
+                                        reader["user_full_name"].ToString(),
+                                        "Password Reset - RoomWise System",
+                                        emailBody
+                                    );
+                                }
+                            }
+                        }
 
                         return Json(new { success = true, message = "Password reset successfully" });
                     }
@@ -1318,7 +1345,7 @@ namespace RoomWise.Controllers
         }
 
         [HttpPost]
-        public IActionResult ApproveBooking(int bookingId)
+        public async Task<IActionResult> ApproveBooking(int bookingId)
         {
             if (!CheckAdminAuth())
                 return Json(new { success = false, message = "Unauthorized" });
@@ -1375,6 +1402,40 @@ namespace RoomWise.Controllers
 
                         LogActivity("Approve Booking", $"Approved booking ID: {bookingId}");
 
+                        // Get booking and user details
+                        string detailsQuery = @"SELECT b.booking_code, b.booking_date, b.booking_start_time, 
+                                                b.booking_end_time, r.room_code, r.room_name, u.user_full_name, u.user_email
+                                                FROM bookings b
+                                                JOIN rooms r ON b.booking_room_id = r.room_id
+                                                JOIN users u ON b.booking_user_id = u.user_id
+                                                WHERE b.booking_id = @BookingId";
+                                                
+                        using (SqlCommand detailCmd = new SqlCommand(detailsQuery, conn))
+                        {
+                            detailCmd.Parameters.AddWithValue("@BookingId", bookingId);
+                            using (SqlDataReader reader = detailCmd.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    var emailBody = _emailService.GetBookingApprovedTemplate(
+                                        reader["user_full_name"].ToString(),
+                                        reader["booking_code"].ToString(),
+                                        $"{reader["room_code"]} - {reader["room_name"]}",
+                                        Convert.ToDateTime(reader["booking_date"]).ToString("MMMM dd, yyyy"),
+                                        reader["booking_start_time"].ToString(),
+                                        reader["booking_end_time"].ToString()
+                                    );
+                                    
+                                    await _emailService.SendEmailAsync(
+                                        reader["user_email"].ToString(),
+                                        reader["user_full_name"].ToString(),
+                                        "Booking Approved - Confirmed!",
+                                        emailBody
+                                    );
+                                }
+                            }
+                        }
+
                         return Json(new { success = true, message = "Booking approved successfully" });
                     }
                 }
@@ -1386,7 +1447,7 @@ namespace RoomWise.Controllers
         }
 
         [HttpPost]
-        public IActionResult CancelBooking(int bookingId, string reason)
+        public async Task<IActionResult> CancelBooking(int bookingId, string reason)
         {
             if (!CheckAdminAuth())
                 return Json(new { success = false, message = "Unauthorized" });
@@ -1450,6 +1511,42 @@ namespace RoomWise.Controllers
                         cmd.ExecuteNonQuery();
 
                         LogActivity("Cancel Booking", $"Cancelled booking ID: {bookingId}");
+
+                        // Get booking and user details before cancelling
+                        string detailsQuery = @"SELECT b.booking_code, r.room_code, r.room_name, u.user_full_name, u.user_email
+                                                FROM bookings b
+                                                JOIN rooms r ON b.booking_room_id = r.room_id
+                                                JOIN users u ON b.booking_user_id = u.user_id
+                                                WHERE b.booking_id = @BookingId";
+                        
+                        string userEmail = "";
+                        string userName = "";
+                        string bookingCode = "";
+                        string roomName = "";
+
+                        using (SqlCommand detailCmd = new SqlCommand(detailsQuery, conn))
+                        {
+                            detailCmd.Parameters.AddWithValue("@BookingId", bookingId);
+                            using (SqlDataReader reader = detailCmd.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    userEmail = reader["user_email"].ToString();
+                                    userName = reader["user_full_name"].ToString();
+                                    bookingCode = reader["booking_code"].ToString();
+                                    roomName = $"{reader["room_code"]} - {reader["room_name"]}";
+                                }
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(userEmail))
+                        {
+                            var emailBody = _emailService.GetBookingCancelledTemplate(
+                                userName, bookingCode, roomName, reason
+                            );
+                            await _emailService.SendEmailAsync(userEmail, userName, 
+                                "Booking Cancelled", emailBody);
+                        }
 
                         return Json(new { success = true, message = "Booking cancelled successfully" });
                     }
@@ -1783,21 +1880,43 @@ namespace RoomWise.Controllers
                 {
                     var worksheet = workbook.Worksheets.Add("Users");
 
-                    // Headers
-                    worksheet.Cell(1, 1).Value = "Employee ID";
-                    worksheet.Cell(1, 2).Value = "Full Name";
-                    worksheet.Cell(1, 3).Value = "Email";
-                    worksheet.Cell(1, 4).Value = "Role";
-                    worksheet.Cell(1, 5).Value = "Department";
-                    worksheet.Cell(1, 6).Value = "Status";
-                    worksheet.Cell(1, 7).Value = "Created At";
+                    // TITLE ROW
+                    worksheet.Range("A1:H1").Merge();
+                    worksheet.Cell(1, 1).Value = "ROOMWISE SYSTEM - USER MANAGEMENT REPORT";
+                    worksheet.Cell(1, 1).Style.Font.Bold = true;
+                    worksheet.Cell(1, 1).Style.Font.FontSize = 16;
+                    worksheet.Cell(1, 1).Style.Font.FontColor = XLColor.White;
+                    worksheet.Cell(1, 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#2d5016");
+                    worksheet.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    worksheet.Row(1).Height = 30;
 
-                    // Style headers
-                    var headerRange = worksheet.Range(1, 1, 1, 7);
+                    // METADATA ROW
+                    worksheet.Range("A2:H2").Merge();
+                    worksheet.Cell(2, 1).Value = $"Generated on: {DateTime.Now:MMMM dd, yyyy HH:mm:ss} | Total Users: ";
+                    worksheet.Cell(2, 1).Style.Font.FontSize = 10;
+                    worksheet.Cell(2, 1).Style.Font.FontColor = XLColor.DarkGray;
+                    worksheet.Cell(2, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    worksheet.Row(2).Height = 20;
+
+                    // HEADERS
+                    var headers = new[] { "Employee ID", "Full Name", "Email", "Role", "Department", "Status", "Created At", "Last Updated" };
+                    for (int i = 0; i < headers.Length; i++)
+                    {
+                        worksheet.Cell(4, i + 1).Value = headers[i];
+                    }
+
+                    var headerRange = worksheet.Range(4, 1, 4, headers.Length);
                     headerRange.Style.Font.Bold = true;
-                    headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
+                    headerRange.Style.Font.FontSize = 11;
+                    headerRange.Style.Font.FontColor = XLColor.White;
+                    headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#3a7d23");
+                    headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                    headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
+                    headerRange.Style.Border.OutsideBorderColor = XLColor.FromHtml("#2d5016");
+                    worksheet.Row(4).Height = 25;
 
-                    // Data
+                    // DATA
                     using (SqlConnection conn = new SqlConnection(_connectionString))
                     {
                         conn.Open();
@@ -1807,23 +1926,87 @@ namespace RoomWise.Controllers
                         {
                             using (SqlDataReader reader = cmd.ExecuteReader())
                             {
-                                int row = 2;
+                                int row = 5;
+                                int totalUsers = 0;
+                                
                                 while (reader.Read())
                                 {
+                                    bool isActive = Convert.ToBoolean(reader["user_is_active"]);
+                                    string role = reader["user_role"].ToString();
+                                    
                                     worksheet.Cell(row, 1).Value = reader["user_employee_id"].ToString();
                                     worksheet.Cell(row, 2).Value = reader["user_full_name"].ToString();
                                     worksheet.Cell(row, 3).Value = reader["user_email"].ToString();
-                                    worksheet.Cell(row, 4).Value = reader["user_role"].ToString();
-                                    worksheet.Cell(row, 5).Value = reader["user_dept_name"]?.ToString() ?? "";
-                                    worksheet.Cell(row, 6).Value = Convert.ToBoolean(reader["user_is_active"]) ? "Active" : "Inactive";
-                                    worksheet.Cell(row, 7).Value = Convert.ToDateTime(reader["user_created_at"]).ToString("yyyy-MM-dd HH:mm:ss");
+                                    worksheet.Cell(row, 4).Value = role;
+                                    worksheet.Cell(row, 5).Value = reader["user_dept_name"]?.ToString() ?? "N/A";
+                                    worksheet.Cell(row, 6).Value = isActive ? "Active" : "Inactive";
+                                    worksheet.Cell(row, 7).Value = Convert.ToDateTime(reader["user_created_at"]).ToString("yyyy-MM-dd HH:mm");
+                                    worksheet.Cell(row, 8).Value = Convert.ToDateTime(reader["user_updated_at"]).ToString("yyyy-MM-dd HH:mm");
+
+                                    // ROW STYLING
+                                    var rowRange = worksheet.Range(row, 1, row, headers.Length);
+                                    
+                                    // Alternating colors
+                                    if (row % 2 == 0)
+                                    {
+                                        rowRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#f0f8f0");
+                                    }
+                                    else
+                                    {
+                                        rowRange.Style.Fill.BackgroundColor = XLColor.White;
+                                    }
+
+                                    // Status cell coloring
+                                    var statusCell = worksheet.Cell(row, 6);
+                                    if (isActive)
+                                    {
+                                        statusCell.Style.Font.FontColor = XLColor.FromHtml("#2e7d32");
+                                        statusCell.Style.Font.Bold = true;
+                                    }
+                                    else
+                                    {
+                                        statusCell.Style.Font.FontColor = XLColor.FromHtml("#c62828");
+                                        statusCell.Style.Font.Bold = true;
+                                    }
+
+                                    // Role cell coloring
+                                    var roleCell = worksheet.Cell(row, 4);
+                                    if (role == "Admin")
+                                    {
+                                        roleCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#fff3cd");
+                                        roleCell.Style.Font.Bold = true;
+                                    }
+
+                                    // Borders
+                                    rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                                    rowRange.Style.Border.OutsideBorderColor = XLColor.FromHtml("#c8e6c9");
+                                    
                                     row++;
+                                    totalUsers++;
                                 }
+
+                                // Update total count
+                                worksheet.Cell(2, 1).Value = $"Generated on: {DateTime.Now:MMMM dd, yyyy HH:mm:ss} | Total Users: {totalUsers}";
                             }
                         }
                     }
 
-                    worksheet.Columns().AdjustToContents();
+                    // APPLY AUTO-FILTER
+                    var dataRange = worksheet.RangeUsed();
+                    dataRange.SetAutoFilter();
+
+                    // COLUMN WIDTHS
+                    worksheet.Column(1).Width = 15;
+                    worksheet.Column(2).Width = 25;
+                    worksheet.Column(3).Width = 30;
+                    worksheet.Column(4).Width = 12;
+                    worksheet.Column(5).Width = 20;
+                    worksheet.Column(6).Width = 12;
+                    worksheet.Column(7).Width = 20;
+                    worksheet.Column(8).Width = 20;
+
+                    // FREEZE PANES
+                    worksheet.SheetView.FreezeRows(4);
 
                     using (var stream = new MemoryStream())
                     {
@@ -1832,7 +2015,8 @@ namespace RoomWise.Controllers
 
                         LogActivity("Export Data", "Exported users data to Excel");
 
-                        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Users_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+                        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+                            $"RoomWise_Users_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
                     }
                 }
             }
@@ -1855,53 +2039,138 @@ namespace RoomWise.Controllers
                 {
                     var worksheet = workbook.Worksheets.Add("Bookings");
 
-                    // Headers
-                    worksheet.Cell(1, 1).Value = "Booking Code";
-                    worksheet.Cell(1, 2).Value = "Title";
-                    worksheet.Cell(1, 3).Value = "Room";
-                    worksheet.Cell(1, 4).Value = "User";
-                    worksheet.Cell(1, 5).Value = "Date";
-                    worksheet.Cell(1, 6).Value = "Start Time";
-                    worksheet.Cell(1, 7).Value = "End Time";
-                    worksheet.Cell(1, 8).Value = "Status";
+                    // TITLE ROW
+                    worksheet.Range("A1:J1").Merge();
+                    worksheet.Cell(1, 1).Value = "ROOMWISE SYSTEM - BOOKING RECORDS";
+                    worksheet.Cell(1, 1).Style.Font.Bold = true;
+                    worksheet.Cell(1, 1).Style.Font.FontSize = 16;
+                    worksheet.Cell(1, 1).Style.Font.FontColor = XLColor.White;
+                    worksheet.Cell(1, 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#2d5016");
+                    worksheet.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    worksheet.Row(1).Height = 30;
 
-                    // Style headers
-                    var headerRange = worksheet.Range(1, 1, 1, 8);
+                    // METADATA ROW
+                    worksheet.Range("A2:J2").Merge();
+                    worksheet.Cell(2, 1).Value = $"Generated on: {DateTime.Now:MMMM dd, yyyy HH:mm:ss}";
+                    worksheet.Cell(2, 1).Style.Font.FontSize = 10;
+                    worksheet.Cell(2, 1).Style.Font.FontColor = XLColor.DarkGray;
+                    worksheet.Cell(2, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    worksheet.Row(2).Height = 20;
+
+                    // HEADERS
+                    var headers = new[] { "Booking Code", "Title", "Room", "User", "Department", "Date", "Start Time", "End Time", "Status", "Created At" };
+                    for (int i = 0; i < headers.Length; i++)
+                    {
+                        worksheet.Cell(4, i + 1).Value = headers[i];
+                    }
+
+                    var headerRange = worksheet.Range(4, 1, 4, headers.Length);
                     headerRange.Style.Font.Bold = true;
-                    headerRange.Style.Fill.BackgroundColor = XLColor.LightGreen;
+                    headerRange.Style.Font.FontSize = 11;
+                    headerRange.Style.Font.FontColor = XLColor.White;
+                    headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#3a7d23");
+                    headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                    headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
+                    headerRange.Style.Border.OutsideBorderColor = XLColor.FromHtml("#2d5016");
+                    worksheet.Row(4).Height = 25;
 
-                    // Data
+                    // DATA
                     using (SqlConnection conn = new SqlConnection(_connectionString))
                     {
                         conn.Open();
-                        string query = @"SELECT b.*, r.room_code, r.room_name, u.user_full_name
-                                       FROM bookings b
-                                       LEFT JOIN rooms r ON b.booking_room_id = r.room_id
-                                       LEFT JOIN users u ON b.booking_user_id = u.user_id
-                                       ORDER BY b.booking_date DESC";
+                        string query = @"SELECT b.*, r.room_code, r.room_name, u.user_full_name, u.user_dept_name
+                                    FROM bookings b
+                                    LEFT JOIN rooms r ON b.booking_room_id = r.room_id
+                                    LEFT JOIN users u ON b.booking_user_id = u.user_id
+                                    ORDER BY b.booking_date DESC, b.booking_start_time DESC";
 
                         using (SqlCommand cmd = new SqlCommand(query, conn))
                         {
                             using (SqlDataReader reader = cmd.ExecuteReader())
                             {
-                                int row = 2;
+                                int row = 5;
+                                
                                 while (reader.Read())
                                 {
+                                    string status = reader["booking_status"].ToString();
+                                    
                                     worksheet.Cell(row, 1).Value = reader["booking_code"].ToString();
                                     worksheet.Cell(row, 2).Value = reader["booking_title"].ToString();
                                     worksheet.Cell(row, 3).Value = $"{reader["room_code"]} - {reader["room_name"]}";
-                                    worksheet.Cell(row, 4).Value = reader["user_full_name"]?.ToString();
-                                    worksheet.Cell(row, 5).Value = Convert.ToDateTime(reader["booking_date"]).ToString("yyyy-MM-dd");
-                                    worksheet.Cell(row, 6).Value = reader["booking_start_time"].ToString();
-                                    worksheet.Cell(row, 7).Value = reader["booking_end_time"].ToString();
-                                    worksheet.Cell(row, 8).Value = reader["booking_status"].ToString();
+                                    worksheet.Cell(row, 4).Value = reader["user_full_name"]?.ToString() ?? "N/A";
+                                    worksheet.Cell(row, 5).Value = reader["user_dept_name"]?.ToString() ?? "N/A";
+                                    worksheet.Cell(row, 6).Value = Convert.ToDateTime(reader["booking_date"]).ToString("yyyy-MM-dd");
+                                    worksheet.Cell(row, 7).Value = reader["booking_start_time"].ToString();
+                                    worksheet.Cell(row, 8).Value = reader["booking_end_time"].ToString();
+                                    worksheet.Cell(row, 9).Value = status;
+                                    worksheet.Cell(row, 10).Value = Convert.ToDateTime(reader["booking_created_at"]).ToString("yyyy-MM-dd HH:mm");
+
+                                    // ROW STYLING
+                                    var rowRange = worksheet.Range(row, 1, row, headers.Length);
+                                    
+                                    // Alternating colors
+                                    if (row % 2 == 0)
+                                    {
+                                        rowRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#f0f8f0");
+                                    }
+
+                                    // Status cell coloring
+                                    var statusCell = worksheet.Cell(row, 9);
+                                    statusCell.Style.Font.Bold = true;
+                                    
+                                    switch (status)
+                                    {
+                                        case "Confirmed":
+                                            statusCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#c8e6c9");
+                                            statusCell.Style.Font.FontColor = XLColor.FromHtml("#2e7d32");
+                                            break;
+                                        case "Pending":
+                                            statusCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#fff3cd");
+                                            statusCell.Style.Font.FontColor = XLColor.FromHtml("#856404");
+                                            break;
+                                        case "Cancelled":
+                                            statusCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#ffcdd2");
+                                            statusCell.Style.Font.FontColor = XLColor.FromHtml("#c62828");
+                                            break;
+                                        case "Completed":
+                                            statusCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#e1f5fe");
+                                            statusCell.Style.Font.FontColor = XLColor.FromHtml("#01579b");
+                                            break;
+                                        case "InProgress":
+                                            statusCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#e8eaf6");
+                                            statusCell.Style.Font.FontColor = XLColor.FromHtml("#3f51b5");
+                                            break;
+                                    }
+
+                                    // Borders
+                                    rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                                    rowRange.Style.Border.OutsideBorderColor = XLColor.FromHtml("#c8e6c9");
+                                    
                                     row++;
                                 }
                             }
                         }
                     }
 
-                    worksheet.Columns().AdjustToContents();
+                    // APPLY AUTO-FILTER
+                    var dataRange = worksheet.RangeUsed();
+                    dataRange.SetAutoFilter();
+
+                    // COLUMN WIDTHS
+                    worksheet.Column(1).Width = 15;
+                    worksheet.Column(2).Width = 30;
+                    worksheet.Column(3).Width = 25;
+                    worksheet.Column(4).Width = 20;
+                    worksheet.Column(5).Width = 20;
+                    worksheet.Column(6).Width = 15;
+                    worksheet.Column(7).Width = 12;
+                    worksheet.Column(8).Width = 12;
+                    worksheet.Column(9).Width = 15;
+                    worksheet.Column(10).Width = 20;
+
+                    // FREEZE PANES
+                    worksheet.SheetView.FreezeRows(4);
 
                     using (var stream = new MemoryStream())
                     {
@@ -1910,7 +2179,8 @@ namespace RoomWise.Controllers
 
                         LogActivity("Export Data", "Exported bookings data to Excel");
 
-                        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Bookings_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+                        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+                            $"RoomWise_Bookings_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
                     }
                 }
             }
@@ -1933,48 +2203,148 @@ namespace RoomWise.Controllers
                 {
                     var worksheet = workbook.Worksheets.Add("Rooms");
 
-                    // Headers
-                    worksheet.Cell(1, 1).Value = "Room Code";
-                    worksheet.Cell(1, 2).Value = "Room Name";
-                    worksheet.Cell(1, 3).Value = "Location";
-                    worksheet.Cell(1, 4).Value = "Capacity";
-                    worksheet.Cell(1, 5).Value = "Facilities";
-                    worksheet.Cell(1, 6).Value = "Status";
+                    // TITLE ROW
+                    worksheet.Range("A1:H1").Merge();
+                    worksheet.Cell(1, 1).Value = "ROOMWISE SYSTEM - ROOM INVENTORY";
+                    worksheet.Cell(1, 1).Style.Font.Bold = true;
+                    worksheet.Cell(1, 1).Style.Font.FontSize = 16;
+                    worksheet.Cell(1, 1).Style.Font.FontColor = XLColor.White;
+                    worksheet.Cell(1, 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#2d5016");
+                    worksheet.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    worksheet.Row(1).Height = 30;
 
-                    // Style headers
-                    var headerRange = worksheet.Range(1, 1, 1, 6);
+                    // METADATA ROW
+                    worksheet.Range("A2:H2").Merge();
+                    worksheet.Cell(2, 1).Value = $"Generated on: {DateTime.Now:MMMM dd, yyyy HH:mm:ss}";
+                    worksheet.Cell(2, 1).Style.Font.FontSize = 10;
+                    worksheet.Cell(2, 1).Style.Font.FontColor = XLColor.DarkGray;
+                    worksheet.Cell(2, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    worksheet.Row(2).Height = 20;
+
+                    // HEADERS
+                    var headers = new[] { "Room Code", "Room Name", "Location", "Plant", "Capacity", "Facilities", "Status", "Is Active" };
+                    for (int i = 0; i < headers.Length; i++)
+                    {
+                        worksheet.Cell(4, i + 1).Value = headers[i];
+                    }
+
+                    var headerRange = worksheet.Range(4, 1, 4, headers.Length);
                     headerRange.Style.Font.Bold = true;
-                    headerRange.Style.Fill.BackgroundColor = XLColor.LightYellow;
+                    headerRange.Style.Font.FontSize = 11;
+                    headerRange.Style.Font.FontColor = XLColor.White;
+                    headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#3a7d23");
+                    headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                    headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
+                    headerRange.Style.Border.OutsideBorderColor = XLColor.FromHtml("#2d5016");
+                    worksheet.Row(4).Height = 25;
 
-                    // Data
+                    // DATA
                     using (SqlConnection conn = new SqlConnection(_connectionString))
                     {
                         conn.Open();
-                        string query = @"SELECT r.*, l.location_code, l.location_plant_name
-                                       FROM rooms r
-                                       LEFT JOIN locations l ON r.room_location_id = l.location_id
-                                       ORDER BY r.room_code";
+                        string query = @"SELECT r.*, l.location_code, l.location_plant_name, l.location_city
+                                    FROM rooms r
+                                    LEFT JOIN locations l ON r.room_location_id = l.location_id
+                                    ORDER BY r.room_code";
 
                         using (SqlCommand cmd = new SqlCommand(query, conn))
                         {
                             using (SqlDataReader reader = cmd.ExecuteReader())
                             {
-                                int row = 2;
+                                int row = 5;
+                                
                                 while (reader.Read())
                                 {
+                                    string status = reader["room_status"].ToString();
+                                    bool isActive = Convert.ToBoolean(reader["room_is_active"]);
+                                    
                                     worksheet.Cell(row, 1).Value = reader["room_code"].ToString();
                                     worksheet.Cell(row, 2).Value = reader["room_name"].ToString();
-                                    worksheet.Cell(row, 3).Value = $"{reader["location_code"]} - {reader["location_plant_name"]}";
-                                    worksheet.Cell(row, 4).Value = Convert.ToInt32(reader["room_capacity"]);
-                                    worksheet.Cell(row, 5).Value = reader["room_facilities"]?.ToString() ?? "";
-                                    worksheet.Cell(row, 6).Value = reader["room_status"].ToString();
+                                    worksheet.Cell(row, 3).Value = reader["location_code"]?.ToString() ?? "N/A";
+                                    worksheet.Cell(row, 4).Value = reader["location_plant_name"]?.ToString() ?? "N/A";
+                                    worksheet.Cell(row, 5).Value = Convert.ToInt32(reader["room_capacity"]);
+                                    worksheet.Cell(row, 6).Value = reader["room_facilities"]?.ToString() ?? "N/A";
+                                    worksheet.Cell(row, 7).Value = status;
+                                    worksheet.Cell(row, 8).Value = isActive ? "Yes" : "No";
+
+                                    // ROW STYLING
+                                    var rowRange = worksheet.Range(row, 1, row, headers.Length);
+                                    
+                                    // Alternating colors
+                                    if (row % 2 == 0)
+                                    {
+                                        rowRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#f0f8f0");
+                                    }
+
+                                    // Status cell coloring
+                                    var statusCell = worksheet.Cell(row, 7);
+                                    statusCell.Style.Font.Bold = true;
+                                    
+                                    switch (status)
+                                    {
+                                        case "Available":
+                                            statusCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#c8e6c9");
+                                            statusCell.Style.Font.FontColor = XLColor.FromHtml("#2e7d32");
+                                            break;
+                                        case "Occupied":
+                                            statusCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#ffcdd2");
+                                            statusCell.Style.Font.FontColor = XLColor.FromHtml("#c62828");
+                                            break;
+                                        case "Maintenance":
+                                            statusCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#fff3cd");
+                                            statusCell.Style.Font.FontColor = XLColor.FromHtml("#856404");
+                                            break;
+                                    }
+
+                                    // Active status coloring
+                                    var activeCell = worksheet.Cell(row, 8);
+                                    if (isActive)
+                                    {
+                                        activeCell.Style.Font.FontColor = XLColor.FromHtml("#2e7d32");
+                                        activeCell.Style.Font.Bold = true;
+                                    }
+                                    else
+                                    {
+                                        activeCell.Style.Font.FontColor = XLColor.FromHtml("#c62828");
+                                        activeCell.Style.Font.Bold = true;
+                                    }
+
+                                    // Capacity cell - highlight high capacity rooms
+                                    var capacityCell = worksheet.Cell(row, 5);
+                                    int capacity = Convert.ToInt32(reader["room_capacity"]);
+                                    if (capacity >= 20)
+                                    {
+                                        capacityCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#e1f5fe");
+                                        capacityCell.Style.Font.Bold = true;
+                                    }
+
+                                    // Borders
+                                    rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                                    rowRange.Style.Border.OutsideBorderColor = XLColor.FromHtml("#c8e6c9");
+                                    
                                     row++;
                                 }
                             }
                         }
                     }
 
-                    worksheet.Columns().AdjustToContents();
+                    // APPLY AUTO-FILTER
+                    var dataRange = worksheet.RangeUsed();
+                    dataRange.SetAutoFilter();
+
+                    // COLUMN WIDTHS
+                    worksheet.Column(1).Width = 15;
+                    worksheet.Column(2).Width = 25;
+                    worksheet.Column(3).Width = 15;
+                    worksheet.Column(4).Width = 20;
+                    worksheet.Column(5).Width = 12;
+                    worksheet.Column(6).Width = 40;
+                    worksheet.Column(7).Width = 15;
+                    worksheet.Column(8).Width = 12;
+
+                    // FREEZE PANES
+                    worksheet.SheetView.FreezeRows(4);
 
                     using (var stream = new MemoryStream())
                     {
@@ -1983,7 +2353,8 @@ namespace RoomWise.Controllers
 
                         LogActivity("Export Data", "Exported rooms data to Excel");
 
-                        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Rooms_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+                        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+                            $"RoomWise_Rooms_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
                     }
                 }
             }

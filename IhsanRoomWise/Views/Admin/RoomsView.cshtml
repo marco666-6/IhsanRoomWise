@@ -19,7 +19,7 @@
                 <i class="fas fa-th-large"></i>
             </button>
         </div>
-        <button class="btn btn-success" onclick="window.location.href='@Url.Action("ExportRooms", "Admin")'">
+        <button class="btn btn-success" onclick="exportRooms()">
             <i class="fas fa-file-excel me-2"></i> Export
         </button>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createRoomModal">
@@ -856,6 +856,10 @@
                     });
                 }
             });
+        }
+
+        function exportRooms() {
+            window.location.href = '@Url.Action("ExportRooms", "Admin")';
         }
     </script>
 }

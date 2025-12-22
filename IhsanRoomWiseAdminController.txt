@@ -1,0 +1,597 @@
+// Controllers\AdminController.cs
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using ClosedXML.Excel;
+using IhsanRoomWise.Functions;
+using IhsanRoomWise.Models;
+using System.Data;
+
+namespace RoomWise.Controllers
+{
+    public class AdminController : Controller
+    {
+        private readonly string _connectionString;
+
+        public AdminController()
+        {
+            _connectionString = new DbAccessFunction().GetConnectionString();
+        }
+
+        // ============================================
+        // AUTHORIZATION CHECK
+        // ============================================
+        private bool CheckAdminAuth()
+        {
+            var role = HttpContext.Session.GetString("UserRole");
+            return role == "Admin";
+        }
+
+        [HttpPost]
+        public IActionResult CreateUser(string employeeId, string email, string fullName, string role, string deptName, string password)
+        {
+            if (!CheckAdminAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    // Check if employee ID or email already exists
+                    string checkQuery = "SELECT COUNT(*) FROM users WHERE user_employee_id = @EmployeeId OR user_email = @Email";
+                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@EmployeeId", employeeId);
+                        checkCmd.Parameters.AddWithValue("@Email", email);
+                        int count = (int)checkCmd.ExecuteScalar();
+                        if (count > 0)
+                            return Json(new { success = false, message = "Employee ID or Email already exists" });
+                    }
+
+                    // Hash password
+                    string hashedPassword = SecHelperFunction.HashPasswordMD5(password);
+
+                    // Insert user
+                    string query = @"INSERT INTO users (user_employee_id, user_email, user_password, user_full_name, 
+                                   user_role, user_dept_name, user_is_active, user_created_at, user_updated_at)
+                                   VALUES (@EmployeeId, @Email, @Password, @FullName, @Role, @DeptName, 1, GETDATE(), GETDATE())";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@EmployeeId", employeeId);
+                        cmd.Parameters.AddWithValue("@Email", email);
+                        cmd.Parameters.AddWithValue("@Password", hashedPassword);
+                        cmd.Parameters.AddWithValue("@FullName", fullName);
+                        cmd.Parameters.AddWithValue("@Role", role);
+                        cmd.Parameters.AddWithValue("@DeptName", string.IsNullOrEmpty(deptName) ? (object)DBNull.Value : deptName);
+
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Create User", $"Created user: {fullName} ({employeeId})");
+
+                        return Json(new { success = true, message = "User created successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public IActionResult UpdateUser(int userId, string fullName, string email, string role, string deptName)
+        {
+            if (!CheckAdminAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = @"UPDATE users 
+                                   SET user_full_name = @FullName,
+                                       user_email = @Email,
+                                       user_role = @Role,
+                                       user_dept_name = @DeptName,
+                                       user_updated_at = GETDATE()
+                                   WHERE user_id = @UserId";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@FullName", fullName);
+                        cmd.Parameters.AddWithValue("@Email", email);
+                        cmd.Parameters.AddWithValue("@Role", role);
+                        cmd.Parameters.AddWithValue("@DeptName", string.IsNullOrEmpty(deptName) ? (object)DBNull.Value : deptName);
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Update User", $"Updated user ID: {userId}");
+
+                        return Json(new { success = true, message = "User updated successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public IActionResult ToggleUserStatus(int userId, bool isActive)
+        {
+            if (!CheckAdminAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = "UPDATE users SET user_is_active = @IsActive, user_updated_at = GETDATE() WHERE user_id = @UserId";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@IsActive", isActive);
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Toggle User Status", $"Changed user ID {userId} status to {(isActive ? "Active" : "Inactive")}");
+
+                        return Json(new { success = true, message = $"User {(isActive ? "activated" : "deactivated")} successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public IActionResult ResetUserPassword(int userId, string newPassword)
+        {
+            if (!CheckAdminAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                string hashedPassword = SecHelperFunction.HashPasswordMD5(newPassword);
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = "UPDATE users SET user_password = @Password, user_updated_at = GETDATE() WHERE user_id = @UserId";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Password", hashedPassword);
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Reset Password", $"Reset password for user ID: {userId}");
+
+                        return Json(new { success = true, message = "Password reset successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public IActionResult ApproveBooking(int bookingId)
+        {
+            if (!CheckAdminAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    var now = DateTime.Now;
+                    var currentDate = now.Date;
+                    var currentTime = now.TimeOfDay;
+                    int systemUserId = 1; // System user for auto-cancellations
+                    string query = @"
+                                UPDATE bookings SET booking_status = 'Confirmed', booking_updated_at = GETDATE() WHERE booking_id = @BookingId;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Cancelled',
+                                    booking_cancel_reason = 'Not reviewed by admin before meeting time.',
+                                    booking_cancelled_by = @SystemUserId,
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Pending'
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_start_time < @CurrentTime)
+                                    );
+                                
+                                UPDATE bookings
+                                SET booking_status = 'InProgress',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Confirmed'
+                                    AND booking_date = @CurrentDate
+                                    AND booking_start_time <= @CurrentTime
+                                    AND booking_end_time > @CurrentTime;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Completed',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status IN ('InProgress', 'Confirmed')
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_end_time <= @CurrentTime)
+                                    );";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        cmd.Parameters.AddWithValue("@SystemUserId", systemUserId);
+                        cmd.Parameters.AddWithValue("@CurrentDate", currentDate);
+                        cmd.Parameters.AddWithValue("@CurrentTime", currentTime);
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Approve Booking", $"Approved booking ID: {bookingId}");
+
+                        return Json(new { success = true, message = "Booking approved successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public IActionResult CancelBooking(int bookingId, string reason)
+        {
+            if (!CheckAdminAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                var adminId = HttpContext.Session.GetString("UserId");
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    var now = DateTime.Now;
+                    var currentDate = now.Date;
+                    var currentTime = now.TimeOfDay;
+                    int systemUserId = 1; // System user for auto-cancellations
+                    string query = @"UPDATE bookings 
+                                SET booking_status = 'Cancelled', 
+                                    booking_cancel_reason = @Reason,
+                                    booking_cancelled_by = @CancelledBy,
+                                    booking_updated_at = GETDATE() 
+                                WHERE booking_id = @BookingId;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Cancelled',
+                                    booking_cancel_reason = 'Not reviewed by admin before meeting time.',
+                                    booking_cancelled_by = @SystemUserId,
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Pending'
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_start_time < @CurrentTime)
+                                    );
+                                
+                                UPDATE bookings
+                                SET booking_status = 'InProgress',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Confirmed'
+                                    AND booking_date = @CurrentDate
+                                    AND booking_start_time <= @CurrentTime
+                                    AND booking_end_time > @CurrentTime;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Completed',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status IN ('InProgress', 'Confirmed')
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_end_time <= @CurrentTime)
+                                    );";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Reason", reason);
+                        cmd.Parameters.AddWithValue("@CancelledBy", adminId);
+                        cmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        cmd.Parameters.AddWithValue("@SystemUserId", systemUserId);
+                        cmd.Parameters.AddWithValue("@CurrentDate", currentDate);
+                        cmd.Parameters.AddWithValue("@CurrentTime", currentTime);
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Cancel Booking", $"Cancelled booking ID: {bookingId}");
+
+                        return Json(new { success = true, message = "Booking cancelled successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public IActionResult RespondToFeedback(int feedbackId, string response)
+        {
+            if (!CheckAdminAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                var adminId = HttpContext.Session.GetString("UserId");
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    string query = @"UPDATE feedbacks 
+                                   SET feedback_admin_response = @Response,
+                                       feedback_admin_responded_by = @AdminId,
+                                       feedback_responded_at = GETDATE()
+                                   WHERE feedback_id = @FeedbackId";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Response", response);
+                        cmd.Parameters.AddWithValue("@AdminId", adminId);
+                        cmd.Parameters.AddWithValue("@FeedbackId", feedbackId);
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Respond to Feedback", $"Responded to feedback ID: {feedbackId}");
+
+                        return Json(new { success = true, message = "Response saved successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        // ============================================
+        // KF-14: Export Data to Spreadsheet
+        // ============================================
+        [HttpGet]
+        public IActionResult ExportUsers()
+        {
+            if (!CheckAdminAuth())
+                return Forbid();
+
+            try
+            {
+                using (var workbook = new XLWorkbook())
+                {
+                    var worksheet = workbook.Worksheets.Add("Users");
+
+                    // Headers
+                    worksheet.Cell(1, 1).Value = "Employee ID";
+                    worksheet.Cell(1, 2).Value = "Full Name";
+                    worksheet.Cell(1, 3).Value = "Email";
+                    worksheet.Cell(1, 4).Value = "Role";
+                    worksheet.Cell(1, 5).Value = "Department";
+                    worksheet.Cell(1, 6).Value = "Status";
+                    worksheet.Cell(1, 7).Value = "Created At";
+
+                    // Style headers
+                    var headerRange = worksheet.Range(1, 1, 1, 7);
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
+
+                    // Data
+                    using (SqlConnection conn = new SqlConnection(_connectionString))
+                    {
+                        conn.Open();
+                        string query = "SELECT * FROM users ORDER BY user_created_at DESC";
+
+                        using (SqlCommand cmd = new SqlCommand(query, conn))
+                        {
+                            using (SqlDataReader reader = cmd.ExecuteReader())
+                            {
+                                int row = 2;
+                                while (reader.Read())
+                                {
+                                    worksheet.Cell(row, 1).Value = reader["user_employee_id"].ToString();
+                                    worksheet.Cell(row, 2).Value = reader["user_full_name"].ToString();
+                                    worksheet.Cell(row, 3).Value = reader["user_email"].ToString();
+                                    worksheet.Cell(row, 4).Value = reader["user_role"].ToString();
+                                    worksheet.Cell(row, 5).Value = reader["user_dept_name"]?.ToString() ?? "";
+                                    worksheet.Cell(row, 6).Value = Convert.ToBoolean(reader["user_is_active"]) ? "Active" : "Inactive";
+                                    worksheet.Cell(row, 7).Value = Convert.ToDateTime(reader["user_created_at"]).ToString("yyyy-MM-dd HH:mm:ss");
+                                    row++;
+                                }
+                            }
+                        }
+                    }
+
+                    worksheet.Columns().AdjustToContents();
+
+                    using (var stream = new MemoryStream())
+                    {
+                        workbook.SaveAs(stream);
+                        stream.Position = 0;
+
+                        LogActivity("Export Data", "Exported users data to Excel");
+
+                        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Users_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Error exporting data: " + ex.Message;
+                return RedirectToAction("UsersView");
+            }
+        }
+
+        [HttpGet]
+        public IActionResult ExportBookings()
+        {
+            if (!CheckAdminAuth())
+                return Forbid();
+
+            try
+            {
+                using (var workbook = new XLWorkbook())
+                {
+                    var worksheet = workbook.Worksheets.Add("Bookings");
+
+                    // Headers
+                    worksheet.Cell(1, 1).Value = "Booking Code";
+                    worksheet.Cell(1, 2).Value = "Title";
+                    worksheet.Cell(1, 3).Value = "Room";
+                    worksheet.Cell(1, 4).Value = "User";
+                    worksheet.Cell(1, 5).Value = "Date";
+                    worksheet.Cell(1, 6).Value = "Start Time";
+                    worksheet.Cell(1, 7).Value = "End Time";
+                    worksheet.Cell(1, 8).Value = "Status";
+
+                    // Style headers
+                    var headerRange = worksheet.Range(1, 1, 1, 8);
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Fill.BackgroundColor = XLColor.LightGreen;
+
+                    // Data
+                    using (SqlConnection conn = new SqlConnection(_connectionString))
+                    {
+                        conn.Open();
+                        string query = @"SELECT b.*, r.room_code, r.room_name, u.user_full_name
+                                       FROM bookings b
+                                       LEFT JOIN rooms r ON b.booking_room_id = r.room_id
+                                       LEFT JOIN users u ON b.booking_user_id = u.user_id
+                                       ORDER BY b.booking_date DESC";
+
+                        using (SqlCommand cmd = new SqlCommand(query, conn))
+                        {
+                            using (SqlDataReader reader = cmd.ExecuteReader())
+                            {
+                                int row = 2;
+                                while (reader.Read())
+                                {
+                                    worksheet.Cell(row, 1).Value = reader["booking_code"].ToString();
+                                    worksheet.Cell(row, 2).Value = reader["booking_title"].ToString();
+                                    worksheet.Cell(row, 3).Value = $"{reader["room_code"]} - {reader["room_name"]}";
+                                    worksheet.Cell(row, 4).Value = reader["user_full_name"]?.ToString();
+                                    worksheet.Cell(row, 5).Value = Convert.ToDateTime(reader["booking_date"]).ToString("yyyy-MM-dd");
+                                    worksheet.Cell(row, 6).Value = reader["booking_start_time"].ToString();
+                                    worksheet.Cell(row, 7).Value = reader["booking_end_time"].ToString();
+                                    worksheet.Cell(row, 8).Value = reader["booking_status"].ToString();
+                                    row++;
+                                }
+                            }
+                        }
+                    }
+
+                    worksheet.Columns().AdjustToContents();
+
+                    using (var stream = new MemoryStream())
+                    {
+                        workbook.SaveAs(stream);
+                        stream.Position = 0;
+
+                        LogActivity("Export Data", "Exported bookings data to Excel");
+
+                        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Bookings_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Error exporting data: " + ex.Message;
+                return RedirectToAction("BookingsView");
+            }
+        }
+
+        [HttpGet]
+        public IActionResult ExportRooms()
+        {
+            if (!CheckAdminAuth())
+                return Forbid();
+
+            try
+            {
+                using (var workbook = new XLWorkbook())
+                {
+                    var worksheet = workbook.Worksheets.Add("Rooms");
+
+                    // Headers
+                    worksheet.Cell(1, 1).Value = "Room Code";
+                    worksheet.Cell(1, 2).Value = "Room Name";
+                    worksheet.Cell(1, 3).Value = "Location";
+                    worksheet.Cell(1, 4).Value = "Capacity";
+                    worksheet.Cell(1, 5).Value = "Facilities";
+                    worksheet.Cell(1, 6).Value = "Status";
+
+                    // Style headers
+                    var headerRange = worksheet.Range(1, 1, 1, 6);
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Fill.BackgroundColor = XLColor.LightYellow;
+
+                    // Data
+                    using (SqlConnection conn = new SqlConnection(_connectionString))
+                    {
+                        conn.Open();
+                        string query = @"SELECT r.*, l.location_code, l.location_plant_name
+                                       FROM rooms r
+                                       LEFT JOIN locations l ON r.room_location_id = l.location_id
+                                       ORDER BY r.room_code";
+
+                        using (SqlCommand cmd = new SqlCommand(query, conn))
+                        {
+                            using (SqlDataReader reader = cmd.ExecuteReader())
+                            {
+                                int row = 2;
+                                while (reader.Read())
+                                {
+                                    worksheet.Cell(row, 1).Value = reader["room_code"].ToString();
+                                    worksheet.Cell(row, 2).Value = reader["room_name"].ToString();
+                                    worksheet.Cell(row, 3).Value = $"{reader["location_code"]} - {reader["location_plant_name"]}";
+                                    worksheet.Cell(row, 4).Value = Convert.ToInt32(reader["room_capacity"]);
+                                    worksheet.Cell(row, 5).Value = reader["room_facilities"]?.ToString() ?? "";
+                                    worksheet.Cell(row, 6).Value = reader["room_status"].ToString();
+                                    row++;
+                                }
+                            }
+                        }
+                    }
+
+                    worksheet.Columns().AdjustToContents();
+
+                    using (var stream = new MemoryStream())
+                    {
+                        workbook.SaveAs(stream);
+                        stream.Position = 0;
+
+                        LogActivity("Export Data", "Exported rooms data to Excel");
+
+                        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Rooms_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "Error exporting data: " + ex.Message;
+                return RedirectToAction("RoomsView");
+            }
+        }
+    }
+}

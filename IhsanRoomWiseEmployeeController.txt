@@ -1,0 +1,363 @@
+// Controllers\EmployeeController.cs
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using IhsanRoomWise.Functions;
+using IhsanRoomWise.Models;
+using System.Data;
+
+namespace RoomWise.Controllers
+{
+    public class EmployeeController : Controller
+    {
+        private readonly string _connectionString;
+
+        public EmployeeController()
+        {
+            _connectionString = new DbAccessFunction().GetConnectionString();
+        }
+
+        // ============================================
+        // AUTHORIZATION CHECK
+        // ============================================
+        private bool CheckEmployeeAuth()
+        {
+            var role = HttpContext.Session.GetString("UserRole");
+            return role == "Employee";
+        }
+
+        [HttpPost]
+        public IActionResult CreateBooking(int roomId, string title, string description, DateTime date, string startTime, string endTime)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+                TimeSpan start = TimeSpan.Parse(startTime);
+                TimeSpan end = TimeSpan.Parse(endTime);
+
+                // Validate time
+                if (start >= end)
+                    return Json(new { success = false, message = "End time must be after start time" });
+
+                // Check if date is not in the past
+                if (date.Date < DateTime.Now.Date)
+                    return Json(new { success = false, message = "Cannot book for past dates" });
+
+                // Check room availability
+                if (!CheckRoomAvailability(roomId, date, start, end))
+                    return Json(new { success = false, message = "Room is not available for the selected time slot" });
+
+                // Check room status
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    string checkRoomQuery = "SELECT room_status FROM rooms WHERE room_id = @RoomId AND room_is_active = 1";
+                    using (SqlCommand checkCmd = new SqlCommand(checkRoomQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@RoomId", roomId);
+                        var roomStatus = checkCmd.ExecuteScalar()?.ToString();
+                        
+                        if (roomStatus != "Available")
+                            return Json(new { success = false, message = $"Room is currently {roomStatus}" });
+                    }
+
+                    // Generate booking code
+                    string bookingCode = GenerateBookingCode();
+
+                    // Create booking
+                    string query = @"INSERT INTO bookings (booking_code, booking_user_id, booking_room_id, booking_title, 
+                                   booking_description, booking_date, booking_start_time, booking_end_time, 
+                                   booking_status, booking_created_at, booking_updated_at)
+                                   VALUES (@Code, @UserId, @RoomId, @Title, @Description, @Date, @StartTime, 
+                                   @EndTime, 'Pending', GETDATE(), GETDATE())";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Code", bookingCode);
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.Parameters.AddWithValue("@RoomId", roomId);
+                        cmd.Parameters.AddWithValue("@Title", title);
+                        cmd.Parameters.AddWithValue("@Description", string.IsNullOrEmpty(description) ? (object)DBNull.Value : description);
+                        cmd.Parameters.AddWithValue("@Date", date.Date);
+                        cmd.Parameters.AddWithValue("@StartTime", start);
+                        cmd.Parameters.AddWithValue("@EndTime", end);
+
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Create Booking", $"Created booking: {bookingCode}");
+
+                        return Json(new { success = true, message = "Booking created successfully. Waiting for admin approval.", bookingCode = bookingCode });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public IActionResult UpdateBooking(int bookingId, string title, string description, DateTime date, string startTime, string endTime)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+                TimeSpan start = TimeSpan.Parse(startTime);
+                TimeSpan end = TimeSpan.Parse(endTime);
+
+                // Validate ownership and status
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    string checkQuery = "SELECT booking_user_id, booking_status, booking_room_id FROM bookings WHERE booking_id = @BookingId";
+                    int ownerId = 0;
+                    string status = "";
+                    int roomId = 0;
+
+                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        using (SqlDataReader reader = checkCmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                ownerId = Convert.ToInt32(reader["booking_user_id"]);
+                                status = reader["booking_status"].ToString()!;
+                                roomId = Convert.ToInt32(reader["booking_room_id"]);
+                            }
+                        }
+                    }
+
+                    if (ownerId.ToString() != userId)
+                        return Json(new { success = false, message = "You can only modify your own bookings" });
+
+                    if (status == "Completed" || status == "Cancelled")
+                        return Json(new { success = false, message = "Cannot modify completed or cancelled bookings" });
+
+                    // Check availability for new time slot (excluding current booking)
+                    if (!CheckRoomAvailability(roomId, date, start, end, bookingId))
+                        return Json(new { success = false, message = "Room is not available for the selected time slot" });
+
+                    // Update booking
+                    string query = @"UPDATE bookings 
+                                   SET booking_title = @Title,
+                                       booking_description = @Description,
+                                       booking_date = @Date,
+                                       booking_start_time = @StartTime,
+                                       booking_end_time = @EndTime,
+                                       booking_status = 'Pending',
+                                       booking_updated_at = GETDATE()
+                                   WHERE booking_id = @BookingId";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Title", title);
+                        cmd.Parameters.AddWithValue("@Description", string.IsNullOrEmpty(description) ? (object)DBNull.Value : description);
+                        cmd.Parameters.AddWithValue("@Date", date.Date);
+                        cmd.Parameters.AddWithValue("@StartTime", start);
+                        cmd.Parameters.AddWithValue("@EndTime", end);
+                        cmd.Parameters.AddWithValue("@BookingId", bookingId);
+
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Update Booking", $"Updated booking ID: {bookingId}");
+
+                        return Json(new { success = true, message = "Booking updated successfully. Waiting for admin re-approval." });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public IActionResult CancelBooking(int bookingId, string reason)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    var now = DateTime.Now;
+                    var currentDate = now.Date;
+                    var currentTime = now.TimeOfDay;
+                    int systemUserId = 1; // System user for auto-cancellations
+
+                    // Validate ownership
+                    string checkQuery = "SELECT booking_user_id, booking_status FROM bookings WHERE booking_id = @BookingId";
+                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        using (SqlDataReader reader = checkCmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                if (reader["booking_user_id"].ToString() != userId)
+                                    return Json(new { success = false, message = "You can only cancel your own bookings" });
+
+                                string status = reader["booking_status"].ToString()!;
+                                if (status == "Completed" || status == "Cancelled")
+                                    return Json(new { success = false, message = "Cannot cancel completed or already cancelled bookings" });
+                            }
+                            else
+                            {
+                                return Json(new { success = false, message = "Booking not found" });
+                            }
+                        }
+                    }
+
+                    // Cancel booking
+                    string query = @"UPDATE bookings 
+                                SET booking_status = 'Cancelled',
+                                    booking_cancel_reason = @Reason,
+                                    booking_cancelled_by = @CancelledBy,
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_id = @BookingId;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Cancelled',
+                                    booking_cancel_reason = 'Not reviewed by admin before meeting time.',
+                                    booking_cancelled_by = @SystemUserId,
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Pending'
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_start_time < @CurrentTime)
+                                    );
+                                
+                                UPDATE bookings
+                                SET booking_status = 'InProgress',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status = 'Confirmed'
+                                    AND booking_date = @CurrentDate
+                                    AND booking_start_time <= @CurrentTime
+                                    AND booking_end_time > @CurrentTime;
+                                
+                                UPDATE bookings
+                                SET booking_status = 'Completed',
+                                    booking_updated_at = GETDATE()
+                                WHERE booking_status IN ('InProgress', 'Confirmed')
+                                    AND (
+                                        (booking_date < @CurrentDate)
+                                        OR 
+                                        (booking_date = @CurrentDate AND booking_end_time <= @CurrentTime)
+                                    );";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Reason", reason);
+                        cmd.Parameters.AddWithValue("@CancelledBy", userId);
+                        cmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        cmd.Parameters.AddWithValue("@SystemUserId", systemUserId);
+                        cmd.Parameters.AddWithValue("@CurrentDate", currentDate);
+                        cmd.Parameters.AddWithValue("@CurrentTime", currentTime);
+
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Cancel Booking", $"Cancelled booking ID: {bookingId}");
+
+                        return Json(new { success = true, message = "Booking cancelled successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        // KF-20: Submit Feedback
+        [HttpPost]
+        public IActionResult SubmitFeedback(int bookingId, int rating, string comments)
+        {
+            if (!CheckEmployeeAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                var userId = HttpContext.Session.GetString("UserId");
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+
+                    // Validate booking ownership and status
+                    string checkQuery = @"SELECT booking_user_id, booking_status 
+                                        FROM bookings 
+                                        WHERE booking_id = @BookingId";
+
+                    using (SqlCommand checkCmd = new SqlCommand(checkQuery, conn))
+                    {
+                        checkCmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        using (SqlDataReader reader = checkCmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                if (reader["booking_user_id"].ToString() != userId)
+                                    return Json(new { success = false, message = "You can only provide feedback for your own bookings" });
+
+                                string status = reader["booking_status"].ToString()!;
+                                if (status != "Completed")
+                                    return Json(new { success = false, message = "Can only provide feedback for completed bookings" });
+                            }
+                            else
+                            {
+                                return Json(new { success = false, message = "Booking not found" });
+                            }
+                        }
+                    }
+
+                    // Check if feedback already exists
+                    string checkFeedbackQuery = "SELECT COUNT(*) FROM feedbacks WHERE feedback_booking_id = @BookingId";
+                    using (SqlCommand checkFeedbackCmd = new SqlCommand(checkFeedbackQuery, conn))
+                    {
+                        checkFeedbackCmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        int count = (int)checkFeedbackCmd.ExecuteScalar();
+                        if (count > 0)
+                            return Json(new { success = false, message = "Feedback already submitted for this booking" });
+                    }
+
+                    // Insert feedback
+                    string query = @"INSERT INTO feedbacks (feedback_booking_id, feedback_user_id, feedback_rating, 
+                                   feedback_comments, feedback_created_at)
+                                   VALUES (@BookingId, @UserId, @Rating, @Comments, GETDATE())";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@BookingId", bookingId);
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.Parameters.AddWithValue("@Rating", rating);
+                        cmd.Parameters.AddWithValue("@Comments", string.IsNullOrEmpty(comments) ? (object)DBNull.Value : comments);
+
+                        cmd.ExecuteNonQuery();
+
+                        LogActivity("Submit Feedback", $"Submitted feedback for booking ID: {bookingId}");
+
+                        return Json(new { success = true, message = "Feedback submitted successfully" });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+    }
+}

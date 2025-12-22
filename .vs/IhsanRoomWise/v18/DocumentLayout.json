@@ -52,7 +52,7 @@
               "RelativeDocumentMoniker": "IhsanRoomWise\\Views\\Admin\\UsersView.cshtml",
               "ToolTip": "C:\\Users\\marco\\Downloads\\NonWork-Code\\Ihsan\\IhsanRoomWise\\Views\\Admin\\UsersView.cshtml",
               "RelativeToolTip": "IhsanRoomWise\\Views\\Admin\\UsersView.cshtml",
-              "ViewState": "AgIAAJoAAAAAAAAAAAAAAKgAAAAOAAAAAAAAAA==",
+              "ViewState": "AgIAADEBAAAAAAAAAAAAADoBAAAOAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
               "WhenOpened": "2025-12-17T08:52:23.422Z",
               "EditorCaption": ""
@@ -67,8 +67,7 @@
               "RelativeToolTip": "IhsanRoomWise\\Views\\Admin\\DashboardView.cshtml",
               "ViewState": "AgIAAMIAAAAAAAAAAAAIwNEAAAASAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
-              "WhenOpened": "2025-12-17T08:31:27.645Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-12-17T08:31:27.645Z"
             },
             {
               "$type": "Document",
@@ -80,8 +79,7 @@
               "RelativeToolTip": "IhsanRoomWise\\Controllers\\AuthController.cs",
               "ViewState": "AgIAAB0AAAAAAAAAAAAIwC8AAAAgAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-17T08:20:12.218Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-12-17T08:20:12.218Z"
             },
             {
               "$type": "Document",
@@ -93,8 +91,7 @@
               "RelativeToolTip": "IhsanRoomWise\\Functions\\DbAccessFunction.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAA4AAABWAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-17T08:19:59.313Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-12-17T08:19:59.313Z"
             },
             {
               "$type": "Document",
@@ -130,8 +127,7 @@
               "RelativeToolTip": "IhsanRoomWise\\Controllers\\AdminController.cs",
               "ViewState": "AgIAAPMCAAAAAAAAAAAIwAMDAAAgAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-16T05:15:09.336Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-12-16T05:15:09.336Z"
             }
           ]
         },

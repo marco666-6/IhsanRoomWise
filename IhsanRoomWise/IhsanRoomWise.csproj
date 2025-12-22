@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <Folder Include="Controllers\" />
-    <Folder Include="Functions\" />
     <Folder Include="Views\Auth\" />
     <Folder Include="Views\Employee\" />
     <Folder Include="wwwroot\images\" />
