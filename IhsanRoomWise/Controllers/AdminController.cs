@@ -1258,6 +1258,103 @@ namespace RoomWise.Controllers
         }
 
         [HttpPost]
+        public IActionResult DeleteRoom(int roomId)
+        {
+            if (!CheckAdminAuth())
+                return Json(new { success = false, message = "Unauthorized" });
+
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    using (SqlTransaction transaction = conn.BeginTransaction())
+                    {
+                        try
+                        {
+                            string roomQuery = "SELECT room_code, room_name, room_is_active FROM rooms WHERE room_id = @RoomId";
+                            string roomCode = "";
+                            string roomName = "";
+                            bool isActive = true;
+
+                            using (SqlCommand roomCmd = new SqlCommand(roomQuery, conn, transaction))
+                            {
+                                roomCmd.Parameters.AddWithValue("@RoomId", roomId);
+                                using (SqlDataReader reader = roomCmd.ExecuteReader())
+                                {
+                                    if (!reader.Read())
+                                        return Json(new { success = false, message = "Room not found" });
+
+                                    roomCode = reader["room_code"]?.ToString() ?? "";
+                                    roomName = reader["room_name"]?.ToString() ?? "";
+                                    isActive = Convert.ToBoolean(reader["room_is_active"]);
+                                }
+                            }
+
+                            if (isActive)
+                            {
+                                transaction.Rollback();
+                                return Json(new { success = false, message = "Deactivate the room before permanently deleting it" });
+                            }
+
+                            int deletedFeedbacks = 0;
+                            int deletedBookings = 0;
+
+                            string deleteFeedbacksQuery = @"DELETE FROM feedbacks
+                                                            WHERE feedback_booking_id IN (
+                                                                SELECT booking_id FROM bookings WHERE booking_room_id = @RoomId
+                                                            )";
+                            using (SqlCommand feedbackCmd = new SqlCommand(deleteFeedbacksQuery, conn, transaction))
+                            {
+                                feedbackCmd.Parameters.AddWithValue("@RoomId", roomId);
+                                deletedFeedbacks = feedbackCmd.ExecuteNonQuery();
+                            }
+
+                            string deleteBookingsQuery = "DELETE FROM bookings WHERE booking_room_id = @RoomId";
+                            using (SqlCommand bookingsCmd = new SqlCommand(deleteBookingsQuery, conn, transaction))
+                            {
+                                bookingsCmd.Parameters.AddWithValue("@RoomId", roomId);
+                                deletedBookings = bookingsCmd.ExecuteNonQuery();
+                            }
+
+                            string deleteRoomQuery = "DELETE FROM rooms WHERE room_id = @RoomId";
+                            using (SqlCommand roomDeleteCmd = new SqlCommand(deleteRoomQuery, conn, transaction))
+                            {
+                                roomDeleteCmd.Parameters.AddWithValue("@RoomId", roomId);
+                                int deletedRooms = roomDeleteCmd.ExecuteNonQuery();
+
+                                if (deletedRooms == 0)
+                                {
+                                    transaction.Rollback();
+                                    return Json(new { success = false, message = "Room could not be deleted" });
+                                }
+                            }
+
+                            transaction.Commit();
+
+                            LogActivity("Delete Room", $"Deleted room: {roomCode} - {roomName}. Removed {deletedBookings} bookings and {deletedFeedbacks} feedback records.");
+
+                            return Json(new
+                            {
+                                success = true,
+                                message = $"Room deleted permanently. Removed {deletedBookings} bookings and {deletedFeedbacks} feedback records."
+                            });
+                        }
+                        catch
+                        {
+                            transaction.Rollback();
+                            throw;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error: " + ex.Message });
+            }
+        }
+
+        [HttpPost]
         public IActionResult UpdateRoomOperationalStatus(int roomId, string status)
         {
             if (!CheckAdminAuth())

@@ -235,6 +235,14 @@
                                             title="@(room.room_is_active ? "Deactivate" : "Activate")">
                                         <i class="fas fa-@(room.room_is_active ? "ban" : "check-circle")"></i>
                                     </button>
+                                    @if (!room.room_is_active)
+                                    {
+                                        <button class="btn-action btn-action-delete"
+                                                onclick='deleteRoom(@room.room_id, "@room.room_name", "@room.room_code")'
+                                                title="Hard Delete Room">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    }
                                 </div>
                             </td>
                         </tr>
@@ -336,6 +344,14 @@
                             title="Toggle">
                         <i class="fas fa-@(room.room_is_active ? "ban" : "check-circle")"></i>
                     </button>
+                    @if (!room.room_is_active)
+                    {
+                        <button class="btn-action btn-action-delete"
+                                onclick='deleteRoom(@room.room_id, "@room.room_name", "@room.room_code")'
+                                title="Hard Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    }
                 </div>
             </div>
         </div>
@@ -858,6 +874,49 @@
             });
         }
 
+        function deleteRoom(roomId, roomName, roomCode) {
+            Swal.fire({
+                title: 'Permanently delete this room?',
+                html: `
+                    <div class="text-start">
+                        <p class="mb-2"><strong>${roomCode}</strong> - ${roomName}</p>
+                        <p class="mb-0 text-danger">This will permanently delete the room and all bookings and feedback linked to it. This cannot be undone.</p>
+                    </div>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, delete permanently',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '@Url.Action("DeleteRoom", "Admin")',
+                        type: 'POST',
+                        data: { roomId: roomId },
+                        success: function(response) {
+                            if (response.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Deleted',
+                                    text: response.message,
+                                    confirmButtonColor: '#7aa22e'
+                                }).then(() => location.reload());
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Delete Failed',
+                                    text: response.message,
+                                    confirmButtonColor: '#7aa22e'
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
         function exportRooms() {
             window.location.href = '@Url.Action("ExportRooms", "Admin")';
         }
@@ -975,6 +1034,16 @@
         background: var(--white);
         color: var(--primary);
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .btn-action-delete {
+        background: rgba(239, 68, 68, 0.12);
+        color: #dc2626;
+    }
+
+    .btn-action-delete:hover {
+        background: #dc2626;
+        color: #fff;
     }
 
     /* Room Name Cell */
